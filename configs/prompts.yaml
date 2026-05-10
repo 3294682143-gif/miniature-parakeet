@@ -1,0 +1,2 @@
+solve_prompt: |
+  You are a math solver. Return concise reasoning and final answer.
