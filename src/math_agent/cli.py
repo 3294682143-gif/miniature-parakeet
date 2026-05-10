@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from .pipeline import solve_question
-from .schemas import MathQuestion
+from .schemas import MathQuestion, make_failure_result
 
 
 def cmd_solve(args: argparse.Namespace) -> int:
@@ -19,12 +19,21 @@ def cmd_batch(args: argparse.Namespace) -> int:
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with input_path.open("r", encoding="utf-8") as fin, output_path.open("w", encoding="utf-8") as fout:
-        for line in fin:
+        for idx, line in enumerate(fin):
             if not line.strip():
                 continue
-            raw = json.loads(line)
-            q = MathQuestion.model_validate(raw)
-            result = solve_question(q, mock=args.mock)
+            raw = {}
+            try:
+                raw = json.loads(line)
+                q = MathQuestion.model_validate(raw)
+                result = solve_question(q, mock=args.mock)
+            except Exception as exc:
+                question_id = f"line_{idx}"
+                question = ""
+                if isinstance(raw, dict):
+                    question_id = str(raw.get("question_id", question_id))
+                    question = str(raw.get("question", ""))
+                result = make_failure_result(question_id=question_id, question=question, error_message=str(exc))
             fout.write(result.model_dump_json(ensure_ascii=False) + "\n")
     print(str(output_path))
     return 0
