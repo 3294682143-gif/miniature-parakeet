@@ -79,3 +79,88 @@ python -m math_agent.cli batch --input data/sample_questions.jsonl --output outp
 - 所有 agent prompt 统一维护在 `configs/prompts.yaml`；
 - 可通过 `math_agent.prompting` 中的 `load_prompts`、`get_prompt`、`render_prompt` 加载和渲染；
 - 配置加载和变量渲染失败时会抛出明确异常，避免静默返回空 prompt。
+
+## Trace 日志与复盘
+
+为满足比赛提交、调试与 Demo 展示需求，pipeline 会为**每道题**生成可复盘 trace JSON（默认开启）。
+
+### 作用
+
+- 每道题会保存一个可复盘 JSON；
+- 可用于比赛日志提交、Debug、Demo 展示；
+- 单题失败时也会尽量保存 trace（除非显式关闭 trace）；
+- trace 会做敏感信息清洗，不应包含 API key、`.env` 内容或其他敏感密钥。
+
+### 默认行为
+
+- `solve` 默认生成 trace；
+- `batch` 默认每题生成一个 trace；
+- 默认目录：`outputs/traces/`；
+- 可用 `--no-trace` 关闭；
+- 可用 `--trace-dir` 指定目录。
+
+### 命令示例
+
+单题默认 trace：
+
+```bash
+python -m math_agent.cli solve --question "1+1=?" --question-id q1
+```
+
+单题自定义 trace 目录：
+
+```bash
+python -m math_agent.cli solve --question "1+1=?" --question-id q1 --trace-dir outputs/traces
+```
+
+单题关闭 trace：
+
+```bash
+python -m math_agent.cli solve --question "1+1=?" --question-id q1 --no-trace
+```
+
+批量默认 trace：
+
+```bash
+python -m math_agent.cli batch --input data/sample_questions.jsonl --output outputs/results.jsonl
+```
+
+批量关闭 trace：
+
+```bash
+python -m math_agent.cli batch --input data/sample_questions.jsonl --output outputs/results.jsonl --no-trace
+```
+
+### Trace JSON 字段示例
+
+```json
+{
+  "question_id": "q1",
+  "question": "1+1=?",
+  "started_at": "...",
+  "finished_at": "...",
+  "latency_seconds": 0.01,
+  "prompt_version": "default",
+  "route_info": {},
+  "model_calls": [],
+  "tool_calls": [],
+  "verifier_result": {},
+  "final_result": {},
+  "errors": []
+}
+```
+
+字段说明（简要）：
+
+- `route_info`：路由器给出的领域/题型判断；
+- `model_calls`：各阶段模型调用摘要（默认只保留摘要，减少日志体积并降低隐私风险）；
+- `tool_calls`：工具调用轨迹；
+- `verifier_result`：校验器输出；
+- `final_result`：最终 `SolveResult`；
+- `errors`：执行过程中捕获的错误列表。
+
+### 产物与提交建议
+
+- `outputs/traces/` 是运行产物，不建议提交到 Git；
+- 比赛提交时可将 `traces/` 与结果 JSON 一起打包；
+- 生产或公开场景建议定期抽检 trace 脱敏效果。

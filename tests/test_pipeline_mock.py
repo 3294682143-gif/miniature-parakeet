@@ -7,7 +7,7 @@ def test_extract_boxed_answer():
 
 
 def test_pipeline_mock_success_and_schema():
-    result = MathAgentPipeline(mock=True).solve("1+1=?", "q1")
+    result = MathAgentPipeline(mock=True, save_trace=False).solve("1+1=?", "q1")
     assert isinstance(result, SolveResult)
     assert result.status == "success"
     assert result.verification.passed is True
@@ -30,7 +30,7 @@ def test_pipeline_calls_all_agents(monkeypatch):
     monkeypatch.setattr("math_agent.pipeline.verifier.run", lambda q: calls.append("verify") or "pass")
     monkeypatch.setattr("math_agent.pipeline.explainer.run", lambda q: calls.append("explain") or "hint")
 
-    result = MathAgentPipeline(mock=True).solve("1+1=?", "q2")
+    result = MathAgentPipeline(mock=True, save_trace=False).solve("1+1=?", "q2")
     assert result.final_answer.boxed == "2"
     assert calls == ["route", "plan", "solve", "verify", "explain"]
 
@@ -57,7 +57,7 @@ def test_refiner_called_when_verifier_fails(monkeypatch):
     monkeypatch.setattr("math_agent.pipeline.refiner.run", lambda x: called.__setitem__("refine", called["refine"] + 1) or "\\boxed{2}")
     monkeypatch.setattr("math_agent.pipeline.explainer.run", lambda q: "hint")
 
-    result = MathAgentPipeline(mock=False, max_refine_rounds=1).solve("1+1=?", "q3")
+    result = MathAgentPipeline(mock=False, max_refine_rounds=1, save_trace=False).solve("1+1=?", "q3")
     assert called["refine"] == 1
     assert result.verification.passed is True
 
@@ -78,12 +78,12 @@ def test_no_refiner_when_rounds_zero(monkeypatch):
     called = {"refine": 0}
     monkeypatch.setattr("math_agent.pipeline.refiner.run", lambda x: called.__setitem__("refine", called["refine"] + 1) or x)
 
-    result = MathAgentPipeline(mock=False, max_refine_rounds=0).solve("1+1=?", "q4")
+    result = MathAgentPipeline(mock=False, max_refine_rounds=0, save_trace=False).solve("1+1=?", "q4")
     assert called["refine"] == 0
     assert result.status == "partial"
 
 
 def test_agent_exception_returns_fail(monkeypatch):
     monkeypatch.setattr("math_agent.pipeline.planner.run", lambda q: (_ for _ in ()).throw(RuntimeError("boom")))
-    result = MathAgentPipeline(mock=True).solve("1+1=?", "q5")
+    result = MathAgentPipeline(mock=True, save_trace=False).solve("1+1=?", "q5")
     assert result.status == "fail"

@@ -3,13 +3,13 @@ from __future__ import annotations
 import ast
 import re
 from pathlib import Path
+from time import perf_counter
+from typing import Any
 
 from .agents import explainer, planner, refiner, router, solver, verifier
 from .clients.interns1_client import InternS1Client
+from .logging_utils import now_iso, write_trace
 from .schemas import FinalAnswer, MathQuestion, ProblemParse, SolveResult, ToolTrace, Verification, make_failure_result
-
-
-
 
 _ALLOWED_BINARY_OPS: dict[type[ast.AST], callable] = {
     ast.Add: lambda a, b: a + b,
@@ -51,6 +51,7 @@ def _mock_answer_from_question(question: str) -> str | None:
     except Exception:
         return None
 
+
 def extract_boxed_answer(text: str) -> str | None:
     if not text:
         return None
@@ -80,25 +81,61 @@ class MathAgentPipeline:
         mock: bool = True,
         enable_tools: bool = False,
         max_refine_rounds: int = 1,
+        save_trace: bool = True,
+        trace_dir: str | Path = "outputs/traces",
+        prompt_version: str = "default",
     ) -> None:
         self.mock = mock
         self.enable_tools = enable_tools
         self.max_refine_rounds = max(0, max_refine_rounds)
+        self.save_trace = save_trace
+        self.trace_dir = Path(trace_dir)
+        self.prompt_version = prompt_version
         self.client = client or InternS1Client(mock=mock)
         self.prompt_config_path = Path(prompt_config_path)
         self.router = router.Router(client=self.client, prompt_config_path=self.prompt_config_path)
 
     def solve(self, question: str, question_id: str | None = None) -> SolveResult:
         qid = question_id or "unknown"
+        started_at = now_iso()
+        start = perf_counter()
         trace: list[ToolTrace] = []
+        trace_record: dict[str, Any] = {
+            "question_id": qid,
+            "question": question,
+            "started_at": started_at,
+            "finished_at": None,
+            "latency_seconds": 0.0,
+            "prompt_version": self.prompt_version,
+            "route_info": {},
+            "model_calls": [],
+            "tool_calls": [],
+            "verifier_result": {},
+            "final_result": {},
+            "errors": [],
+        }
+
         try:
             route_info = self.router.route(question)
+            trace_record["route_info"] = (
+                route_info.model_dump()
+                if hasattr(route_info, "model_dump")
+                else {
+                    "domain": getattr(route_info, "domain", ""),
+                    "problem_type": getattr(route_info, "problem_type", ""),
+                    "reason": getattr(route_info, "reason", ""),
+                    "confidence": getattr(route_info, "confidence", 0.0),
+                }
+            )
+            trace_record["model_calls"].append({"stage": "route", "summary": route_info.reason})
             trace.append(ToolTrace(tool="none", purpose="route", status="success", summary=route_info.reason))
 
             plan = planner.run(question)
+            trace_record["model_calls"].append({"stage": "plan", "summary": str(plan)[:200]})
             trace.append(ToolTrace(tool="none", purpose="plan", status="success", summary="planning completed"))
 
             draft_solution = solver.run(question)
+            trace_record["model_calls"].append({"stage": "solve", "summary": draft_solution[:200]})
             trace.append(ToolTrace(tool="none", purpose="solve", status="success", summary="solver completed"))
 
             final_answer = extract_boxed_answer(draft_solution)
@@ -113,28 +150,34 @@ class MathAgentPipeline:
             verification_text = verifier.run(question)
             passed = True if self.mock else ("pass" in verification_text.lower())
             verification = Verification(method="self_review", passed=passed, notes=verification_text)
+            trace_record["verifier_result"] = verification.model_dump()
             trace.append(
                 ToolTrace(tool="none", purpose="verify", status="success" if passed else "fail", summary=verification_text)
             )
 
             rounds = 0
             current_solution = draft_solution
+            refined = False
             while not verification.passed and rounds < self.max_refine_rounds:
                 rounds += 1
+                refined = True
                 current_solution = refiner.run(current_solution)
+                trace_record["model_calls"].append({"stage": "refine", "summary": current_solution[:200], "round": rounds})
                 trace.append(ToolTrace(tool="none", purpose="refine", status="success", summary=f"refine round {rounds}"))
                 final_answer = extract_boxed_answer(current_solution) or final_answer
                 verification_text = verifier.run(question)
                 passed = True if self.mock else ("pass" in verification_text.lower())
                 verification = Verification(method="self_review", passed=passed, notes=verification_text)
+                trace_record["verifier_result"] = verification.model_dump()
 
             explanation = explainer.run(question)
+            trace_record["model_calls"].append({"stage": "explain", "summary": explanation[:200]})
             trace.append(ToolTrace(tool="none", purpose="explain", status="success", summary="explanation completed"))
 
             if not verification.passed:
                 status = "partial" if status == "success" else status
 
-            return SolveResult(
+            result = SolveResult(
                 question_id=qid,
                 domain=route_info.domain,
                 problem_type=route_info.problem_type,
@@ -149,11 +192,30 @@ class MathAgentPipeline:
                 status=status,
                 error=None,
             )
+            trace_record["tool_calls"] = [item.model_dump() for item in trace]
+            trace_record["final_result"] = result.model_dump()
+            trace_record["model_calls"].append({"stage": "meta", "refiner_triggered": refined})
+            return result
         except Exception as exc:
-            return make_failure_result(question_id=qid, question=question, error_message=str(exc))
+            fail = make_failure_result(question_id=qid, question=question, error_message=str(exc))
+            trace_record["errors"].append(str(exc))
+            trace_record["final_result"] = fail.model_dump()
+            return fail
+        finally:
+            trace_record["finished_at"] = now_iso()
+            trace_record["latency_seconds"] = round(perf_counter() - start, 6)
+            if self.save_trace:
+                write_trace(trace_record, self.trace_dir, qid)
 
 
-def solve_question(question: MathQuestion, mock: bool = True, model: str = "intern-s1") -> SolveResult:
+def solve_question(
+    question: MathQuestion,
+    mock: bool = True,
+    model: str = "intern-s1",
+    save_trace: bool = True,
+    trace_dir: str | Path = "outputs/traces",
+    prompt_version: str = "default",
+) -> SolveResult:
     _ = model
-    pipeline = MathAgentPipeline(mock=mock)
+    pipeline = MathAgentPipeline(mock=mock, save_trace=save_trace, trace_dir=trace_dir, prompt_version=prompt_version)
     return pipeline.solve(question.question, question.question_id)
