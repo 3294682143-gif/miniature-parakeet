@@ -34,3 +34,35 @@ def test_cli_batch_processes_and_isolation(tmp_path: Path):
     assert statuses[0] in {"success", "partial"}
     assert statuses[1] == "fail"
     assert statuses[2] in {"success", "partial"}
+
+
+def test_cli_solve_enable_tools_outputs_json():
+    cmd = [sys.executable, "-m", "math_agent.cli", "solve", "--question", "计算 2+3", "--enable-tools"]
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    data = json.loads(proc.stdout.strip())
+    model = SolveResult.model_validate(data)
+    assert model.final_answer.boxed != ""
+
+
+def test_cli_batch_enable_tools_schema(tmp_path: Path):
+    in_file = tmp_path / "in_tools.jsonl"
+    in_file.write_text(
+        "{\"question_id\":\"q1\",\"question\":\"计算 2+3\"}\n"
+        "{\"question_id\":\"q2\",\"question\":\"化简 sin(x)^2 + cos(x)^2\"}\n",
+        encoding="utf-8",
+    )
+    out_file = tmp_path / "results_tools.jsonl"
+    cmd = [
+        sys.executable,
+        "-m",
+        "math_agent.cli",
+        "batch",
+        "--input",
+        str(in_file),
+        "--output",
+        str(out_file),
+        "--enable-tools",
+    ]
+    subprocess.run(cmd, capture_output=True, text=True, check=True)
+    for line in out_file.read_text(encoding="utf-8").strip().splitlines():
+        SolveResult.model_validate(json.loads(line))
