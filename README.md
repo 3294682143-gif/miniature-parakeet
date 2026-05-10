@@ -154,3 +154,54 @@ python -m math_agent.cli solve --question "1+1=?" --question-id q1 --no-trace
 python -m math_agent.cli batch --input data/sample_questions.jsonl --output outputs/results.jsonl
 python -m math_agent.cli batch --input data/sample_questions.jsonl --output outputs/results.jsonl --no-trace
 ```
+
+## 本地 Intern-S1 API 测试
+
+1. 复制环境变量模板并填写真实配置（不要提交 `.env`）：
+
+```bash
+cp .env.example .env
+# 编辑 .env，填写：INTERNS1_API_KEY / INTERNS1_BASE_URL / INTERNS1_MODEL
+```
+
+2. 先跑最小连通性 smoke：
+
+```bash
+python scripts/smoke_interns1.py
+```
+
+3. 单题真实调用（仅当显式 `--real` 才会触发真实 API）：
+
+```bash
+python -m math_agent.cli solve \
+  --question "计算 1+1" \
+  --question-id smoke_001 \
+  --real \
+  --enable-tools \
+  --trace-dir outputs/traces_real
+```
+
+4. 小批量真实调用：
+
+```bash
+python -m math_agent.cli batch \
+  --input data/smoke_questions.jsonl \
+  --output outputs/real_smoke_results.jsonl \
+  --real \
+  --enable-tools \
+  --trace-dir outputs/traces_real
+```
+
+5. 查看结果与评测：
+
+```bash
+cat outputs/real_smoke_results.jsonl
+python scripts/evaluate_results.py --input outputs/real_smoke_results.jsonl
+```
+
+常见错误排查：
+- 401/403：`INTERNS1_API_KEY` 或 `INTERNS1_BASE_URL` 配置错误。
+- timeout：网络波动或接口响应慢。
+- rate limit：降低并发、稍后重试。
+- invalid_response：`base_url` 可能不是 chat completions 兼容接口。
+- JSON parse fail：模型输出非 JSON，pipeline 会自动 fallback，确保结果 schema 合法。

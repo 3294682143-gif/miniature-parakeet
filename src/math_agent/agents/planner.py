@@ -1,9 +1,27 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
 from math_agent.prompting import get_prompt, load_prompts, render_prompt
+
+
+def _fallback_plan(question: str, route_info: dict) -> dict:
+    return {
+        "problem_parse": {
+            "goal": f"Solve: {question}",
+            "givens": [question],
+            "symbols": route_info.get("symbols", []),
+        },
+        "solution_plan": [
+            "Parse objective and constraints.",
+            "Select method and derive result.",
+            "Check answer and produce final output.",
+        ],
+        "potential_tools": ["python", "sympy"],
+        "risk_points": ["Parse ambiguity or arithmetic mistakes."],
+    }
 
 
 class Planner:
@@ -15,23 +33,7 @@ class Planner:
 
     def plan(self, question: str, route_info: dict) -> dict:
         if self.mock:
-            return {
-                "problem_parse": {
-                    "goal": f"Solve: {question}",
-                    "givens": [question],
-                    "symbols": route_info.get("symbols", []),
-                },
-                "solution_plan": [
-                    "Parse the mathematical objective and constraints.",
-                    "Choose a method based on the routed solver type.",
-                    "Execute derivation and prepare a boxed final answer.",
-                ],
-                "potential_tools": ["python", "sympy"],
-                "risk_points": [
-                    "Arithmetic or algebraic sign errors.",
-                    "Missing edge-case constraints from the question.",
-                ],
-            }
+            return _fallback_plan(question, route_info)
 
         template = get_prompt(self.prompts, "planner_system")
         system_prompt = render_prompt(template, question=question)
@@ -40,15 +42,16 @@ class Planner:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ])
-        return {
-            "problem_parse": {"goal": question, "givens": [question], "symbols": []},
-            "solution_plan": ["Model-generated plan."],
-            "potential_tools": ["none"],
-            "risk_points": [f"Unparsed planner response: {reply[:100]}"],
-        }
-
+        try:
+            data = json.loads(reply)
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            pass
+        plan = _fallback_plan(question, route_info)
+        plan["risk_points"].append("planner_non_json_fallback")
+        return plan
 
 
 def run(question: str) -> str:
-    """Compatibility helper used by pipeline tests and mock pipeline."""
     return f"Plan for: {question}"
