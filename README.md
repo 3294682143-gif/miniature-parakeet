@@ -108,3 +108,25 @@ python -m math_agent.cli batch --input data/sample_questions.jsonl --output outp
 - 所有 agent prompt 统一维护在 `configs/prompts.yaml`；
 - 可通过 `math_agent.prompting` 中的 `load_prompts`、`get_prompt`、`render_prompt` 加载和渲染；
 - 配置加载和变量渲染失败时会抛出明确异常，避免静默返回空 prompt。
+
+## Trace 日志与复盘
+
+- trace 用于比赛日志提交、Debug、Demo 展示；
+- `solve` / `batch` 默认生成 trace；
+- 默认目录 `outputs/traces/`；
+- `--no-trace` 可关闭；
+- `--trace-dir` 可指定目录；
+- `outputs/traces/` 是运行产物，不建议提交 Git；
+- 比赛提交时可以把 `traces/` 随 `results.jsonl` 一起打包；
+- trace 中 `model_calls` 默认只保存摘要，避免日志过大和隐私风险；
+- trace 不应包含 API key、`.env` 内容或敏感密钥。
+
+示例：
+
+```bash
+python -m math_agent.cli solve --question "1+1=?" --question-id q1
+python -m math_agent.cli solve --question "1+1=?" --question-id q1 --trace-dir outputs/traces
+python -m math_agent.cli solve --question "1+1=?" --question-id q1 --no-trace
+python -m math_agent.cli batch --input data/sample_questions.jsonl --output outputs/results.jsonl
+python -m math_agent.cli batch --input data/sample_questions.jsonl --output outputs/results.jsonl --no-trace
+```

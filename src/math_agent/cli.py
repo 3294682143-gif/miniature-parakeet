@@ -13,6 +13,8 @@ def cmd_solve(args: argparse.Namespace) -> int:
         MathQuestion(question=args.question, question_id=args.question_id),
         mock=not args.real,
         enable_tools=args.enable_tools,
+        save_trace=not args.no_trace,
+        trace_dir=args.trace_dir,
     )
     print(result.model_dump_json(ensure_ascii=False))
     return 0
@@ -30,7 +32,7 @@ def cmd_batch(args: argparse.Namespace) -> int:
             try:
                 raw = json.loads(line)
                 q = MathQuestion.model_validate(raw)
-                result = solve_question(q, mock=not args.real, enable_tools=args.enable_tools)
+                result = solve_question(q, mock=not args.real, enable_tools=args.enable_tools, save_trace=not args.no_trace, trace_dir=args.trace_dir)
             except Exception as exc:
                 question_id = f"line_{idx}"
                 question = ""
@@ -52,6 +54,8 @@ def build_parser() -> argparse.ArgumentParser:
     solve_p.add_argument("--question-id", default="cli_q")
     solve_p.add_argument("--real", action="store_true", default=False)
     solve_p.add_argument("--enable-tools", action="store_true", default=False)
+    solve_p.add_argument("--trace-dir", default="outputs/traces")
+    solve_p.add_argument("--no-trace", action="store_true", default=False)
     solve_p.set_defaults(func=cmd_solve)
 
     batch_p = sub.add_parser("batch")
@@ -59,6 +63,8 @@ def build_parser() -> argparse.ArgumentParser:
     batch_p.add_argument("--output", required=True)
     batch_p.add_argument("--real", action="store_true", default=False)
     batch_p.add_argument("--enable-tools", action="store_true", default=False)
+    batch_p.add_argument("--trace-dir", default="outputs/traces")
+    batch_p.add_argument("--no-trace", action="store_true", default=False)
     batch_p.set_defaults(func=cmd_batch)
     return parser
 
