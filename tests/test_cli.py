@@ -3,13 +3,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+from math_agent.schemas import SolveResult
+
 
 def test_cli_solve_outputs_json():
     cmd = [sys.executable, '-m', 'math_agent.cli', 'solve', '--question', '1+1=?']
     proc = subprocess.run(cmd, capture_output=True, text=True, check=True)
     data = json.loads(proc.stdout.strip())
-    assert data['question'] == '1+1=?'
-    assert 'success' in data
+    SolveResult.model_validate(data)
 
 
 def test_cli_batch_processes_sample(tmp_path: Path):
@@ -21,4 +22,4 @@ def test_cli_batch_processes_sample(tmp_path: Path):
     assert len(lines) >= 1
     for line in lines:
         parsed = json.loads(line)
-        assert 'success' in parsed
+        SolveResult.model_validate(parsed)
