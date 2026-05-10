@@ -43,6 +43,19 @@ python -m math_agent.cli batch --input data/sample_questions.jsonl --output outp
 ```
 
 
+## Streamlit Demo
+
+运行比赛展示 Demo：
+
+```bash
+streamlit run demo/streamlit_app.py
+```
+
+说明：
+- 默认 `mock` 开启，不会真实调用 Intern-S1 API；
+- 只有在手动关闭 `mock` 且本地配置好环境变量时，才会尝试真实调用；
+- Demo 会展示路由、规划、工具调用、校验、最终 JSON 与 trace 路径。
+
 ## Intern-S1 客户端说明
 
 - 统一通过 `src/math_agent/clients/interns1_client.py` 发起真实模型调用；
