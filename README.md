@@ -1,43 +1,68 @@
-# InternS1 Math Agent
+# interns1-math-agent
 
-基于 Intern-S1 API 的数学智能体比赛项目。
+基于 Intern-S1 风格接口的数学智能体项目脚手架（当前仅 **mock 模式**），用于自动解题并输出严格 JSON 结果。
 
-## Goal
+## 安装
 
-Build a math reasoning agent system that can:
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
+```
 
-- understand natural language math problems;
-- plan solution strategies;
-- solve problems using Intern-S1 API;
-- optionally use local Python / SymPy tools;
-- verify reasoning process;
-- generate educational explanations;
-- output strict JSON results;
-- run batch evaluation on official datasets.
+开发依赖：
 
-## Competition Focus
+```bash
+pip install -e .[dev]
+```
 
-This project prioritizes:
+## 环境变量
 
-1. answer correctness;
-2. valid JSON output;
-3. reproducible logs;
-4. reasoning strategy design;
-5. demo and report quality;
-6. future multi-agent extension.
+复制示例文件：
 
-## Tech Stack
+```bash
+cp .env.example .env
+```
 
-- Python 3.10+
-- Pydantic
-- SymPy
-- Typer
-- Rich
-- PyYAML
-- Streamlit
-- pytest
+本项目默认不会真实调用 API（mock-only）。
 
-## Safety
+## CLI 用法
 
-Do not commit API keys, secrets, official private datasets, or generated competition logs containing sensitive information.# miniature-parakeet
-A math reasoning agent system based on Intern-S1 API for mathematical problem solving, verification, and educational explanation.
+单题求解：
+
+```bash
+python -m math_agent.cli solve --question "1+1=?"
+```
+
+批量求解：
+
+```bash
+python -m math_agent.cli batch --input data/sample_questions.jsonl --output outputs/results.jsonl
+```
+
+## Mock 模式
+
+- 默认 `--mock` 为 true；
+- 不依赖外部闭源服务；
+- 不会读取并使用真实 API key 发起请求。
+
+## JSON 输出格式
+
+每次输出都符合 `MathResult`：
+
+```json
+{
+  "question_id": "q1",
+  "question": "1+1=?",
+  "answer": "2",
+  "explanation": "Compute 1+1.",
+  "success": true,
+  "error": null,
+  "metadata": {
+    "mode": "mock",
+    "model": "intern-s1"
+  }
+}
+```
+
+失败时也输出合法 JSON（`success=false`，`error` 非空）。
