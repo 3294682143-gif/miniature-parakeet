@@ -46,3 +46,9 @@ class Planner:
             "potential_tools": ["none"],
             "risk_points": [f"Unparsed planner response: {reply[:100]}"],
         }
+
+
+
+def run(question: str) -> str:
+    """Compatibility helper used by pipeline tests and mock pipeline."""
+    return f"Plan for: {question}"

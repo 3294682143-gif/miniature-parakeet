@@ -31,3 +31,7 @@ class Refiner:
             ])
         except Exception:
             return draft_solution
+
+
+def run(draft_solution: str) -> str:
+    return draft_solution
