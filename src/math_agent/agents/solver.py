@@ -19,29 +19,20 @@ class Solver:
             return "program_solver_system"
         if solver_name == "proof":
             return "proof_solver_system"
-        if solver_name == "optimization":
-            return "solver_system"
         return "solver_system"
 
     def solve(self, question: str, route_info: dict, plan: dict) -> str:
         if self.mock:
-            return (
-                "我们按计划求解并完成关键步骤。"
-                "最终可得结果为 \\boxed{42}。"
-            )
+            return "我们按计划求解并完成关键步骤。最终可得结果为 \\boxed{42}。"
 
         prompt_key = self._select_prompt_key(route_info)
         template = get_prompt(self.prompts, prompt_key)
-        system_prompt = render_prompt(
-            template,
-            question=question,
-            plan=plan,
-            route_info=route_info,
-        )
-        return self.client.chat([
+        system_prompt = render_prompt(template, question=question, plan=plan, route_info=route_info)
+        reply = self.client.chat([
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"Question: {question}\nPlan: {plan}"},
         ])
+        return str(reply).strip()
 
 
 def run(question: str) -> str:

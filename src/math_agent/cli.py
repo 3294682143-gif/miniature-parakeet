@@ -4,23 +4,28 @@ import argparse
 import json
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+from .clients.interns1_client import InternS1Client
 from .pipeline import solve_question
 from .schemas import MathQuestion, make_failure_result
 
 
+def _validate_real_mode_or_raise(real: bool) -> None:
+    if not real:
+        return
+    InternS1Client(mock=False)._validate_real_mode_config()
+
+
 def cmd_solve(args: argparse.Namespace) -> int:
-    result = solve_question(
-        MathQuestion(question=args.question, question_id=args.question_id),
-        mock=not args.real,
-        enable_tools=args.enable_tools,
-        save_trace=not args.no_trace,
-        trace_dir=args.trace_dir,
-    )
+    _validate_real_mode_or_raise(args.real)
+    result = solve_question(MathQuestion(question=args.question, question_id=args.question_id), mock=not args.real, enable_tools=args.enable_tools, save_trace=not args.no_trace, trace_dir=args.trace_dir)
     print(result.model_dump_json(ensure_ascii=False))
     return 0
 
 
 def cmd_batch(args: argparse.Namespace) -> int:
+    _validate_real_mode_or_raise(args.real)
     input_path = Path(args.input)
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -34,12 +39,9 @@ def cmd_batch(args: argparse.Namespace) -> int:
                 q = MathQuestion.model_validate(raw)
                 result = solve_question(q, mock=not args.real, enable_tools=args.enable_tools, save_trace=not args.no_trace, trace_dir=args.trace_dir)
             except Exception as exc:
-                question_id = f"line_{idx}"
-                question = ""
-                if isinstance(raw, dict):
-                    question_id = str(raw.get("question_id", question_id))
-                    question = str(raw.get("question", ""))
-                result = make_failure_result(question_id=question_id, question=question, error_message=str(exc))
+                qid = str(raw.get("question_id", f"line_{idx}")) if isinstance(raw, dict) else f"line_{idx}"
+                question = str(raw.get("question", "")) if isinstance(raw, dict) else ""
+                result = make_failure_result(question_id=qid, question=question, error_message=str(exc))
             fout.write(result.model_dump_json(ensure_ascii=False) + "\n")
     print(str(output_path))
     return 0
@@ -48,7 +50,6 @@ def cmd_batch(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="math_agent")
     sub = parser.add_subparsers(dest="command", required=True)
-
     solve_p = sub.add_parser("solve")
     solve_p.add_argument("--question", required=True)
     solve_p.add_argument("--question-id", default="cli_q")
@@ -57,7 +58,6 @@ def build_parser() -> argparse.ArgumentParser:
     solve_p.add_argument("--trace-dir", default="outputs/traces")
     solve_p.add_argument("--no-trace", action="store_true", default=False)
     solve_p.set_defaults(func=cmd_solve)
-
     batch_p = sub.add_parser("batch")
     batch_p.add_argument("--input", required=True)
     batch_p.add_argument("--output", required=True)
@@ -70,6 +70,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    load_dotenv(override=False)
     parser = build_parser()
     args = parser.parse_args()
     return args.func(args)

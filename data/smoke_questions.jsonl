@@ -1,0 +1,5 @@
+{"question_id": "smoke_001", "question": "计算 1+1"}
+{"question_id": "smoke_002", "question": "化简 sin(x)^2 + cos(x)^2"}
+{"question_id": "smoke_003", "question": "求解 x**2 - 1 = 0"}
+{"question_id": "smoke_004", "question": "证明任意偶数加偶数仍为偶数"}
+{"question_id": "smoke_005", "question": "求在线性约束 x+y=1, x>=0, y>=0 下 xy 的最大值"}
