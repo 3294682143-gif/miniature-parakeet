@@ -26,3 +26,7 @@ class Explainer:
             ])
         except Exception:
             return "提示：请回顾关键等式变形，并代回原题检查答案。"
+
+
+def run(question: str) -> str:
+    return "提示：先识别题目目标，再按步骤推导并检查最终答案是否满足条件。"
