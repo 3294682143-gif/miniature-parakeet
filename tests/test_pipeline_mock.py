@@ -31,7 +31,7 @@ def test_pipeline_calls_all_agents(monkeypatch):
     monkeypatch.setattr("math_agent.pipeline.explainer.run", lambda q: calls.append("explain") or "hint")
 
     result = MathAgentPipeline(mock=True).solve("1+1=?", "q2")
-    assert result.final_answer.boxed == "2"
+    assert result.final_answer.boxed == "\\boxed{2}"
     assert calls == ["route", "plan", "solve", "verify", "explain"]
 
 
@@ -87,3 +87,9 @@ def test_agent_exception_returns_fail(monkeypatch):
     monkeypatch.setattr("math_agent.pipeline.planner.run", lambda q: (_ for _ in ()).throw(RuntimeError("boom")))
     result = MathAgentPipeline(mock=True).solve("1+1=?", "q5")
     assert result.status == "fail"
+
+
+def test_enable_tools_mock_does_not_call_interns1_api(monkeypatch):
+    monkeypatch.setattr("math_agent.clients.interns1_client.InternS1Client.chat", lambda *a, **k: (_ for _ in ()).throw(AssertionError("chat should not be called")))
+    result = MathAgentPipeline(mock=True, enable_tools=True).solve("计算 2+3", "q_tools")
+    assert result.final_answer.value == "5"

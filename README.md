@@ -32,12 +32,14 @@ cp .env.example .env
 
 ```bash
 python -m math_agent.cli solve --question "1+1=?"
+python -m math_agent.cli solve --question "计算 2+3" --enable-tools
 ```
 
 批量求解：
 
 ```bash
 python -m math_agent.cli batch --input data/sample_questions.jsonl --output outputs/results.jsonl
+python -m math_agent.cli batch --input data/sample_questions.jsonl --output outputs/results.jsonl --enable-tools
 ```
 
 
@@ -55,24 +57,51 @@ python -m math_agent.cli batch --input data/sample_questions.jsonl --output outp
 
 ## JSON 输出格式
 
-每次输出都符合 `MathResult`：
+`solve` 命令输出 **一个** `SolveResult` JSON；`batch` 命令输出 **JSONL**，其中每一行都是一个 `SolveResult` JSON。
+
+示例（`SolveResult`）：
 
 ```json
 {
-  "question_id": "q1",
-  "question": "1+1=?",
-  "answer": "2",
-  "explanation": "Compute 1+1.",
-  "success": true,
-  "error": null,
-  "metadata": {
-    "mode": "mock",
-    "model": "intern-s1"
-  }
+  "question_id": "sample_001",
+  "domain": "Calculus",
+  "problem_type": "calculation",
+  "problem_parse": {
+    "goal": "计算 2+3",
+    "givens": [],
+    "symbols": []
+  },
+  "solution_plan": ["识别为基础计算题并执行运算"],
+  "visible_solution_steps": ["2+3=5"],
+  "tool_trace": [
+    {
+      "tool": "sympy",
+      "purpose": "simple arithmetic",
+      "status": "success",
+      "summary": "2+3 -> 5"
+    }
+  ],
+  "final_answer": {
+    "type": "number",
+    "value": "5",
+    "boxed": "\\boxed{5}"
+  },
+  "verification": {
+    "method": "numeric_check",
+    "passed": true,
+    "notes": "tool-based numeric check passed"
+  },
+  "didactic_hint": "先识别运算类型，再逐步计算。",
+  "confidence": 0.85,
+  "status": "success",
+  "error": null
 }
 ```
 
-失败时也输出合法 JSON（`success=false`，`error` 非空）。
+说明：
+- `status` 可能为 `success` / `partial` / `fail`；
+- 单题失败时依然返回合法 `SolveResult` JSON（`status="fail"` 且 `error` 非空）；
+- 批量模式中某一题失败不会中断任务，仍会继续处理后续题目并逐行输出合法 JSON。
 
 ## Prompt 配置
 
