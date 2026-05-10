@@ -40,6 +40,13 @@ python -m math_agent.cli solve --question "1+1=?"
 python -m math_agent.cli batch --input data/sample_questions.jsonl --output outputs/results.jsonl
 ```
 
+
+## Intern-S1 客户端说明
+
+- 统一通过 `src/math_agent/clients/interns1_client.py` 发起真实模型调用；
+- 默认推荐 mock 模式，测试中不会触发任何网络请求；
+- 真实模式需要配置 `INTERNS1_API_KEY` 与 `INTERNS1_BASE_URL`。
+
 ## Mock 模式
 
 - 默认 `--mock` 为 true；
