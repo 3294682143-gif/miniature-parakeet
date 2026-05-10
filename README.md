@@ -43,6 +43,17 @@ python -m math_agent.cli batch --input data/sample_questions.jsonl --output outp
 ```
 
 
+
+## 官方题集转换
+
+- 原始题集（raw 数据）不要提交到仓库。
+- 转换后的 `data/official_questions.jsonl` 可直接用于 batch 求解。
+
+```bash
+python scripts/convert_dataset.py --input data/raw_questions.jsonl --output data/official_questions.jsonl
+python -m math_agent.cli batch --input data/official_questions.jsonl --output outputs/results.jsonl --mock --enable-tools
+```
+
 ## Streamlit Demo
 
 运行比赛展示 Demo：
