@@ -73,3 +73,9 @@ python -m math_agent.cli batch --input data/sample_questions.jsonl --output outp
 ```
 
 失败时也输出合法 JSON（`success=false`，`error` 非空）。
+
+## Prompt 配置
+
+- 所有 agent prompt 统一维护在 `configs/prompts.yaml`；
+- 可通过 `math_agent.prompting` 中的 `load_prompts`、`get_prompt`、`render_prompt` 加载和渲染；
+- 配置加载和变量渲染失败时会抛出明确异常，避免静默返回空 prompt。
