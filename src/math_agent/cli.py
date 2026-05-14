@@ -19,7 +19,7 @@ def _validate_real_mode_or_raise(real: bool) -> None:
 
 def cmd_solve(args: argparse.Namespace) -> int:
     _validate_real_mode_or_raise(args.real)
-    result = solve_question(MathQuestion(question=args.question, question_id=args.question_id), mock=not args.real, enable_tools=args.enable_tools, save_trace=not args.no_trace, trace_dir=args.trace_dir)
+    result = solve_question(MathQuestion(question=args.question, question_id=args.question_id), mock=not args.real, enable_tools=args.enable_tools, save_trace=not args.no_trace, trace_dir=args.trace_dir, run_mode=args.mode)
     print(result.model_dump_json(ensure_ascii=False))
     return 0
 
@@ -37,7 +37,7 @@ def cmd_batch(args: argparse.Namespace) -> int:
             try:
                 raw = json.loads(line)
                 q = MathQuestion.model_validate(raw)
-                result = solve_question(q, mock=not args.real, enable_tools=args.enable_tools, save_trace=not args.no_trace, trace_dir=args.trace_dir)
+                result = solve_question(q, mock=not args.real, enable_tools=args.enable_tools, save_trace=not args.no_trace, trace_dir=args.trace_dir, run_mode=args.mode)
             except Exception as exc:
                 qid = str(raw.get("question_id", f"line_{idx}")) if isinstance(raw, dict) else f"line_{idx}"
                 question = str(raw.get("question", "")) if isinstance(raw, dict) else ""
@@ -57,6 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
     solve_p.add_argument("--enable-tools", action="store_true", default=False)
     solve_p.add_argument("--trace-dir", default="outputs/traces")
     solve_p.add_argument("--no-trace", action="store_true", default=False)
+    solve_p.add_argument("--mode", choices=["full", "fast", "tool-first"], default="full")
     solve_p.set_defaults(func=cmd_solve)
     batch_p = sub.add_parser("batch")
     batch_p.add_argument("--input", required=True)
@@ -65,6 +66,7 @@ def build_parser() -> argparse.ArgumentParser:
     batch_p.add_argument("--enable-tools", action="store_true", default=False)
     batch_p.add_argument("--trace-dir", default="outputs/traces")
     batch_p.add_argument("--no-trace", action="store_true", default=False)
+    batch_p.add_argument("--mode", choices=["full", "fast", "tool-first"], default="full")
     batch_p.set_defaults(func=cmd_batch)
     return parser
 

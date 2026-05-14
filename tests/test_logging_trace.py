@@ -15,6 +15,7 @@ def test_solve_default_generates_trace(tmp_path: Path):
     assert data["question_id"] == "q1"
     assert data["question"] == "1+1=?"
     assert isinstance(data["final_result"], dict)
+    assert data["run_mode"] == "full"
 
 
 def test_no_trace_disable(tmp_path: Path):
