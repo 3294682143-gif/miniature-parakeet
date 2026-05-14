@@ -39,3 +39,13 @@ def test_tools_result_updates_visible_steps_consistently():
     assert result.final_answer.boxed == "\\boxed{5}"
     assert "\\boxed{5}" in result.visible_solution_steps[0]
     assert result.verification.passed is True
+
+
+def test_enable_tools_equation_has_final_answer_and_success():
+    result = MathAgentPipeline(mock=True, enable_tools=True).solve("解方程 2x+5=13", "eq1")
+    assert result.status == "success"
+    assert result.final_answer.value
+    assert "4" in result.final_answer.value or "4" in result.final_answer.boxed
+    assert "**" not in result.final_answer.boxed
+    assert "\n" not in result.final_answer.boxed
+    assert any(t.tool == "sympy" and t.status == "success" for t in result.tool_trace)

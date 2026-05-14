@@ -135,6 +135,13 @@ class Router:
         return "Unknown", []
 
     def _detect_problem_type(self, text: str) -> tuple[str, list[str]]:
+        equation_hits: list[str] = []
+        if "=" in text and any(k in text for k in ["解方程", "求解", "solve", "解 "]):
+            equation_hits.append("equation-intent")
+        if "=" in text and re.search(r"[a-z]\s*=", text):
+            equation_hits.append("single-var-equation")
+        if equation_hits:
+            return "calculation", equation_hits
         for problem_type in ["proof", "optimization", "calculation", "conceptual"]:
             keywords = self.PROBLEM_TYPE_RULES[problem_type]
             hits = [k for k in keywords if k in text]

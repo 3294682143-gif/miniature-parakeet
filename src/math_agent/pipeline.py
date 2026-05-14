@@ -121,12 +121,13 @@ def _looks_like_long_markdown(text: str) -> bool:
 def _run_tool_assist(question: str, problem_type: str, recommended_solver: str):
     q = question.strip()
     try:
+        equation_match = re.search(r"([0-9a-zA-Z\(\)\+\-\*/\^\.\s]+=[0-9a-zA-Z\(\)\+\-\*/\^\.\s]+)", q)
         if "化简" in q:
             expr = q.split("化简", 1)[1].strip(" ：:？?")
             s = sympy_tools.simplify_expression(expr)
             if not s.startswith("ERROR:"): return s, Verification(method="symbolic_check", passed=True, notes="sympy simplify passed"), ToolTrace(tool="sympy", purpose="simplify expression", status="success", summary=s)
-        if "求解" in q and "=" in q:
-            eq = q.split("求解", 1)[1].strip(" ：:？?")
+        if equation_match and ("求解" in q or "解方程" in q or q.lower().startswith("solve") or "解 " in q):
+            eq = equation_match.group(1).strip(" ：:？?")
             s = sympy_tools.solve_equation(eq)
             if not s.startswith("ERROR:"): return s, Verification(method="substitution", passed=True, notes="sympy solve passed"), ToolTrace(tool="sympy", purpose="solve equation", status="success", summary=s)
         maybe = q.replace("计算", "").replace("=", "").replace("?", "").replace("？", "").strip()
