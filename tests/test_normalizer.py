@@ -10,6 +10,15 @@ def test_extract_boxed_answer() -> None:
     assert extract_boxed_answer(r"推导... \\boxed{42}") == "42"
 
 
+def test_extract_boxed_answer_nested_frac() -> None:
+    assert extract_boxed_answer(r"过程... \\boxed{\\dfrac{1}{4}}") == r"\dfrac{1}{4}"
+
+
+def test_extract_boxed_answer_last_one_from_long_text() -> None:
+    txt = r"先有 \\boxed{1}，再讨论，最后 \\boxed{\\frac{a+b}{2}}"
+    assert extract_boxed_answer(txt) == r"\frac{a+b}{2}"
+
+
 def test_extract_final_answer_cn() -> None:
     assert normalize_answer("最终答案： 3/4") == "3/4"
 

@@ -43,3 +43,22 @@ def test_refiner_called_when_verifier_fails(monkeypatch):
     out = MathAgentPipeline(mock=False, max_refine_rounds=1).solve("1+1=?", "q3")
     assert state["refine"] == 1
     assert out.verification.passed is True
+
+
+def test_non_proof_prefers_boxed_and_not_long_markdown(monkeypatch):
+    class DummyRoute:
+        domain = "Optimization"; problem_type = "optimization"; recommended_solver = "optimization"; reason = "ok"; confidence = 0.9
+
+    long_draft = "### 问题解析\n很多解释\n最终得到 \\boxed{\\dfrac{1}{4}}"
+    monkeypatch.setattr("math_agent.pipeline.router.Router.route", lambda self, q: DummyRoute())
+    monkeypatch.setattr("math_agent.pipeline.planner.Planner.plan", lambda self, q, r: {"problem_parse": {}, "solution_plan": []})
+    monkeypatch.setattr("math_agent.pipeline.solver.Solver.solve", lambda self, q, r, p: long_draft)
+    monkeypatch.setattr("math_agent.pipeline.verifier.Verifier.verify", lambda self, q, d, f, r=None: Verification(method="self_review", passed=True, notes="pass"))
+    monkeypatch.setattr("math_agent.pipeline.explainer.run", lambda q: "hint")
+
+    out = MathAgentPipeline(mock=False).solve("opt", "smoke_005")
+    assert out.final_answer.type in {"number", "expression"}
+    assert out.final_answer.value in {r"\dfrac{1}{4}", "1/4"}
+    assert out.final_answer.boxed in {r"\boxed{\dfrac{1}{4}}", r"\boxed{1/4}"}
+    assert len(out.final_answer.boxed) <= 120
+    assert "###" not in out.final_answer.boxed
