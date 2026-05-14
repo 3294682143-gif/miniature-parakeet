@@ -73,12 +73,16 @@ def test_proof_conclusion_extracts_clean_statement():
     text = "设x属于A∩B。\n因此 A∩B 是 A 的子集\n证毕"
     assert _extract_proof_conclusion(text) == "已证明：A∩B 是 A 的子集"
 
+def test_proof_conclusion_header_then_next_line_content():
+    text = "**结论：**\n若 ||x_n-x|| -> 0，则 x_n 收敛到 x。"
+    assert _extract_proof_conclusion(text) == "已证明：若 ||x_n-x|| -> 0，则 x_n 收敛到 x"
+
 
 def test_proof_long_text_non_json_verifier_uses_fallback_success(monkeypatch):
     class DummyRoute:
         domain = "SetLogic"; problem_type = "proof"; recommended_solver = "proof"; reason = "ok"; confidence = 0.9
 
-    long_proof = "证明：设x∈A∩B，则x∈A且x∈B，因此x∈A。" * 6
+    long_proof = ("证明：根据定义，设x∈A∩B，则x∈A且x∈B，因此x∈A，所以得结论。收敛" * 4)
     monkeypatch.setattr("math_agent.pipeline.router.Router.route", lambda self, q: DummyRoute())
     monkeypatch.setattr("math_agent.pipeline.planner.Planner.plan", lambda self, q, r: {"problem_parse": {}, "solution_plan": []})
     monkeypatch.setattr("math_agent.pipeline.solver.Solver.solve", lambda self, q, r, p: long_proof)
@@ -89,6 +93,7 @@ def test_proof_long_text_non_json_verifier_uses_fallback_success(monkeypatch):
     assert out.status == "success"
     assert out.verification.passed is True
     assert out.verification.method == "logic_review"
+    assert out.verification.notes == "Proof structure detected; accepted by proof fallback review."
 
 
 def test_proof_short_hollow_text_stays_partial(monkeypatch):
