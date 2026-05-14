@@ -51,7 +51,7 @@ python -m math_agent.cli batch --input data/sample_questions.jsonl --output outp
 
 ```bash
 python scripts/convert_dataset.py --input data/raw_questions.jsonl --output data/official_questions.jsonl
-python -m math_agent.cli batch --input data/official_questions.jsonl --output outputs/results.jsonl --mock --enable-tools
+python -m math_agent.cli batch --input data/official_questions.jsonl --output outputs/results.jsonl --enable-tools
 ```
 
 ## Streamlit Demo
@@ -75,7 +75,7 @@ streamlit run demo/streamlit_app.py
 
 ## Mock 模式
 
-- 默认 `--mock` 为 true；
+- CLI 默认是 mock 模式（不加 `--real` 即为 mock）；
 - 不依赖外部闭源服务；
 - 不会读取并使用真实 API key 发起请求。
 
