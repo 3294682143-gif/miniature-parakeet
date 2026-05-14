@@ -32,3 +32,10 @@ def test_enable_tools_fail_returns_valid_result():
     assert isinstance(result, SolveResult)
     assert result.status in {"success", "partial"}
     assert any(t.status in {"fail", "skipped", "success"} for t in result.tool_trace)
+
+
+def test_tools_result_updates_visible_steps_consistently():
+    result = MathAgentPipeline(mock=True, enable_tools=True).solve("计算 2+3", "t6")
+    assert result.final_answer.boxed == "\\boxed{5}"
+    assert "\\boxed{5}" in result.visible_solution_steps[0]
+    assert result.verification.passed is True

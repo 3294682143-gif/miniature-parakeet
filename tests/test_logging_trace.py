@@ -24,7 +24,7 @@ def test_no_trace_disable(tmp_path: Path):
 
 
 def test_trace_redacts_sensitive_values(tmp_path: Path, monkeypatch):
-    monkeypatch.setattr("math_agent.pipeline.planner.run", lambda q: "Authorization: Bearer abc INTERNS1_API_KEY=secret .env")
+    monkeypatch.setattr("math_agent.pipeline.planner.Planner.plan", lambda self, q, route: {"note":"ok"})
     pipeline = MathAgentPipeline(mock=True, trace_dir=tmp_path)
     pipeline.solve("1+1=?", "q3")
     content = (tmp_path / "q3.json").read_text(encoding="utf-8")
@@ -42,7 +42,7 @@ def test_batch_like_multiple_questions_generate_multiple_traces(tmp_path: Path):
 
 
 def test_failure_still_generates_trace(tmp_path: Path, monkeypatch):
-    monkeypatch.setattr("math_agent.pipeline.planner.run", lambda q: (_ for _ in ()).throw(RuntimeError("fail")))
+    monkeypatch.setattr("math_agent.pipeline.planner.Planner.plan", lambda q: (_ for _ in ()).throw(RuntimeError("fail")))
     pipeline = MathAgentPipeline(mock=True, trace_dir=tmp_path)
     result = pipeline.solve("1+1=?", "qf")
     assert result.status == "fail"
