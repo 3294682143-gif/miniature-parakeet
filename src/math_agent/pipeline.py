@@ -33,6 +33,42 @@ def extract_boxed_answer(text: str) -> str | None:
     if boxed: return boxed.group(1).strip()
     return None
 
+def _is_proof_problem(problem_type: str, recommended_solver: str) -> bool:
+    return (problem_type or "").lower() == "proof" or (recommended_solver or "").lower() == "proof"
+
+def _extract_proof_conclusion(text: str) -> str:
+    if not text:
+        return "命题已完成证明。"
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    patterns = [
+        r"(最终结论[:：]\s*.+)",
+        r"(结论[:：]\s*.+)",
+        r"(已证明[:：]?\s*.+)",
+    ]
+    for line in lines:
+        for pat in patterns:
+            m = re.search(pat, line)
+            if m:
+                return m.group(1).strip()
+    for line in lines:
+        if "证毕" in line:
+            return "命题已完成证明。"
+    return "命题已完成证明。"
+
+def _answer_type_and_boxed(route_dict: dict, final_value: str, current_steps: str) -> tuple[str, str]:
+    ptype = (route_dict.get("problem_type", "") or "").lower()
+    solver_name = (route_dict.get("recommended_solver", "") or "").lower()
+    if _is_proof_problem(ptype, solver_name):
+        value = _extract_proof_conclusion(current_steps)
+        if not value.startswith("已证明") and "命题已完成证明" not in value:
+            value = f"已证明：{value}"
+        return "proof", ""
+    if ptype in {"number", "expression", "set"}:
+        return ptype, f"\\boxed{{{final_value}}}" if final_value else ""
+    if ptype in {"algorithm", "text"}:
+        return ptype, ""
+    return "text", f"\\boxed{{{final_value}}}" if final_value else ""
+
 def _run_tool_assist(question: str, problem_type: str, recommended_solver: str):
     q = question.strip()
     try:
@@ -99,7 +135,19 @@ class MathAgentPipeline:
                 verification = self.verifier_agent.verify(question, current, final, route_dict)
 
             if not verification.passed and status == "success": status = "partial"
-            result = SolveResult(question_id=qid, domain=route_dict.get("domain", "unknown"), problem_type=route_dict.get("problem_type", "unknown"), problem_parse=ProblemParse(goal=question, givens=[question], symbols=[]), solution_plan=[str(plan)], visible_solution_steps=[current], tool_trace=traces, final_answer=FinalAnswer(type="text", value=final, boxed=f"\\boxed{{{final}}}" if final else ""), verification=verification, didactic_hint=explainer.run(question), confidence=max(0.0, min(1.0, route_dict.get("confidence", 0.5) or 0.5)), status=status, error=None)
+            plan_steps = plan.get("solution_plan", []) if isinstance(plan, dict) else []
+            if not isinstance(plan_steps, list): plan_steps = []
+            parse = plan.get("problem_parse", {}) if isinstance(plan, dict) else {}
+            problem_parse = ProblemParse(
+                goal=parse.get("goal", question) if isinstance(parse, dict) else question,
+                givens=parse.get("givens", [question]) if isinstance(parse, dict) else [question],
+                symbols=parse.get("symbols", []) if isinstance(parse, dict) else [],
+            )
+            final_type, final_boxed = _answer_type_and_boxed(route_dict, final, current)
+            final_value = _extract_proof_conclusion(current) if final_type == "proof" else final
+            if final_type == "proof" and final_value == "命题已完成证明。":
+                final_value = "命题已完成证明。"
+            result = SolveResult(question_id=qid, domain=route_dict.get("domain", "unknown"), problem_type=route_dict.get("problem_type", "unknown"), problem_parse=problem_parse, solution_plan=plan_steps, visible_solution_steps=[current], tool_trace=traces, final_answer=FinalAnswer(type=final_type, value=final_value, boxed=final_boxed), verification=verification, didactic_hint=explainer.run(question), confidence=max(0.0, min(1.0, route_dict.get("confidence", 0.5) or 0.5)), status=status, error=None)
             trace_payload["model_calls_count"] = len(trace_payload["model_calls"])
         except Exception as exc:
             trace_payload["errors"].append(str(exc)); result = make_failure_result(question_id=qid, question=question, error_message=str(exc))
