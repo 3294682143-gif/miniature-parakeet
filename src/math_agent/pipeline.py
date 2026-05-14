@@ -60,26 +60,41 @@ def _is_proof_problem(problem_type: str, recommended_solver: str) -> bool:
 
 def _extract_proof_conclusion(text: str) -> str:
     def _clean_markdown(value: str) -> str:
-        cleaned = re.sub(r"[*`#$]+", "", value or "")
+        cleaned = re.sub(r"[*`$#]+", "", value or "")
+        cleaned = cleaned.rstrip()
+        cleaned = re.sub(r"\s{2,}$", "", cleaned)
         cleaned = re.sub(r"\s+", " ", cleaned).strip(" ：:;；，,。.!！？?-—")
         return cleaned.strip()
 
     def _is_meaningful(value: str) -> bool:
         if len(value) < 4:
             return False
+        if value in {"结论", "最终结论", "结论：", "最终结论：", "已证明", "已证明："}:
+            return False
         return bool(re.search(r"[\u4e00-\u9fffA-Za-z0-9]", value))
+
+    def _is_header_shell(value: str) -> bool:
+        normalized = _clean_markdown(value)
+        return normalized in {"结论", "最终结论", "结论：", "最终结论：", "已证明", "已证明："}
 
     if not text:
         return "命题已完成证明。"
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     lead_patterns = [r"^最终结论\s*[:：]\s*(.+)$", r"^结论\s*[:：]\s*(.+)$", r"^已证明\s*[:：]?\s*(.+)$"]
-    for line in lines:
+    for i, line in enumerate(lines):
+        line_for_match = _clean_markdown(line)
+        if _is_header_shell(line_for_match):
+            for follow in lines[i + 1:]:
+                follow_clean = _clean_markdown(follow)
+                if _is_meaningful(follow_clean):
+                    return f"已证明：{follow_clean}"
         for pat in lead_patterns:
-            m = re.search(pat, line)
+            m = re.search(pat, line_for_match)
             if m:
                 candidate = _clean_markdown(m.group(1))
                 if _is_meaningful(candidate):
                     return f"已证明：{candidate}"
+                continue
 
     for line in reversed(lines):
         m = re.search(r"(?:因此|所以)\s*(.+)", line)
@@ -102,8 +117,11 @@ def _proof_fallback_review(current_steps: str, route_dict: dict, verification: V
     text = (current_steps or "").strip()
     if len(text) <= 80:
         return verification
-    keywords = ["证明", "设", "因此", "所以", "结论", "证毕", "已证明"]
-    if any(k in text for k in keywords):
+    final_value = _extract_proof_conclusion(text)
+    if final_value in {"", "命题已完成证明。", "结论：", "最终结论：", "已证明：", "结论：**"}:
+        return verification
+    keywords = ["证明", "结论", "因此", "所以", "根据", "定义", "收敛"]
+    if all(k in text for k in keywords):
         return Verification(method="logic_review", passed=True, notes="Proof structure detected; accepted by proof fallback review.")
     return verification
 
