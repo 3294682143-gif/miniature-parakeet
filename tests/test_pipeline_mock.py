@@ -47,9 +47,9 @@ def test_refiner_called_when_verifier_fails(monkeypatch):
 
 def test_non_proof_prefers_boxed_and_not_long_markdown(monkeypatch):
     class DummyRoute:
-        domain = "Optimization"; problem_type = "optimization"; recommended_solver = "optimization"; reason = "ok"; confidence = 0.9
+        domain = "Optimization"; problem_type = "calculation"; recommended_solver = "optimization"; reason = "ok"; confidence = 0.9
 
-    long_draft = "### 问题解析\n很多解释\n最终得到 \\boxed{\\dfrac{1}{4}}"
+    long_draft = "### 问题解析\n很多解释\n\n继续解释\n最终得到 \\boxed{\\dfrac{1}{4}}"
     monkeypatch.setattr("math_agent.pipeline.router.Router.route", lambda self, q: DummyRoute())
     monkeypatch.setattr("math_agent.pipeline.planner.Planner.plan", lambda self, q, r: {"problem_parse": {}, "solution_plan": []})
     monkeypatch.setattr("math_agent.pipeline.solver.Solver.solve", lambda self, q, r, p: long_draft)
@@ -62,3 +62,4 @@ def test_non_proof_prefers_boxed_and_not_long_markdown(monkeypatch):
     assert out.final_answer.boxed in {r"\boxed{\dfrac{1}{4}}", r"\boxed{1/4}"}
     assert len(out.final_answer.boxed) <= 120
     assert "###" not in out.final_answer.boxed
+    assert out.status in {"success", "partial"}

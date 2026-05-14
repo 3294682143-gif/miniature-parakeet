@@ -85,24 +85,38 @@ def _answer_type_and_boxed(route_dict: dict, final_value: str, current_steps: st
         if not value.startswith("已证明") and "命题已完成证明" not in value:
             value = f"已证明：{value}"
         return "proof", ""
-    inferred_type = ptype if ptype in {"number", "expression", "set", "algorithm", "text"} else _infer_answer_type(final_value)
+    if ptype == "calculation":
+        inferred_type = _infer_answer_type(final_value)
+        if inferred_type == "text":
+            inferred_type = "expression"
+    else:
+        inferred_type = ptype if ptype in {"number", "expression", "set", "algorithm", "text"} else _infer_answer_type(final_value)
     if inferred_type in {"number", "expression", "set"} and _is_short_clean_answer(final_value):
-        return inferred_type, f"\\boxed{{{final_value}}}"
+        boxed = f"\\boxed{{{final_value}}}"
+        if len(boxed) <= 120 and "###" not in boxed and boxed.count("\n") <= 1:
+            return inferred_type, boxed
     if inferred_type in {"algorithm", "text"}:
         return inferred_type, ""
     return inferred_type, ""
 
 
 def _extract_final_answer_non_proof(draft: str, current: str, tv: str | None = None) -> str:
-    for candidate in [extract_boxed_answer(draft), extract_boxed_answer(current)]:
+    for candidate in [extract_boxed_answer(current), extract_boxed_answer(draft)]:
         if candidate:
             return candidate
-    for candidate in [extract_answer_by_patterns(draft), extract_answer_by_patterns(current)]:
+    for candidate in [extract_answer_by_patterns(current), extract_answer_by_patterns(draft)]:
         if candidate and _is_short_clean_answer(candidate):
             return candidate
-    if tv is not None and str(tv).strip():
-        return str(tv).strip()
+    if tv is not None:
+        tvs = str(tv).strip()
+        if _is_short_clean_answer(tvs):
+            return tvs
     return ""
+
+
+def _looks_like_long_markdown(text: str) -> bool:
+    value = (text or "").strip()
+    return len(value) > 300 and ("###" in value or value.count("\n\n") >= 1 or value.count("\n") > 2)
 
 def _run_tool_assist(question: str, problem_type: str, recommended_solver: str):
     q = question.strip()
@@ -161,6 +175,10 @@ class MathAgentPipeline:
                 if tv is not None and tvf is not None:
                     final, verification, status = str(tv).strip(), tvf, "success"
                     current = f"工具校验/计算得到最终答案为 \\boxed{{{final}}}。"
+            if not _is_proof_problem(route_dict.get("problem_type", ""), route_dict.get("recommended_solver", "")):
+                final = _extract_final_answer_non_proof(draft, current, final)
+                if not final:
+                    status = "partial"
 
             rounds = 0
             while not verification.passed and rounds < self.max_refine_rounds:
@@ -183,6 +201,10 @@ class MathAgentPipeline:
             final_value = _extract_proof_conclusion(current) if final_type == "proof" else final
             if final_type == "proof" and final_value == "命题已完成证明。":
                 final_value = "命题已完成证明。"
+            if _looks_like_long_markdown(final_value):
+                status = "partial"
+            if len(final_boxed) > 120 or "###" in final_boxed or final_boxed.count("\n") > 1:
+                final_boxed = ""
             result = SolveResult(question_id=qid, domain=route_dict.get("domain", "unknown"), problem_type=route_dict.get("problem_type", "unknown"), problem_parse=problem_parse, solution_plan=plan_steps, visible_solution_steps=[current], tool_trace=traces, final_answer=FinalAnswer(type=final_type, value=final_value, boxed=final_boxed), verification=verification, didactic_hint=explainer.run(question), confidence=max(0.0, min(1.0, route_dict.get("confidence", 0.5) or 0.5)), status=status, error=None)
             trace_payload["model_calls_count"] = len(trace_payload["model_calls"])
         except Exception as exc:
