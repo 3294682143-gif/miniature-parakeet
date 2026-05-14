@@ -1,187 +1,121 @@
-# interns1-math-agent
+# Intern-S1 Math Agent
 
-基于 Intern-S1 风格接口的数学智能体项目脚手架（当前仅 **mock 模式**），用于自动解题并输出严格 JSON 结果。
+基于 Intern-S1 API 的数学智能体系统（初赛工程验收版）。
 
-## 安装
+## 1) 项目状态
+
+- **当前状态**：初赛工程版已完成，**Ready for official dataset**。
+- **官方 112 题集**：截至 2026-05-14 尚未公布，正式结果需在题集发布后生成。
+- **预官方 18 领域覆盖测试（非官方成绩）**：
+  - total = 18
+  - json_valid_rate = 100%
+  - success = 18
+  - partial = 0
+  - fail = 0
+  - trace_count = 18
+  - zero_model_calls = 0
+  - dirty_boxed = 0
+  - missing_final = 0
+
+> 说明：以上 18 题为自构造覆盖验收，不代表官方 112 题正式榜单成绩。
+
+## 2) 赛题背景
+
+本项目面向 Intern-S1 数学智能体竞赛，目标是在**不训练底座模型**前提下，围绕智能体推理流程实现：
+
+- 题目理解与结构化解析
+- 解题规划
+- 模型调用与工具增强
+- 过程校验
+- 教学化解释
+- 严格 JSON 输出
+
+初赛聚焦单智能体解题、解释与结构化输出；决赛可在此基础上扩展为多智能体协作与更丰富的 Web/Notebook 展示。
+
+## 3) 当前能力
+
+当前仓库已具备以下能力（与现有工程实现一致）：
+
+- 自然语言数学题输入
+- Router 题型识别
+- Planner 解题规划
+- Solver 调用 Intern-S1
+- Python / SymPy 工具增强
+- Verifier 校验
+- final_answer 格式化
+- proof 题特殊格式处理
+- `solve` 单题求解
+- `batch` JSONL 批量运行
+- trace 日志记录与复盘
+- 评测报告生成（`scripts/evaluate_results.py`）
+- Streamlit Demo
+- submission 导出脚本（`scripts/export_submission.py`）
+
+## 4) 系统架构
+
+```text
+Input Question
+  -> Router
+  -> Planner
+  -> Solver / Intern-S1
+  -> Tools: Python / SymPy
+  -> Verifier
+  -> Formatter
+  -> SolveResult JSON
+  -> Trace / Evaluation
+```
+
+## 5) 运行模式
+
+### API 调用模式
+
+- **mock（默认）**：不调用真实 API。
+- **real（显式 `--real`）**：调用真实 Intern-S1 API。
+
+### 推理策略模式（`--mode`）
+
+- **full（默认）**：完整链路，适合最终提交。
+- **fast**：调试优先，减少模型调用。
+- **tool-first**：计算题/方程题优先工具求解，必要时再回退模型。
+
+> 不传 `--mode` 等价于 `--mode full`。
+
+## 6) 安装方式
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e .
+pip install -e ".[dev]"
+pytest -q
 ```
 
-开发依赖：
-
-```bash
-pip install -e .[dev]
-```
-
-## 环境变量
-
-复制示例文件：
+## 7) 环境变量与安全
 
 ```bash
 cp .env.example .env
 ```
 
-本项目默认不会真实调用 API（mock-only）。
+在 `.env` 中配置：
 
-## CLI 用法
+- `INTERNS1_API_KEY`
+- `INTERNS1_BASE_URL`
+- `INTERNS1_MODEL`
 
-单题求解：
+安全要求：
+
+- `.env` 不得提交。
+- 不得提交 API key。
+- trace 中不应出现 API key / Authorization / Bearer 明文。
+
+## 8) CLI 使用
+
+### Mock 单题
 
 ```bash
-python -m math_agent.cli solve --question "1+1=?"
 python -m math_agent.cli solve --question "计算 2+3" --enable-tools
-python -m math_agent.cli solve --question "解方程 2x+5=13" --enable-tools --mode tool-first
 ```
 
-批量求解：
-
-```bash
-python -m math_agent.cli batch --input data/sample_questions.jsonl --output outputs/results.jsonl
-python -m math_agent.cli batch --input data/sample_questions.jsonl --output outputs/results.jsonl --enable-tools
-python -m math_agent.cli batch --input data/sample_questions.jsonl --output outputs/results_fast.jsonl --real --enable-tools --mode fast
-```
-
-
-
-
-### 运行模式（--mode）
-
-- `full`（默认）：用于最终提交，保持完整链路（Planner + Solver + Verifier + Tools + Trace）。
-- `fast`：用于调试，跳过 Planner LLM，使用规则 fallback plan；仅调用 Solver；Verifier 优先本地工具校验，不做 LLM verifier。
-- `tool-first`：用于大量计算题快速 smoke，先跑 Python/SymPy；若工具求解成功且 verification passed，则直接返回结果，不调用 Intern-S1；否则回退模型流程。
-
-不传 `--mode` 时等价于 `--mode full`。
-
-## 官方题集转换
-
-- 原始题集（raw 数据）不要提交到仓库。
-- 转换后的 `data/official_questions.jsonl` 可直接用于 batch 求解。
-
-```bash
-python scripts/convert_dataset.py --input data/raw_questions.jsonl --output data/official_questions.jsonl
-python -m math_agent.cli batch --input data/official_questions.jsonl --output outputs/results.jsonl --enable-tools
-```
-
-## Streamlit Demo
-
-运行比赛展示 Demo：
-
-```bash
-streamlit run demo/streamlit_app.py
-```
-
-说明：
-- 默认 `mock` 开启，不会真实调用 Intern-S1 API；
-- 只有在手动关闭 `mock` 且本地配置好环境变量时，才会尝试真实调用；
-- Demo 会展示路由、规划、工具调用、校验、最终 JSON 与 trace 路径。
-
-## Intern-S1 客户端说明
-
-- 统一通过 `src/math_agent/clients/interns1_client.py` 发起真实模型调用；
-- 默认推荐 mock 模式，测试中不会触发任何网络请求；
-- 真实模式需要配置 `INTERNS1_API_KEY` 与 `INTERNS1_BASE_URL`。
-
-## Mock 模式
-
-- CLI 默认是 mock 模式（不加 `--real` 即为 mock）；
-- 不依赖外部闭源服务；
-- 不会读取并使用真实 API key 发起请求。
-
-## JSON 输出格式
-
-`solve` 命令输出 **一个** `SolveResult` JSON；`batch` 命令输出 **JSONL**，其中每一行都是一个 `SolveResult` JSON。
-
-示例（`SolveResult`）：
-
-```json
-{
-  "question_id": "sample_001",
-  "domain": "Calculus",
-  "problem_type": "calculation",
-  "problem_parse": {
-    "goal": "计算 2+3",
-    "givens": [],
-    "symbols": []
-  },
-  "solution_plan": ["识别为基础计算题并执行运算"],
-  "visible_solution_steps": ["2+3=5"],
-  "tool_trace": [
-    {
-      "tool": "sympy",
-      "purpose": "simple arithmetic",
-      "status": "success",
-      "summary": "2+3 -> 5"
-    }
-  ],
-  "final_answer": {
-    "type": "number",
-    "value": "5",
-    "boxed": "\\boxed{5}"
-  },
-  "verification": {
-    "method": "numeric_check",
-    "passed": true,
-    "notes": "tool-based numeric check passed"
-  },
-  "didactic_hint": "先识别运算类型，再逐步计算。",
-  "confidence": 0.85,
-  "status": "success",
-  "error": null
-}
-```
-
-说明：
-- `status` 可能为 `success` / `partial` / `fail`；
-- 单题失败时依然返回合法 `SolveResult` JSON（`status="fail"` 且 `error` 非空）；
-- 批量模式中某一题失败不会中断任务，仍会继续处理后续题目并逐行输出合法 JSON。
-
-## Prompt 配置
-
-- 所有 agent prompt 统一维护在 `configs/prompts.yaml`；
-- 可通过 `math_agent.prompting` 中的 `load_prompts`、`get_prompt`、`render_prompt` 加载和渲染；
-- 配置加载和变量渲染失败时会抛出明确异常，避免静默返回空 prompt。
-
-## Trace 日志与复盘
-
-- trace 用于比赛日志提交、Debug、Demo 展示；
-- `solve` / `batch` 默认生成 trace；
-- 默认目录 `outputs/traces/`；
-- `--no-trace` 可关闭；
-- `--trace-dir` 可指定目录；
-- `outputs/traces/` 是运行产物，不建议提交 Git；
-- 比赛提交时可以把 `traces/` 随 `results.jsonl` 一起打包；
-- trace 中 `model_calls` 默认只保存摘要，避免日志过大和隐私风险；
-- trace 不应包含 API key、`.env` 内容或敏感密钥。
-
-示例：
-
-```bash
-python -m math_agent.cli solve --question "1+1=?" --question-id q1
-python -m math_agent.cli solve --question "1+1=?" --question-id q1 --trace-dir outputs/traces
-python -m math_agent.cli solve --question "1+1=?" --question-id q1 --no-trace
-python -m math_agent.cli batch --input data/sample_questions.jsonl --output outputs/results.jsonl
-python -m math_agent.cli batch --input data/sample_questions.jsonl --output outputs/results.jsonl --no-trace
-```
-
-## 本地 Intern-S1 API 测试
-
-1. 复制环境变量模板并填写真实配置（不要提交 `.env`）：
-
-```bash
-cp .env.example .env
-# 编辑 .env，填写：INTERNS1_API_KEY / INTERNS1_BASE_URL / INTERNS1_MODEL
-```
-
-2. 先跑最小连通性 smoke：
-
-```bash
-python scripts/smoke_interns1.py
-```
-
-3. 单题真实调用（仅当显式 `--real` 才会触发真实 API）：
+### Real 单题
 
 ```bash
 python -m math_agent.cli solve \
@@ -192,7 +126,16 @@ python -m math_agent.cli solve \
   --trace-dir outputs/traces_real
 ```
 
-4. 小批量真实调用：
+### Mock batch
+
+```bash
+python -m math_agent.cli batch \
+  --input data/sample_questions.jsonl \
+  --output outputs/mock_results.jsonl \
+  --enable-tools
+```
+
+### Real batch
 
 ```bash
 python -m math_agent.cli batch \
@@ -203,16 +146,178 @@ python -m math_agent.cli batch \
   --trace-dir outputs/traces_real
 ```
 
-5. 查看结果与评测：
+### Fast mode
 
 ```bash
-cat outputs/real_smoke_results.jsonl
-python scripts/evaluate_results.py --input outputs/real_smoke_results.jsonl
+python -m math_agent.cli batch \
+  --input data/sample_questions.jsonl \
+  --output outputs/results_fast.jsonl \
+  --real \
+  --enable-tools \
+  --mode fast
 ```
 
-常见错误排查：
-- 401/403：`INTERNS1_API_KEY` 或 `INTERNS1_BASE_URL` 配置错误。
-- timeout：网络波动或接口响应慢。
-- rate limit：降低并发、稍后重试。
-- invalid_response：`base_url` 可能不是 chat completions 兼容接口。
-- JSON parse fail：模型输出非 JSON，pipeline 会自动 fallback，确保结果 schema 合法。
+### Tool-first
+
+```bash
+python -m math_agent.cli solve \
+  --question "解方程 2x+5=13" \
+  --real \
+  --enable-tools \
+  --mode tool-first
+```
+
+## 9) JSON 输出格式
+
+- `solve` 输出单个 `SolveResult` JSON。
+- `batch` 输出 JSONL（每行一个 `SolveResult`）。
+- 典型字段包括：
+  - `question_id`
+  - `domain`
+  - `problem_type`
+  - `problem_parse`
+  - `solution_plan`
+  - `visible_solution_steps`
+  - `tool_trace`
+  - `final_answer`
+  - `verification`
+  - `didactic_hint`
+  - `confidence`
+  - `status`
+  - `error`
+
+状态约定：
+
+- `success`：成功求解并通过主要检查。
+- `partial`：部分完成或存在不确定项。
+- `fail`：失败，但仍必须输出合法 JSON（包含 `error`）。
+
+## 10) Trace 日志
+
+- 默认生成 trace。
+- `--trace-dir` 指定目录。
+- `--no-trace` 关闭 trace。
+- trace 关键内容：`model_calls`、`tool_calls`、`verifier_result`、`final_result`、`errors`。
+- trace 属于运行产物，默认不建议提交 Git。
+- 提交材料时可与 results 一并打包。
+
+## 11) 评测
+
+```bash
+python scripts/evaluate_results.py \
+  --results outputs/real_smoke_results.jsonl \
+  --report outputs/real_smoke_evaluation_report.md
+```
+
+评测指标包括：
+
+- `total`
+- `json_valid_count`
+- `json_valid_rate`
+- `success_count`
+- `partial_count`
+- `fail_count`
+- `verifier_pass_rate`
+- `average_confidence`
+- `domain_distribution`
+- `problem_type_distribution`
+
+## 12) 预官方 18 领域验收结果（非官方）
+
+该结果来自自构造覆盖测试，目的为工程验收，不是官方榜单：
+
+- 18 题
+- `json_valid_rate = 100%`
+- `success = 18`
+- `partial = 0`
+- `fail = 0`
+- `trace_count = 18`
+- `zero_model_calls = 0`
+- `dirty_boxed = 0`
+- `missing_final = 0`
+
+## 13) 官方题集运行流程（112 题发布后）
+
+官方题集发布后建议流程：
+
+1. 转换为 `data/official_questions.jsonl`
+2. 运行 official batch
+3. 生成 `outputs/official_results.jsonl`
+4. 生成 `outputs/official_evaluation_report.md`
+5. 保存 `outputs/traces_official_112`
+
+示例命令：
+
+```bash
+python scripts/convert_dataset.py \
+  --input <官方题集文件> \
+  --output data/official_questions.jsonl
+
+time python -m math_agent.cli batch \
+  --input data/official_questions.jsonl \
+  --output outputs/official_results.jsonl \
+  --real \
+  --enable-tools \
+  --trace-dir outputs/traces_official_112
+
+python scripts/evaluate_results.py \
+  --results outputs/official_results.jsonl \
+  --report outputs/official_evaluation_report.md
+```
+
+## 14) Streamlit Demo
+
+```bash
+streamlit run demo/streamlit_app.py
+```
+
+Demo 可展示：
+
+- 题型识别
+- 解题计划
+- 可见推理步骤
+- 工具调用
+- 校验结果
+- 最终 JSON
+- trace 路径
+
+## 15) 项目结构
+
+```text
+configs/
+data/
+demo/
+scripts/
+src/math_agent/
+tests/
+outputs/   # 运行产物，不提交
+```
+
+## 16) 当前限制
+
+- 官方 112 题集尚未公布，尚未生成 `official_results.jsonl`。
+- 高难 proof 题效果仍依赖模型推理质量。
+- `full` 模式耗时较高（单题可能多次模型调用）。
+- `fast` / `tool-first` 适合调试；最终提交建议优先 `full`。
+
+## 17) 提交材料建议
+
+- `results.jsonl`
+- `traces/`
+- `evaluation_report.md`
+- 技术方案 PDF
+- 展示视频
+- 源码或 Notebook
+- `README_SUBMISSION.md`
+
+## 18) 安全与合规
+
+- 不提交 `.env`
+- 不提交 API key
+- 不伪造日志
+- 不人工逐题改答案
+- `outputs/` 作为运行产物默认不进 Git
+
+---
+
+如需快速开始，建议先运行 mock 单题与 mock batch 验证流程，再在已配置 `.env` 的前提下通过 `--real` 做小规模 smoke，最后等待官方 112 题集发布后执行正式批量评测。
