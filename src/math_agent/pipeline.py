@@ -139,8 +139,10 @@ def _run_tool_assist(question: str, problem_type: str, recommended_solver: str):
     return None, None, ToolTrace(tool="none", purpose="tool assist", status="skipped", summary="fallback")
 
 class MathAgentPipeline:
-    def __init__(self, client: InternS1Client | None = None, prompt_config_path: str | Path = "configs/prompts.yaml", mock: bool = True, enable_tools: bool = False, max_refine_rounds: int = 1, save_trace: bool = True, trace_dir: str | Path = "outputs/traces", prompt_version: str = "default") -> None:
-        self.mock = mock; self.enable_tools = enable_tools; self.max_refine_rounds = max(0, max_refine_rounds); self.save_trace = save_trace; self.trace_dir = Path(trace_dir); self.prompt_version = prompt_version
+    def __init__(self, client: InternS1Client | None = None, prompt_config_path: str | Path = "configs/prompts.yaml", mock: bool = True, enable_tools: bool = False, max_refine_rounds: int = 1, save_trace: bool = True, trace_dir: str | Path = "outputs/traces", prompt_version: str = "default", run_mode: str = "full") -> None:
+        if run_mode not in {"full", "fast", "tool-first"}:
+            raise ValueError("run_mode must be one of: full, fast, tool-first")
+        self.mock = mock; self.enable_tools = enable_tools; self.max_refine_rounds = max(0, max_refine_rounds); self.save_trace = save_trace; self.trace_dir = Path(trace_dir); self.prompt_version = prompt_version; self.run_mode = run_mode
         self.client = client or InternS1Client(mock=mock)
         self.prompt_config_path = Path(prompt_config_path)
         self.router = router.Router(client=self.client, prompt_config_path=self.prompt_config_path)
@@ -149,25 +151,46 @@ class MathAgentPipeline:
         self.verifier_agent = verifier.Verifier(self.client, self.prompt_config_path, mock=self.mock)
 
     def solve(self, question: str, question_id: str | None = None) -> SolveResult:
-        qid = question_id or "unknown"; started_at = now_iso(); trace_payload = {"question_id": qid, "question": question, "started_at": started_at, "finished_at": None, "latency_seconds": 0.0, "prompt_version": self.prompt_version, "route_info": {}, "model_calls": [], "tool_calls": [], "verifier_result": {}, "final_result": {}, "errors": []}; traces = []
+        qid = question_id or "unknown"; started_at = now_iso(); trace_payload = {"question_id": qid, "question": question, "started_at": started_at, "finished_at": None, "latency_seconds": 0.0, "prompt_version": self.prompt_version, "run_mode": self.run_mode, "route_info": {}, "model_calls": [], "tool_calls": [], "verifier_result": {}, "final_result": {}, "errors": []}; traces = []
         try:
             route_info = self.router.route(question)
             route_dict = route_info.model_dump() if hasattr(route_info, "model_dump") else {"domain": getattr(route_info, "domain", "unknown"), "problem_type": getattr(route_info, "problem_type", "unknown"), "recommended_solver": getattr(route_info, "recommended_solver", ""), "reason": getattr(route_info, "reason", ""), "confidence": getattr(route_info, "confidence", 0.0)}
             trace_payload["route_info"] = route_dict
 
-            plan = self.planner_agent.plan(question, route_dict)
-            draft = self.solver_agent.solve(question, route_dict, plan)
-            trace_payload["model_calls"].append({"stage": "planner", "status": "ok", "model": getattr(self.client, "model", "intern-s1"), "prompt_chars": len(str(question)) + len(str(route_dict)), "response_chars": len(str(plan))})
-            trace_payload["model_calls"].append({"stage": "solver", "status": "ok", "model": getattr(self.client, "model", "intern-s1"), "prompt_chars": len(str(question)) + len(str(plan)), "response_chars": len(str(draft))})
+            tool_first_done = False
+            if self.run_mode == "tool-first" and self.enable_tools:
+                tv, tvf, ttrace = _run_tool_assist(question, route_dict.get("problem_type", ""), route_dict.get("recommended_solver", ""))
+                traces.append(ttrace); trace_payload["tool_calls"].append(ttrace.model_dump())
+                if tv is not None and tvf is not None and tvf.passed:
+                    plan = planner._fallback_plan(question, route_dict)
+                    draft = f"工具优先求得答案: \boxed{{{str(tv).strip()}}}"
+                    final = str(tv).strip()
+                    verification = tvf
+                    status = "success"
+                    current = draft
+                    tool_first_done = True
 
-            final = _extract_final_answer_non_proof(draft, draft, None)
-            status = "success"
-            if not final:
-                final = _mock_answer_from_question(question) if self.mock else ""
-                if not final: status = "partial"; final = ""
+            if not tool_first_done:
+                if self.run_mode == "fast":
+                    plan = planner._fallback_plan(question, route_dict)
+                else:
+                    plan = self.planner_agent.plan(question, route_dict)
+                    trace_payload["model_calls"].append({"stage": "planner", "status": "ok", "model": getattr(self.client, "model", "intern-s1"), "prompt_chars": len(str(question)) + len(str(route_dict)), "response_chars": len(str(plan))})
 
-            verification = self.verifier_agent.verify(question, draft, final, route_dict)
-            trace_payload["model_calls"].append({"stage": "verifier", "status": "ok", "model": getattr(self.client, "model", "intern-s1"), "prompt_chars": len(str(question)) + len(str(draft)), "response_chars": len(str(verification.notes))})
+                draft = self.solver_agent.solve(question, route_dict, plan)
+                trace_payload["model_calls"].append({"stage": "solver", "status": "ok", "model": getattr(self.client, "model", "intern-s1"), "prompt_chars": len(str(question)) + len(str(plan)), "response_chars": len(str(draft))})
+
+                final = _extract_final_answer_non_proof(draft, draft, None)
+                status = "success"
+                if not final:
+                    final = _mock_answer_from_question(question) if self.mock else ""
+                    if not final: status = "partial"; final = ""
+
+                if self.run_mode == "fast":
+                    verification = self.verifier_agent._tool_verify(draft, final) or Verification(method="self_review", passed=False, notes="fast mode: tool verifier fallback failed")
+                else:
+                    verification = self.verifier_agent.verify(question, draft, final, route_dict)
+                    trace_payload["model_calls"].append({"stage": "verifier", "status": "ok", "model": getattr(self.client, "model", "intern-s1"), "prompt_chars": len(str(question)) + len(str(draft)), "response_chars": len(str(verification.notes))})
 
             current = draft
             if self.enable_tools:
@@ -218,6 +241,6 @@ class MathAgentPipeline:
         return result
 
 
-def solve_question(question, mock: bool = True, model: str = "intern-s1", enable_tools: bool = False, save_trace: bool = True, trace_dir: str | Path = "outputs/traces"):
+def solve_question(question, mock: bool = True, model: str = "intern-s1", enable_tools: bool = False, save_trace: bool = True, trace_dir: str | Path = "outputs/traces", run_mode: str = "full"):
     _ = model
-    return MathAgentPipeline(mock=mock, enable_tools=enable_tools, save_trace=save_trace, trace_dir=trace_dir).solve(question.question, question.question_id)
+    return MathAgentPipeline(mock=mock, enable_tools=enable_tools, save_trace=save_trace, trace_dir=trace_dir, run_mode=run_mode).solve(question.question, question.question_id)

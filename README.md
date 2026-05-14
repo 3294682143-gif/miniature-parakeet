@@ -33,6 +33,7 @@ cp .env.example .env
 ```bash
 python -m math_agent.cli solve --question "1+1=?"
 python -m math_agent.cli solve --question "计算 2+3" --enable-tools
+python -m math_agent.cli solve --question "解方程 2x+5=13" --enable-tools --mode tool-first
 ```
 
 批量求解：
@@ -40,9 +41,19 @@ python -m math_agent.cli solve --question "计算 2+3" --enable-tools
 ```bash
 python -m math_agent.cli batch --input data/sample_questions.jsonl --output outputs/results.jsonl
 python -m math_agent.cli batch --input data/sample_questions.jsonl --output outputs/results.jsonl --enable-tools
+python -m math_agent.cli batch --input data/sample_questions.jsonl --output outputs/results_fast.jsonl --real --enable-tools --mode fast
 ```
 
 
+
+
+### 运行模式（--mode）
+
+- `full`（默认）：用于最终提交，保持完整链路（Planner + Solver + Verifier + Tools + Trace）。
+- `fast`：用于调试，跳过 Planner LLM，使用规则 fallback plan；仅调用 Solver；Verifier 优先本地工具校验，不做 LLM verifier。
+- `tool-first`：用于大量计算题快速 smoke，先跑 Python/SymPy；若工具求解成功且 verification passed，则直接返回结果，不调用 Intern-S1；否则回退模型流程。
+
+不传 `--mode` 时等价于 `--mode full`。
 
 ## 官方题集转换
 
