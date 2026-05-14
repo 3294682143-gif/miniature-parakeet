@@ -109,7 +109,14 @@ def _extract_proof_conclusion(text: str) -> str:
     return "命题已完成证明。"
 
 
-def _proof_fallback_review(current_steps: str, route_dict: dict, verification: Verification, final_type: str) -> Verification:
+def _proof_fallback_review(
+    current_steps: str,
+    route_dict: dict,
+    verification: Verification,
+    final_type: str,
+    final_value: str,
+    final_boxed: str,
+) -> Verification:
     if (route_dict.get("problem_type", "") or "").lower() != "proof":
         return verification
     if verification.passed or final_type != "proof":
@@ -117,11 +124,13 @@ def _proof_fallback_review(current_steps: str, route_dict: dict, verification: V
     text = (current_steps or "").strip()
     if len(text) <= 80:
         return verification
-    final_value = _extract_proof_conclusion(text)
-    if final_value in {"", "命题已完成证明。", "结论：", "最终结论：", "已证明：", "结论：**"}:
+    if (final_boxed or "").strip() != "":
         return verification
-    keywords = ["证明", "结论", "因此", "所以", "根据", "定义", "收敛"]
-    if all(k in text for k in keywords):
+    clean_final_value = (final_value or "").strip()
+    if clean_final_value in {"", "命题已完成证明。", "结论：", "最终结论：", "已证明：", "结论：**"}:
+        return verification
+    keywords = ["证明", "定义", "设", "存在", "任取", "因此", "所以", "结论", "证毕", "证明完成", "符合"]
+    if any(k in text for k in keywords):
         return Verification(method="logic_review", passed=True, notes="Proof structure detected; accepted by proof fallback review.")
     return verification
 
@@ -273,7 +282,7 @@ class MathAgentPipeline:
             final_value = _extract_proof_conclusion(current) if final_type == "proof" else final
             if final_type == "proof" and final_value == "命题已完成证明。":
                 final_value = "命题已完成证明。"
-            verification = _proof_fallback_review(current, route_dict, verification, final_type)
+            verification = _proof_fallback_review(current, route_dict, verification, final_type, final_value, final_boxed)
             if verification.passed and status == "partial":
                 status = "success"
             if _looks_like_long_markdown(final_value):

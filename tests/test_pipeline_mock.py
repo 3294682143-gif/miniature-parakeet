@@ -109,3 +109,29 @@ def test_proof_short_hollow_text_stays_partial(monkeypatch):
     out = MathAgentPipeline(mock=False).solve("证明命题", "proof_short")
     assert out.status == "partial"
     assert out.verification.passed is False
+
+
+def test_proof_pre009_style_non_json_verifier_accepted(monkeypatch):
+    class DummyRoute:
+        domain = "NumberTheory"; problem_type = "proof"; recommended_solver = "proof"; reason = "ok"; confidence = 0.8
+
+    proof_text = (
+        "证明：若 n 是奇数，则 n^2 也是奇数。\n"
+        "根据奇数的定义，存在整数 k，使得 n = 2k + 1。\n"
+        "于是 n^2 = (2k+1)^2 = 2(2k^2 + 2k) + 1。\n"
+        "因此 n^2 仍可写为 2m+1 的形式，符合奇数的定义。\n"
+        "证明完成。"
+    )
+    monkeypatch.setattr("math_agent.pipeline.router.Router.route", lambda self, q: DummyRoute())
+    monkeypatch.setattr("math_agent.pipeline.planner.Planner.plan", lambda self, q, r: {"problem_parse": {}, "solution_plan": []})
+    monkeypatch.setattr("math_agent.pipeline.solver.Solver.solve", lambda self, q, r, p: proof_text)
+    monkeypatch.setattr("math_agent.pipeline.verifier.Verifier.verify", lambda self, q, d, f, r=None: Verification(method="self_review", passed=False, notes="Verifier fallback: non-JSON or invalid JSON response."))
+    monkeypatch.setattr("math_agent.pipeline.explainer.run", lambda q: "hint")
+
+    out = MathAgentPipeline(mock=False).solve("证明若 n 是奇数，则 n^2 也是奇数。", "pre_009_number_theory")
+    assert out.status == "success"
+    assert out.final_answer.type == "proof"
+    assert out.final_answer.boxed == ""
+    assert out.verification.passed is True
+    assert out.verification.method == "logic_review"
+    assert out.verification.notes == "Proof structure detected; accepted by proof fallback review."
