@@ -9,6 +9,7 @@ from .clients.interns1_client import InternS1Client
 from .logging_utils import now_iso, write_trace
 from .schemas import FinalAnswer, ProblemParse, SolveResult, ToolTrace, Verification, make_failure_result
 from .tools import sympy_tools
+from .tools.answer_normalizer import extract_answer_by_patterns, extract_boxed_answer
 
 _ALLOWED_BINARY_OPS = {ast.Add: lambda a, b: a + b, ast.Sub: lambda a, b: a - b, ast.Mult: lambda a, b: a * b, ast.Div: lambda a, b: a / b, ast.Pow: lambda a, b: a**b}
 _ALLOWED_UNARY_OPS = {ast.UAdd: lambda a: a, ast.USub: lambda a: -a}
@@ -27,11 +28,32 @@ def _mock_answer_from_question(question: str) -> str | None:
     try: return str(_eval_safe_math_expr(question.replace("=", "").replace("?", "").replace("计算", "").strip()))
     except Exception: return None
 
-def extract_boxed_answer(text: str) -> str | None:
-    if not text: return None
-    boxed = re.search(r"\\boxed\{([^{}]+)\}", text)
-    if boxed: return boxed.group(1).strip()
-    return None
+def _is_short_clean_answer(text: str) -> bool:
+    value = (text or "").strip()
+    if not value:
+        return False
+    if len(value) > 120:
+        return False
+    if "###" in value:
+        return False
+    if value.count("\n") > 1:
+        return False
+    return True
+
+
+def _infer_answer_type(final_value: str) -> str:
+    v = (final_value or "").strip()
+    if not v:
+        return "text"
+    if re.fullmatch(r"[-+]?\d+(?:\.\d+)?", v):
+        return "number"
+    if re.fullmatch(r"[-+]?\d+\s*/\s*[-+]?\d+", v):
+        return "number"
+    if any(tok in v for tok in [r"\frac", r"\dfrac"]):
+        return "expression"
+    if any(op in v for op in ["+", "-", "*", "/", "=", "^"]):
+        return "expression"
+    return "text"
 
 def _is_proof_problem(problem_type: str, recommended_solver: str) -> bool:
     return (problem_type or "").lower() == "proof" or (recommended_solver or "").lower() == "proof"
@@ -63,11 +85,24 @@ def _answer_type_and_boxed(route_dict: dict, final_value: str, current_steps: st
         if not value.startswith("已证明") and "命题已完成证明" not in value:
             value = f"已证明：{value}"
         return "proof", ""
-    if ptype in {"number", "expression", "set"}:
-        return ptype, f"\\boxed{{{final_value}}}" if final_value else ""
-    if ptype in {"algorithm", "text"}:
-        return ptype, ""
-    return "text", f"\\boxed{{{final_value}}}" if final_value else ""
+    inferred_type = ptype if ptype in {"number", "expression", "set", "algorithm", "text"} else _infer_answer_type(final_value)
+    if inferred_type in {"number", "expression", "set"} and _is_short_clean_answer(final_value):
+        return inferred_type, f"\\boxed{{{final_value}}}"
+    if inferred_type in {"algorithm", "text"}:
+        return inferred_type, ""
+    return inferred_type, ""
+
+
+def _extract_final_answer_non_proof(draft: str, current: str, tv: str | None = None) -> str:
+    for candidate in [extract_boxed_answer(draft), extract_boxed_answer(current)]:
+        if candidate:
+            return candidate
+    for candidate in [extract_answer_by_patterns(draft), extract_answer_by_patterns(current)]:
+        if candidate and _is_short_clean_answer(candidate):
+            return candidate
+    if tv is not None and str(tv).strip():
+        return str(tv).strip()
+    return ""
 
 def _run_tool_assist(question: str, problem_type: str, recommended_solver: str):
     q = question.strip()
@@ -110,10 +145,10 @@ class MathAgentPipeline:
             trace_payload["model_calls"].append({"stage": "planner", "status": "ok", "model": getattr(self.client, "model", "intern-s1"), "prompt_chars": len(str(question)) + len(str(route_dict)), "response_chars": len(str(plan))})
             trace_payload["model_calls"].append({"stage": "solver", "status": "ok", "model": getattr(self.client, "model", "intern-s1"), "prompt_chars": len(str(question)) + len(str(plan)), "response_chars": len(str(draft))})
 
-            final = extract_boxed_answer(draft)
+            final = _extract_final_answer_non_proof(draft, draft, None)
             status = "success"
             if not final:
-                final = _mock_answer_from_question(question) if self.mock else draft.strip()[:200]
+                final = _mock_answer_from_question(question) if self.mock else ""
                 if not final: status = "partial"; final = ""
 
             verification = self.verifier_agent.verify(question, draft, final, route_dict)
@@ -124,14 +159,15 @@ class MathAgentPipeline:
                 tv, tvf, ttrace = _run_tool_assist(question, route_dict.get("problem_type", ""), route_dict.get("recommended_solver", ""))
                 traces.append(ttrace); trace_payload["tool_calls"].append(ttrace.model_dump())
                 if tv is not None and tvf is not None:
-                    final, verification, status = tv, tvf, "success"
+                    final, verification, status = str(tv).strip(), tvf, "success"
                     current = f"工具校验/计算得到最终答案为 \\boxed{{{final}}}。"
 
             rounds = 0
             while not verification.passed and rounds < self.max_refine_rounds:
                 rounds += 1
                 current = refiner.run(current)
-                final = extract_boxed_answer(current) or final
+                refined = _extract_final_answer_non_proof(draft, current, None)
+                final = refined or final
                 verification = self.verifier_agent.verify(question, current, final, route_dict)
 
             if not verification.passed and status == "success": status = "partial"

@@ -3,15 +3,77 @@ from __future__ import annotations
 import re
 
 
-_BOXED_RE = re.compile(r"\\boxed\{([^{}]+)\}")
+_ANSWER_PATTERNS = [
+    r"最终答案\s*[：:]\s*(.+)$",
+    r"最终结论\s*[：:]\s*(.+)$",
+    r"答案\s*[：:]\s*(.+)$",
+    r"answer\s*[:：]\s*(.+)$",
+    r"final_answer\.value\s*[=:：]\s*(.+)$",
+]
+
+
+def _extract_braced_content(text: str, open_idx: int) -> tuple[str, int] | None:
+    if open_idx < 0 or open_idx >= len(text) or text[open_idx] != "{":
+        return None
+    depth = 0
+    chars: list[str] = []
+    for idx in range(open_idx, len(text)):
+        ch = text[idx]
+        if ch == "{":
+            depth += 1
+            if depth > 1:
+                chars.append(ch)
+            continue
+        if ch == "}":
+            depth -= 1
+            if depth == 0:
+                return "".join(chars), idx
+            if depth < 0:
+                return None
+            chars.append(ch)
+            continue
+        if depth >= 1:
+            chars.append(ch)
+    return None
 
 
 def extract_boxed_answer(text: str) -> str | None:
     if not text:
         return None
-    matches = _BOXED_RE.findall(text)
+    needle = r"\boxed"
+    start = 0
+    matches: list[str] = []
+    while True:
+        pos = text.find(needle, start)
+        if pos < 0:
+            break
+        brace_pos = pos + len(needle)
+        while brace_pos < len(text) and text[brace_pos].isspace():
+            brace_pos += 1
+        if brace_pos < len(text) and text[brace_pos] == "{":
+            parsed = _extract_braced_content(text, brace_pos)
+            if parsed is not None:
+                content, end_pos = parsed
+                cleaned = content.strip().replace("\\\\", "\\")
+                if cleaned:
+                    matches.append(cleaned)
+                start = end_pos + 1
+                continue
+        start = pos + len(needle)
     if matches:
-        return matches[-1].strip()
+        return matches[-1]
+    return None
+
+
+def extract_answer_by_patterns(text: str) -> str | None:
+    if not text:
+        return None
+    for pattern in _ANSWER_PATTERNS:
+        matched = re.search(pattern, text, flags=re.I | re.M)
+        if matched:
+            candidate = matched.group(1).strip()
+            if candidate:
+                return candidate
     return None
 
 
@@ -44,18 +106,10 @@ def normalize_answer(text: str) -> str:
     if boxed is not None:
         candidate = boxed
     else:
-        patterns = [
-            r"最终答案\s*[：:]\s*(.+)$",
-            r"答案\s*[：:]\s*(.+)$",
-            r"answer\s*[:：]\s*(.+)$",
-            r"final_answer\.value\s*[=:：]\s*(.+)$",
-        ]
         candidate = text
-        for pattern in patterns:
-            matched = re.search(pattern, text, flags=re.I | re.M)
-            if matched:
-                candidate = matched.group(1).strip()
-                break
+        extracted = extract_answer_by_patterns(text)
+        if extracted is not None:
+            candidate = extracted
 
     candidate = strip_units(candidate)
     candidate = normalize_latex(candidate)
