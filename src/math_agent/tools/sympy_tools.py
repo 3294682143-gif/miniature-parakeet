@@ -1,6 +1,19 @@
 from __future__ import annotations
 
+import re
+
 from sympy import Eq, simplify, solve, sympify
+from sympy.parsing.sympy_parser import (
+    implicit_multiplication_application,
+    parse_expr,
+    standard_transformations,
+)
+
+_TRANSFORMS = standard_transformations + (implicit_multiplication_application,)
+
+
+def _parse_math_expr(expr: str):
+    return parse_expr(expr, transformations=_TRANSFORMS, evaluate=True)
 
 
 def simplify_expression(expr: str) -> str:
@@ -30,13 +43,15 @@ def numeric_compare(a: str, b: str, tol: float = 1e-6) -> bool:
 
 def solve_equation(equation: str, variable: str = "x") -> str:
     try:
-        symbol = sympify(variable)
+        symbol = _parse_math_expr(variable)
         if "=" in equation:
             left, right = equation.split("=", 1)
-            eq = Eq(sympify(left), sympify(right))
+            eq = Eq(_parse_math_expr(left), _parse_math_expr(right))
             result = solve(eq, symbol)
         else:
-            result = solve(sympify(equation), symbol)
-        return str(result)
+            result = solve(_parse_math_expr(equation), symbol)
+        if isinstance(result, list) and len(result) == 1:
+            return f"{variable.strip()}={result[0]}"
+        return re.sub(r"\s+", "", str(result))
     except Exception as exc:
         return f"ERROR: unable to solve equation ({exc})"

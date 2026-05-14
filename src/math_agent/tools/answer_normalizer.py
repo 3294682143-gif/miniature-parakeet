@@ -9,6 +9,9 @@ _ANSWER_PATTERNS = [
     r"答案\s*[：:]\s*(.+)$",
     r"answer\s*[:：]\s*(.+)$",
     r"final_answer\.value\s*[=:：]\s*(.+)$",
+    r"解为\s*(.+)$",
+    r"解得\s*(.+)$",
+    r"所以\s*(.+)$",
 ]
 
 
@@ -68,13 +71,25 @@ def extract_boxed_answer(text: str) -> str | None:
 def extract_answer_by_patterns(text: str) -> str | None:
     if not text:
         return None
+    cleaned_text = text.replace("**", "")
     for pattern in _ANSWER_PATTERNS:
-        matched = re.search(pattern, text, flags=re.I | re.M)
+        matched = re.search(pattern, cleaned_text, flags=re.I | re.M)
         if matched:
-            candidate = matched.group(1).strip()
+            candidate = _clean_extracted_answer(matched.group(1))
             if candidate:
                 return candidate
     return None
+
+
+def _clean_extracted_answer(raw: str) -> str:
+    candidate = (raw or "").strip()
+    candidate = candidate.replace("**", "").strip()
+    if "。" in candidate:
+        candidate = candidate.split("。", 1)[0].strip()
+    candidate = re.sub(r"^\$+\s*(.*?)\s*\$+$", r"\1", candidate)
+    candidate = candidate.strip("` ").strip()
+    candidate = re.sub(r"\s+", " ", candidate)
+    return candidate
 
 
 def strip_units(text: str) -> str:

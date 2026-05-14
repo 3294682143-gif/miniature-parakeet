@@ -1,4 +1,5 @@
 from math_agent.tools.answer_normalizer import (
+    extract_answer_by_patterns,
     extract_boxed_answer,
     normalize_answer,
     normalize_latex,
@@ -25,6 +26,11 @@ def test_extract_final_answer_cn() -> None:
 
 def test_extract_answer_en() -> None:
     assert normalize_answer("Answer: 12") == "12"
+
+
+def test_extract_answer_patterns_equation_markdown() -> None:
+    out = extract_answer_by_patterns("**答案**：$x = 4$")
+    assert out in {"x = 4", "x=4"}
 
 
 def test_normalize_latex_basic() -> None:
