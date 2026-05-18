@@ -1,44 +1,50 @@
-# interns1-math-agent Agent Notes
+# EvoExternMath-S1++ Codex 开发规范
 
-## 1) 项目目标
-基于 Intern-S1 API 实现数学智能体，支持以下能力：
-- 题目理解
-- 解题规划
-- 工具增强（允许本地 Python / SymPy，可审计）
-- 过程校验
-- 教学解释
-- JSON 输出
-- 批量评测
-- Demo 展示
+## 0) 背景与范围
+- 当前仓库已完成 Step 0 只读审计，并已具备 stable pipeline。
+- 本规范用于后续 Codex 协作开发与提交流程约束。
+- 默认运行模式保持 **mock**；不得默认真实调用外部 API。
 
-## 2) 比赛约束
-- 不训练底座模型。
-- 核心模型调用 Intern-S1 API。
-- 不允许人工逐题干预。
-- 不允许伪造日志。
-- 不允许赛后补填结果。
-- 不允许使用未经允许的外部闭源服务代答。
-- 允许本地 Python / SymPy 作为可审计工具。
-- 所有输出必须是合法 JSON。
-- 单题失败不能导致批量任务中断。
+## 1) Stable Pipeline 不动
+- Stable Pipeline 视为冻结基线，不做重构、不改流程编排。
+- 不修改既有 CLI 行为（参数、默认值、输出契约保持兼容）。
+- 如需增强，必须以可插拔方式实现，不破坏主路径。
 
-## 3) 工程原则
-- Default runtime mode is **mock**. Do not call any external API by default.
-- 每个功能必须有最小测试。
-- 测试不能真实调用 API。
-- Never hardcode or commit secrets/API keys。
-- API key 不能出现在代码、测试、README、日志中。
-- 所有模型调用必须经过 `src/math_agent/clients/interns1_client.py`。
-- 所有 prompt 统一放 `configs/prompts.yaml`。
-- 所有输出必须经过 Pydantic schema 校验（包含 `MathResult`）。
-- 每道题必须保存 trace。
-- mock 模式必须全流程可用。
-- On failures, return schema-compliant JSON with `success=false` and populated `error`.
+## 2) PR 与任务管理
+- 严格执行 **一个任务一个 PR**。
+- 每个 PR 必须可独立审阅、独立回滚、独立验证。
+- 避免在单个 PR 中混入无关改动。
 
-## 4) 每次完成任务后的回复格式
-每次完成任务后，回复中必须包含：
-- 修改了哪些文件
-- 如何运行
-- 测试结果
-- 未完成事项
-- 风险提示
+## 3) 测试门禁
+- **每个 PR 必须运行 `pytest -q` 并通过**。
+- 测试不得真实调用 API。
+- 新增能力至少包含最小可复现测试或断言。
+
+## 4) 安全与产物提交边界
+- 严禁提交：`.env`、任何 API key/secret。
+- 严禁提交：`outputs/`、`trace/`、`official_results.jsonl`。
+- 不得在代码、测试、README、日志中泄露密钥信息。
+
+## 5) 结果文件与审计纪律
+- **禁止人工修改 `official_results.jsonl`**。
+- 禁止伪造 trace、日志或评测记录。
+- 禁止赛后补填或篡改结果。
+
+## 6) 增强策略与优先级
+- 所有增强必须具备明确回退方案（开关、配置或可逆补丁）。
+- **Voting 默认关闭**；未经评审不得默认开启。
+- **MemoryHub 默认不写入**；仅在明确批准后开启写入。
+- **MultiAgent 暂时不做**，避免引入额外不确定性。
+- 研发优先级：**Formatter Repair / Proof Guardian 高于花活增强**。
+
+## 7) 模型与提示词约束
+- 所有模型调用统一走 `src/math_agent/clients/interns1_client.py`。
+- 所有 prompt 统一维护在 `configs/prompts.yaml`。
+- 输出必须经过 schema 校验，失败时返回 `success=false` 且补全 `error` 字段。
+
+## 8) 任务完成时的标准汇报
+每次任务结束必须明确给出：
+1. 修改文件清单；
+2. 测试结果（含 `pytest -q`）；
+3. 风险点；
+4. 回退方式。
