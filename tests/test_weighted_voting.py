@@ -4,6 +4,7 @@ import sys
 
 from math_agent.harness.weighted_voting import (
     build_cluster_summary,
+    make_candidate_from_solve_result,
     normalize_candidate_answer,
     select_best_candidate,
 )
@@ -86,6 +87,25 @@ def test_result_json_dumps_and_summary_jsonable():
     summary = build_cluster_summary(cands)
     json.dumps(summary, ensure_ascii=False)
     json.dumps(select_best_candidate(cands).model_dump(), ensure_ascii=False)
+
+
+def test_make_candidate_from_solve_result_reads_boxed():
+    result = {
+        "question_id": "q1",
+        "domain": "algebra",
+        "problem_type": "equation",
+        "problem_parse": {"goal": "x+1=2", "givens": [], "symbols": ["x"]},
+        "solution_plan": ["isolate x"],
+        "visible_solution_steps": ["x=1"],
+        "tool_trace": [{"tool": "none", "purpose": "n/a", "status": "skipped", "summary": "n/a"}],
+        "final_answer": {"type": "number", "value": "1", "boxed": "\\boxed{1}"},
+        "verification": {"method": "numeric_check", "passed": True, "notes": "ok"},
+        "didactic_hint": "hint",
+        "confidence": 0.8,
+        "status": "success",
+    }
+    candidate = make_candidate_from_solve_result(result, candidate_id="cand1", source="mock")
+    assert candidate.final_answer_boxed == "\\boxed{1}"
 
 
 def test_cli_mock_solve_and_batch_still_work(tmp_path):
