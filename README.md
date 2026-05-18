@@ -279,13 +279,20 @@ streamlit run demo/streamlit_app.py
 
 Demo 可展示：
 
-- 题型识别
-- 解题计划
-- 可见推理步骤
-- 工具调用
-- 校验结果
-- 最终 JSON
-- trace 路径
+- Stable Intern-S1 Solver Core / Formatter Repair / Proof Guardian
+- Skill Library（只读）
+- MemoryHub Summary（只读，不写 memory）
+- Budget Scheduler Preview（只读展示，不接入主流程）
+- Weighted Voting standalone 说明与 mock 示例（默认不接入主流程）
+- Trace Replay（只读工具）
+- 最终 JSON 与时间线
+
+说明：
+
+- mock 模式无需 API key（无 .env 也可运行）。
+- real 模式需要本地 .env 配置可用。
+- Demo 中 budget / voting 默认仅用于展示，不改变正式 pipeline。
+- Trace Replay 只读，不会改写 trace 文件。
 
 ## 15) 项目结构
 

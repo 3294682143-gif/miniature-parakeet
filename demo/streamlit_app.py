@@ -4,108 +4,115 @@ from pathlib import Path
 
 import streamlit as st
 
+from math_agent.harness.demo_adapter import (
+    build_demo_budget_preview,
+    build_demo_timeline,
+    build_mock_voting_demo,
+    load_demo_memory_summary,
+    load_demo_skill_summary,
+    result_to_display_dict,
+    safe_get_risk_flags,
+    safe_get_tool_calls,
+)
+from math_agent.harness.replay import build_timeline, render_replay_markdown, summarize_trace
+from math_agent.harness.trace_reader import read_trace
 from math_agent.pipeline import MathAgentPipeline
 
-EXAMPLE_QUESTIONS: dict[str, str] = {
-    "计算 2+3": "计算 2+3",
-    "化简 sin(x)^2 + cos(x)^2": "化简 sin(x)^2 + cos(x)^2",
-    "证明型示例": "证明：前n个正整数之和为 n(n+1)/2",
-    "优化型示例": "求函数 f(x)=x^2-4x+5 的最小值",
-}
 
-
-def run_demo_pipeline(
-    question: str,
-    *,
-    question_id: str,
-    mock: bool,
-    enable_tools: bool,
-    save_trace: bool,
-    trace_dir: str,
-    max_refine_rounds: int,
-):
-    pipeline = MathAgentPipeline(
-        mock=mock,
-        enable_tools=enable_tools,
-        save_trace=save_trace,
-        trace_dir=trace_dir,
-        max_refine_rounds=max_refine_rounds,
-    )
+def run_demo_pipeline(question: str, *, question_id: str, mock: bool, enable_tools: bool, trace_dir: str, max_refine_rounds: int, mode: str):
+    pipeline = MathAgentPipeline(mock=mock, enable_tools=enable_tools, save_trace=True, trace_dir=trace_dir, max_refine_rounds=max_refine_rounds, run_mode=mode)
     route_info = pipeline.router.route(question)
     result = pipeline.solve(question=question, question_id=question_id)
-    trace_path = Path(trace_dir) / f"{question_id}.json" if save_trace else None
+    trace_path = Path(trace_dir) / f"{question_id}.json"
     return result, trace_path, route_info
 
 
 def main() -> None:
-    st.set_page_config(page_title="Intern-S1 数学智能体 Demo", layout="wide")
-    st.title("Intern-S1 数学智能体 Demo")
+    st.set_page_config(page_title="EvoExternMath-S1++ 数学智能体 Demo", layout="wide")
+    st.title("EvoExternMath-S1++ 数学智能体 Demo")
 
     with st.sidebar:
-        st.header("运行设置")
-        mock_mode = st.toggle("mock 模式", value=True)
+        run_mode = st.selectbox("run mode", ["mock", "real"], index=0)
         enable_tools = st.toggle("enable_tools", value=False)
-        save_trace = st.toggle("save_trace", value=True)
+        mode = st.selectbox("mode", ["full", "fast", "tool-first"], index=0)
+        max_refine_rounds = int(st.number_input("max_refine_rounds", min_value=0, value=1, step=1))
         trace_dir = st.text_input("trace_dir", value="outputs/traces")
-        max_refine_rounds = st.number_input("max_refine_rounds", min_value=0, value=1, step=1)
-        question_id = st.text_input("question_id", value="demo_q1")
+        show_raw_json = st.toggle("show raw json", value=False)
+        replay_existing_trace = st.toggle("replay existing trace", value=False)
+        st.caption("read-only skill viewer")
+        st.caption("read-only memory summary")
+        st.caption("read-only budget preview")
 
-    st.subheader("题目输入")
-    selected_example = st.selectbox("示例题", options=list(EXAMPLE_QUESTIONS.keys()), index=0)
-    if st.button("填充示例题"):
-        st.session_state["question_input"] = EXAMPLE_QUESTIONS[selected_example]
+    st.header("A. Input Panel")
+    question_id = st.text_input("question_id", value="demo_q1")
+    question = st.text_area("question", value="计算 2+3", height=120)
 
-    question = st.text_area("请输入数学题目", key="question_input", height=120)
-
+    result = None
+    route_info = None
+    trace_path = None
     if st.button("开始求解", type="primary"):
-        if not question.strip():
-            st.warning("请先输入题目。")
-            return
+        result, trace_path, route_info = run_demo_pipeline(
+            question,
+            question_id=question_id.strip() or "demo_q1",
+            mock=(run_mode == "mock"),
+            enable_tools=enable_tools,
+            trace_dir=trace_dir.strip() or "outputs/traces",
+            max_refine_rounds=max_refine_rounds,
+            mode=mode,
+        )
 
-        with st.spinner("正在求解..."):
-            result, trace_path, route_info = run_demo_pipeline(
-                question,
-                question_id=question_id.strip() or "demo_q1",
-                mock=mock_mode,
-                enable_tools=enable_tools,
-                save_trace=save_trace,
-                trace_dir=trace_dir.strip() or "outputs/traces",
-                max_refine_rounds=int(max_refine_rounds),
-            )
+    if result is not None:
+        display = result_to_display_dict(result)
+        st.header("B. Result Panel")
+        st.write("final_answer:", display["final_answer"])
+        st.write("status:", display["status"])
+        st.write("confidence:", display["confidence"])
+        st.write("verification:", f"{display['verification_method']} / passed={display['verification_passed']}")
+        st.write("risk flags:", safe_get_risk_flags(result) or [])
 
-        st.success("求解完成")
-        st.subheader("路由结果")
-        c1, c2, c3 = st.columns(3)
-        c1.metric("domain", result.domain)
-        c2.metric("problem_type", result.problem_type)
-        c3.metric("recommended_solver", route_info.recommended_solver)
+        st.header("C. Agent Timeline")
+        for row in build_demo_timeline(result):
+            st.write(f"{row['stage']} → {row['status']} ({row['detail']})")
 
-        st.subheader("problem_parse")
-        st.json(result.problem_parse.model_dump(), expanded=True)
+        st.header("D. Tool Calls")
+        tool_calls = safe_get_tool_calls(result)
+        if not tool_calls:
+            st.info("No tool calls recorded")
+        else:
+            st.json(tool_calls, expanded=False)
 
-        st.subheader("solution_plan")
-        st.write(result.solution_plan)
+        st.header("E. Skill Library Viewer")
+        skill_summary = load_demo_skill_summary(question, route_info)
+        st.write("list_skills:", skill_summary.get("skills", []))
+        st.write("select_skill:", skill_summary.get("selected_skill"))
+        st.json(skill_summary.get("selected_skill_meta") or {}, expanded=False)
 
-        st.subheader("visible_solution_steps")
-        st.write(result.visible_solution_steps)
+        st.header("F. Memory Summary")
+        memory_summary = load_demo_memory_summary()
+        st.json(memory_summary.get("summary", {}), expanded=False)
 
-        st.subheader("tool_trace")
-        st.json([t.model_dump() for t in result.tool_trace], expanded=False)
+        st.header("G. Budget Preview")
+        st.json(build_demo_budget_preview(question, route_info=route_info, mode=mode), expanded=False)
 
-        st.subheader("verification")
-        st.json(result.verification.model_dump(), expanded=True)
+        st.header("H. Weighted Voting Explainer")
+        st.markdown("- verifier-gated，不是裸 majority vote\n- 默认不接入主流程\n- 后续可用于 candidate solver")
+        st.json(build_mock_voting_demo(), expanded=False)
 
-        st.subheader("final_answer")
-        st.json(result.final_answer.model_dump(), expanded=True)
+        st.header("I. Trace Replay Panel")
+        replay_path = st.text_input("trace file path", value=str(trace_path) if trace_path else "")
+        if replay_existing_trace and replay_path.strip():
+            trace_read = read_trace(replay_path.strip())
+            if not trace_read.get("ok"):
+                st.warning(str(trace_read.get("error")))
+            else:
+                trace = trace_read.get("trace") or {}
+                st.write(build_timeline(trace))
+                st.write(summarize_trace(trace))
+                st.markdown(render_replay_markdown(trace))
 
-        st.subheader("didactic_hint")
-        st.write(result.didactic_hint)
-
-        st.subheader("原始 SolveResult JSON")
-        st.json(result.model_dump(), expanded=False)
-
-        if save_trace and trace_path is not None:
-            st.info(f"trace 文件路径: {trace_path}")
+        if show_raw_json:
+            st.header("J. Raw JSON")
+            st.json(result.model_dump(), expanded=False)
 
 
 if __name__ == "__main__":

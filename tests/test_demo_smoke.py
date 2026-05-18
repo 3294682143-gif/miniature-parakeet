@@ -23,12 +23,12 @@ def test_run_demo_pipeline_mock_mode() -> None:
         question_id="demo_test_q",
         mock=True,
         enable_tools=True,
-        save_trace=False,
         trace_dir="outputs/traces",
         max_refine_rounds=1,
+        mode="full",
     )
 
     assert result.question_id == "demo_test_q"
     assert result.status in {"success", "partial", "fail"}
     assert route_info.recommended_solver
-    assert trace_path is None
+    assert str(trace_path).endswith("demo_test_q.json")
