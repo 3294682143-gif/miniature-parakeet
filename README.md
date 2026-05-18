@@ -80,6 +80,15 @@ Input Question
 
 > 不传 `--mode` 等价于 `--mode full`。
 
+
+## 文档索引（Final Report）
+
+- 最终技术报告骨架：`docs/final_report.md`
+- 总体架构文档：`docs/architecture.md`
+- 外化设计文档：`docs/externalization_design.md`
+- Trace Replay 指南：`docs/replay.md`
+- 提交检查清单：`docs/submission_checklist.md`
+
 ## 6) 安装方式
 
 ```bash
