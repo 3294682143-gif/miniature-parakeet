@@ -1,0 +1,52 @@
+easy:
+  max_candidates: 1
+  max_refine_rounds: 0
+  tool_first: true
+  max_model_calls: 1
+  timeout_seconds: 30
+
+standard:
+  max_candidates: 2
+  max_refine_rounds: 1
+  tool_first: true
+  max_model_calls: 3
+  timeout_seconds: 60
+
+hard:
+  max_candidates: 5
+  max_refine_rounds: 2
+  tool_first: true
+  max_model_calls: 7
+  timeout_seconds: 120
+
+domain_overrides:
+  calculation:
+    max_candidates: 1
+    tool_first: true
+  equation:
+    max_candidates: 1
+    tool_first: true
+  matrix:
+    max_candidates: 1
+    tool_first: true
+  probability:
+    max_candidates: 2
+    tool_first: true
+  proof:
+    max_candidates: 2
+    max_refine_rounds: 1
+    tool_first: false
+  topology:
+    max_candidates: 2
+    max_refine_rounds: 1
+    tool_first: false
+  real_analysis:
+    max_candidates: 2
+    max_refine_rounds: 1
+    tool_first: false
+  optimization:
+    max_candidates: 3
+    tool_first: true
+  unknown:
+    max_candidates: 2
+    tool_first: true
