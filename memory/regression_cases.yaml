@@ -1,0 +1,13 @@
+cases:
+  - case_id: demo-arith-001
+    category: arithmetic
+    question: "计算 2+3"
+    expected_behavior: "返回可解析最终答案，且 final_answer 不为空。"
+    expected_final_type: number
+    notes: "自造示例；非官方题集。"
+  - case_id: demo-proof-001
+    category: proof
+    question: "证明 A∩B 是 A 的子集。"
+    expected_behavior: "输出 proof 类型并给出简洁结论。"
+    expected_final_type: proof
+    notes: "结构样例，仅用于回归框架。"

@@ -1,0 +1,80 @@
+{
+  "bad_json": {
+    "description": "Model output is not parseable JSON.",
+    "likely_causes": ["model format drift", "prompt leakage", "tool postprocess bug"],
+    "suggested_fix": "Run formatter repair and strengthen JSON schema prompts.",
+    "risk_level": "high"
+  },
+  "missing_final": {
+    "description": "No usable final answer is returned.",
+    "likely_causes": ["solver stopped early", "proof text polluted final field"],
+    "suggested_fix": "Backfill from extracted candidate and enforce final-answer guardrails.",
+    "risk_level": "high"
+  },
+  "dirty_boxed": {
+    "description": "Boxed field contains long markdown or non-answer text.",
+    "likely_causes": ["full reasoning copied into boxed", "formatting contamination"],
+    "suggested_fix": "Sanitize boxed field and keep only concise answer atoms.",
+    "risk_level": "medium"
+  },
+  "boxed_42_fallback": {
+    "description": "Fallback answer 42 appeared in boxed or value field.",
+    "likely_causes": ["generic fallback path", "unexpected parser failure"],
+    "suggested_fix": "Inspect route/tool traces and remove unconditional fallback logic.",
+    "risk_level": "high"
+  },
+  "proof_partial": {
+    "description": "Proof-style task produced only partial conclusion.",
+    "likely_causes": ["insufficient proof steps", "verification uncertainty"],
+    "suggested_fix": "Invoke proof guardian constraints and tighten proof completion checks.",
+    "risk_level": "medium"
+  },
+  "verifier_failed": {
+    "description": "Verifier marked output as failed.",
+    "likely_causes": ["answer mismatch", "invalid derivation", "checker prompt mismatch"],
+    "suggested_fix": "Capture failure reason and add a regression case for replay.",
+    "risk_level": "high"
+  },
+  "tool_failed": {
+    "description": "Auxiliary tool execution failed.",
+    "likely_causes": ["tool bug", "bad inputs", "timeout"],
+    "suggested_fix": "Record tool trace summary and add targeted fallback path.",
+    "risk_level": "medium"
+  },
+  "timeout_or_exception": {
+    "description": "Solve pass timed out or raised an exception.",
+    "likely_causes": ["long chain-of-thought", "runtime instability"],
+    "suggested_fix": "Use bounded retries and isolate failing stage.",
+    "risk_level": "high"
+  },
+  "zero_model_calls": {
+    "description": "No model call happened for a solve run.",
+    "likely_causes": ["early return", "routing short circuit"],
+    "suggested_fix": "Audit route entry and ensure solver invocation preconditions.",
+    "risk_level": "high"
+  },
+  "trace_missing": {
+    "description": "Expected trace data is absent.",
+    "likely_causes": ["trace write disabled", "trace path issue"],
+    "suggested_fix": "Confirm explicit trace settings and avoid relying on implicit writes.",
+    "risk_level": "low"
+  },
+  "low_confidence": {
+    "description": "Result confidence is below acceptable threshold.",
+    "likely_causes": ["weak evidence", "ambiguous route"],
+    "suggested_fix": "Trigger verifier or refinement when confidence gate fails.",
+    "risk_level": "medium"
+  },
+  "route_error": {
+    "description": "Router selected unsuitable domain/problem type.",
+    "likely_causes": ["classification prompt drift", "missing route hints"],
+    "suggested_fix": "Track route stats and improve route prompt constraints.",
+    "risk_level": "medium"
+  },
+  "schema_repaired": {
+    "description": "Output required schema repair before use.",
+    "likely_causes": ["incomplete model object", "field mismatch"],
+    "suggested_fix": "Strengthen schema-aware prompting and monitor repair frequency.",
+    "risk_level": "medium"
+  }
+}
