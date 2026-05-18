@@ -89,6 +89,12 @@ pip install -e ".[dev]"
 pytest -q
 ```
 
+安全检查：
+
+```bash
+python scripts/check_project_safety.py
+```
+
 ## 7) 环境变量与安全
 
 ```bash
