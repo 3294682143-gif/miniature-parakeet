@@ -169,7 +169,9 @@ class ProtocolVerifierResult(BaseModel):
 class CandidateAnswer(BaseModel):
     candidate_id: str
     source: str
+    answer_type: str = "text"
     final_answer_value: str = ""
+    final_answer_boxed: str = ""
     final_answer_type: str = "text"
     normalized_answer: str = ""
     verifier_score: float = Field(default=0.0, ge=0.0, le=1.0)

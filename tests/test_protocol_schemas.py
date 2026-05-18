@@ -79,6 +79,9 @@ def test_protocol_verifier_result_invalid_method():
 def test_candidate_answer_valid_and_bounds():
     item = CandidateAnswer(candidate_id="c1", source="solver", verifier_score=0.5, confidence=0.2, risk_score=0.1)
     assert item.candidate_id == "c1"
+    assert item.final_answer_boxed == ""
+    item2 = CandidateAnswer(candidate_id="c3", source="solver", final_answer_boxed="\\boxed{7}")
+    assert item2.final_answer_boxed == "\\boxed{7}"
     with pytest.raises(Exception):
         CandidateAnswer(candidate_id="c2", source="solver", verifier_score=1.5)
 
