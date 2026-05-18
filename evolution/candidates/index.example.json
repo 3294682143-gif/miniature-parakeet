@@ -1,0 +1,18 @@
+{
+  "best_candidate": null,
+  "candidates": [
+    {
+      "id": "v0_baseline",
+      "description": "Stable pipeline baseline",
+      "status": "baseline",
+      "metrics": {
+        "json_valid_rate": 1.0,
+        "trace_completeness": 1.0,
+        "missing_final": 0,
+        "dirty_boxed": 0,
+        "regression_failures": 0
+      },
+      "risk": "low"
+    }
+  ]
+}

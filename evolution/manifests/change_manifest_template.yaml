@@ -1,0 +1,28 @@
+change_id: ""
+created_at: ""
+target_component: ""
+change_type: ""
+paper_basis: ""
+evidence:
+  - ""
+root_cause: ""
+proposed_change: ""
+expected_fix: ""
+expected_risk: ""
+files_to_change:
+  - ""
+validation_plan:
+  - "pytest -q"
+  - "shadow eval"
+rollback_plan: ""
+promotion_conditions:
+  - "pytest -q passes"
+  - "json_valid_rate non-decreasing"
+  - "missing_final = 0"
+  - "dirty_boxed = 0"
+  - "trace_count = question_count"
+  - "regression_failures = 0"
+  - "no API key leakage"
+  - "rollback available"
+decision: "pending"
+notes: ""
