@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 from math_agent.schemas import FinalAnswer, ProblemParse, SolveResult, ToolTrace, Verification
+from math_agent.agents.proof_guardian import proof_final_answer_policy
 from math_agent.tools.answer_normalizer import extract_answer_by_patterns, extract_boxed_answer
 
 _MAX_FINAL_LEN = 160
@@ -119,7 +120,8 @@ def proof_safe_finalize(result: dict | SolveResult) -> SolveResult:
     status = model.status
     if status == "fail" and value:
         status = "partial"
-    return model.model_copy(update={"final_answer": model.final_answer.model_copy(update={"value": value, "boxed": sanitized if sanitized and len(sanitized) < 80 else ""}), "status": status})
+    model = model.model_copy(update={"final_answer": model.final_answer.model_copy(update={"value": value, "boxed": sanitized if sanitized and len(sanitized) < 80 else ""}), "status": status})
+    return proof_final_answer_policy(model)
 
 
 def repair_solve_result(result: dict | SolveResult) -> SolveResult:
