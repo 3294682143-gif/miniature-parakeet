@@ -7,6 +7,7 @@ from pathlib import Path
 from .agents import explainer, planner, refiner, router, solver, verifier
 from .clients.interns1_client import InternS1Client
 from .logging_utils import now_iso, write_trace
+from .harness.formatter_repair import detect_dirty_final_answer, repair_solve_result
 from .schemas import FinalAnswer, ProblemParse, SolveResult, ToolTrace, Verification, make_failure_result
 from .tools import sympy_tools
 from .tools.answer_normalizer import extract_answer_by_patterns, extract_boxed_answer
@@ -290,6 +291,15 @@ class MathAgentPipeline:
             if len(final_boxed) > 120 or "###" in final_boxed or final_boxed.count("\n") > 1:
                 final_boxed = ""
             result = SolveResult(question_id=qid, domain=route_dict.get("domain", "unknown"), problem_type=route_dict.get("problem_type", "unknown"), problem_parse=problem_parse, solution_plan=plan_steps, visible_solution_steps=[current], tool_trace=traces, final_answer=FinalAnswer(type=final_type, value=final_value, boxed=final_boxed), verification=verification, didactic_hint=explainer.run(question), confidence=max(0.0, min(1.0, route_dict.get("confidence", 0.5) or 0.5)), status=status, error=None)
+            pre_flags = detect_dirty_final_answer(result)
+            repaired = repair_solve_result(result)
+            post_flags = detect_dirty_final_answer(repaired)
+            risk_flags = sorted(set(pre_flags + post_flags))
+            changed = repaired.model_dump() != result.model_dump()
+            if changed and risk_flags and repaired.final_answer.type != "proof":
+                repaired = repaired.model_copy(update={"verification": repaired.verification.model_copy(update={"notes": f"{repaired.verification.notes} | formatter_risk_flags={risk_flags}"})})
+                trace_payload.setdefault("verification_issues", []).extend(risk_flags)
+            result = repaired
             trace_payload["model_calls_count"] = len(trace_payload["model_calls"])
         except Exception as exc:
             trace_payload["errors"].append(str(exc)); result = make_failure_result(question_id=qid, question=question, error_message=str(exc))

@@ -7,6 +7,7 @@ _ANSWER_PATTERNS = [
     r"最终答案\s*[：:]\s*(.+)$",
     r"最终结论\s*[：:]\s*(.+)$",
     r"答案\s*[：:]\s*(.+)$",
+    r"\*\*答案\*\*\s*[：:]\s*(.+)$",
     r"answer\s*[:：]\s*(.+)$",
     r"final_answer\.value\s*[=:：]\s*(.+)$",
     r"解为\s*(.+)$",
@@ -89,6 +90,8 @@ def _clean_extracted_answer(raw: str) -> str:
     candidate = re.sub(r"^\$+\s*(.*?)\s*\$+$", r"\1", candidate)
     candidate = candidate.strip("` ").strip()
     candidate = re.sub(r"\s+", " ", candidate)
+    if len(candidate) > 160 or "```" in candidate or "###" in candidate:
+        return ""
     return candidate
 
 
