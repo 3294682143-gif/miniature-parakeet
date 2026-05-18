@@ -327,3 +327,27 @@ outputs/   # 运行产物，不提交
 ---
 
 如需快速开始，建议先运行 mock 单题与 mock batch 验证流程，再在已配置 `.env` 的前提下通过 `--real` 做小规模 smoke，最后等待官方 112 题集发布后执行正式批量评测。
+
+
+
+## 19) Frozen Submission 打包
+
+```bash
+python scripts/export_submission.py \
+  --results outputs/official_results.jsonl \
+  --traces outputs/traces_official_112 \
+  --report outputs/official_evaluation_report.md \
+  --run-record outputs/run_records/<RUN_ID> \
+  --out submission
+```
+
+产物：
+
+- `submission/`（结构化提交目录）
+- `submission.zip`（压缩包）
+
+安全特性：
+
+- 打包前执行敏感内容扫描，发现高风险内容直接失败
+- 自动排除 `.env` / `.env.*` / `.git` / `__pycache__` / `.pytest_cache` 等
+- `report` 或 `run-record` 缺失仅 warning，不阻断打包；`results` 与 `traces` 缺失会直接失败
