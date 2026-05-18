@@ -53,6 +53,30 @@ class SolveResult(BaseModel):
     error: str | None = None
 
 
+class CandidateAnswer(BaseModel):
+    candidate_id: str
+    source: str
+    answer_type: Literal["number", "expression", "set", "proof", "algorithm", "text"] = "text"
+    final_answer_value: str = ""
+    final_answer_boxed: str = ""
+    normalized_answer: str = ""
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    verifier_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    risk_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    risk_flags: list[str] = Field(default_factory=list)
+    verification_method: str = "none"
+    verification_passed: bool = False
+
+
+class WeightedVoteResult(BaseModel):
+    selected_candidate_id: str | None
+    selected_answer: str
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    need_more_verification: bool = True
+    issues: list[str] = Field(default_factory=list)
+    cluster_summary: list[dict] = Field(default_factory=list)
+
+
 # compatibility alias for older imports
 MathResult = SolveResult
 
