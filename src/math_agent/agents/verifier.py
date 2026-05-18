@@ -6,6 +6,7 @@ from typing import Any
 
 from math_agent.prompting import get_prompt, load_prompts, render_prompt
 from math_agent.schemas import Verification
+from math_agent.agents.proof_guardian import check_proof_structure, detect_proof_problem
 from math_agent.tools.answer_normalizer import normalize_answer
 from math_agent.tools.sympy_tools import check_equivalent, numeric_compare
 
@@ -28,6 +29,11 @@ class Verifier:
         return None
 
     def verify(self, question: str, draft_solution: str, final_answer: str, route_info: dict | None = None) -> Verification:
+        if detect_proof_problem(question, route_info):
+            try:
+                return check_proof_structure(question, draft_solution)
+            except Exception:
+                pass
         if self.mock:
             return Verification(method="self_review", passed=True, notes="Mock verification passed.")
         try:
