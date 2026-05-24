@@ -40,8 +40,18 @@ def test_normalize_and_exact_match_basics():
 
 def test_rates_and_failure_taxonomy():
     rows = [
-        {"json_valid": True, "final_answer_exists": False, "dirty_boxed": False, "boxed_42_fallback": True},
-        {"json_valid": False, "final_answer_exists": True, "dirty_boxed": True, "boxed_42_fallback": False},
+        {
+            "json_valid": True,
+            "final_answer_exists": False,
+            "dirty_boxed": False,
+            "boxed_42_fallback": True,
+        },
+        {
+            "json_valid": False,
+            "final_answer_exists": True,
+            "dirty_boxed": True,
+            "boxed_42_fallback": False,
+        },
     ]
     assert compute_missing_final_rate(rows) == 0.5
     assert compute_dirty_boxed_rate(rows) == 0.5
@@ -78,25 +88,52 @@ def test_exception_not_break_batch():
 
 def test_cli_and_build_report(tmp_path):
     out = tmp_path / "out"
-    cmd = [sys.executable, "scripts/shadow_eval.py", "--mock", "--limit", "5", "--out", str(out)]
+    cmd = [
+        sys.executable,
+        "scripts/shadow_eval.py",
+        "--mock",
+        "--limit",
+        "5",
+        "--out",
+        str(out),
+    ]
     cp = subprocess.run(cmd, check=False, capture_output=True, text=True)
     assert cp.returncode == 0
     assert "--real" not in " ".join(cmd)
     assert not (out / "official_results.jsonl").exists()
 
-    cp_help = subprocess.run([sys.executable, "scripts/shadow_eval.py", "--help"], check=False, capture_output=True, text=True)
+    cp_help = subprocess.run(
+        [sys.executable, "scripts/shadow_eval.py", "--help"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
     assert cp_help.returncode == 0
 
     cp2 = subprocess.run(
-        [sys.executable, "scripts/build_eval_report.py", "--results", str(out / "shadow_results.jsonl"), "--out-dir", str(out)],
+        [
+            sys.executable,
+            "scripts/build_eval_report.py",
+            "--results",
+            str(out / "shadow_results.jsonl"),
+            "--out-dir",
+            str(out),
+        ],
         check=False,
         capture_output=True,
         text=True,
     )
     assert cp2.returncode == 0
-    assert "official accuracy" not in (out / "shadow_report.md").read_text(encoding="utf-8").lower().replace("do not claim official accuracy", "")
+    assert "official accuracy" not in (out / "shadow_report.md").read_text(
+        encoding="utf-8"
+    ).lower().replace("do not claim official accuracy", "")
 
-    cp_help2 = subprocess.run([sys.executable, "scripts/build_eval_report.py", "--help"], check=False, capture_output=True, text=True)
+    cp_help2 = subprocess.run(
+        [sys.executable, "scripts/build_eval_report.py", "--help"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
     assert cp_help2.returncode == 0
 
     env_marker = "." + "env"
