@@ -32,18 +32,32 @@ def _setup_fake_repo(tmp_path: Path, real_repo_root: Path) -> Path:
     (repo / "scripts").mkdir()
     (repo / "outputs" / "traces_official_112").mkdir(parents=True)
     (repo / "outputs" / "run_records" / "RUN_001").mkdir(parents=True)
-    (repo / "outputs" / "official_results.jsonl").write_text('{"status":"success"}\n', encoding="utf-8")
-    (repo / "outputs" / "official_evaluation_report.md").write_text("# report\n", encoding="utf-8")
-    (repo / "outputs" / "traces_official_112" / "trace.json").write_text("{}", encoding="utf-8")
-    (repo / "outputs" / "run_records" / "RUN_001" / "run.json").write_text("{}", encoding="utf-8")
+    (repo / "outputs" / "official_results.jsonl").write_text(
+        '{"status":"success"}\n', encoding="utf-8"
+    )
+    (repo / "outputs" / "official_evaluation_report.md").write_text(
+        "# report\n", encoding="utf-8"
+    )
+    (repo / "outputs" / "traces_official_112" / "trace.json").write_text(
+        "{}", encoding="utf-8"
+    )
+    (repo / "outputs" / "run_records" / "RUN_001" / "run.json").write_text(
+        "{}", encoding="utf-8"
+    )
     (repo / "system_overview.md").write_text("overview", encoding="utf-8")
     (repo / "replay.md").write_text("replay", encoding="utf-8")
 
     (repo / "scripts" / "check_project_safety.py").write_text(
-        (real_repo_root / "scripts" / "check_project_safety.py").read_text(encoding="utf-8"), encoding="utf-8"
+        (real_repo_root / "scripts" / "check_project_safety.py").read_text(
+            encoding="utf-8"
+        ),
+        encoding="utf-8",
     )
     (repo / "scripts" / "export_submission.py").write_text(
-        (real_repo_root / "scripts" / "export_submission.py").read_text(encoding="utf-8"), encoding="utf-8"
+        (real_repo_root / "scripts" / "export_submission.py").read_text(
+            encoding="utf-8"
+        ),
+        encoding="utf-8",
     )
     return repo
 
@@ -91,7 +105,9 @@ def test_excluded_files_not_in_zip(tmp_path: Path):
     (repo / ".env").write_text("INTERNS1_API_KEY=SECRET", encoding="utf-8")
     (repo / ".git").mkdir()
     (repo / "outputs" / "traces_official_112" / "__pycache__").mkdir()
-    (repo / "outputs" / "traces_official_112" / "__pycache__" / "x.pyc").write_bytes(b"x")
+    (repo / "outputs" / "traces_official_112" / "__pycache__" / "x.pyc").write_bytes(
+        b"x"
+    )
 
     _run_export(real_repo_root, repo)
     with zipfile.ZipFile(repo / "submission.zip") as zf:
@@ -104,7 +120,10 @@ def test_excluded_files_not_in_zip(tmp_path: Path):
 def test_sensitive_content_fails_without_echoing_secret(tmp_path: Path):
     real_repo_root = Path(__file__).resolve().parents[1]
     repo = _setup_fake_repo(tmp_path, real_repo_root)
-    (repo / "scripts" / "leak.py").write_text("Authorization: Bearer NEVER_PRINT_SECRET_123456", encoding="utf-8")  # safety: allow-mock-token
+    (repo / "scripts" / "leak.py").write_text(
+        "Authorization: Bearer NEVER_PRINT_SECRET_123456",  # safety: allow-mock-token
+        encoding="utf-8",
+    )
 
     proc = _run_export(real_repo_root, repo, expect_code=3)
     assert "high-risk sensitive content" in proc.stderr
@@ -118,5 +137,7 @@ def test_readme_generated_when_report_missing(tmp_path: Path):
 
     proc = _run_export(real_repo_root, repo)
     assert "WARNING: report not found" in proc.stderr
-    readme = (repo / "submission" / "docs" / "README_SUBMISSION.md").read_text(encoding="utf-8")
+    readme = (repo / "submission" / "docs" / "README_SUBMISSION.md").read_text(
+        encoding="utf-8"
+    )
     assert "report 包含状态：missing" in readme

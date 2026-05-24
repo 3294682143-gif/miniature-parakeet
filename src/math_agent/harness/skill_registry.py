@@ -80,10 +80,14 @@ class SkillRegistry:
         flush()
         return meta
 
-    def select_skill(self, route_info: dict[str, Any] | None = None, question: str | None = None) -> str | None:
+    def select_skill(
+        self, route_info: dict[str, Any] | None = None, question: str | None = None
+    ) -> str | None:
         question_text = question or ""
         if detect_proof_problem(question_text, route_info=route_info):
-            return "proof" if self.safe_load_skill("proof") else self._fallback_general()
+            return (
+                "proof" if self.safe_load_skill("proof") else self._fallback_general()
+            )
 
         rt = route_info or {}
         domain = str(rt.get("domain", "") or "").lower()
@@ -102,7 +106,9 @@ class SkillRegistry:
 
         for skill, hints in keyword_map:
             if any(h in combined for h in hints):
-                return skill if self.safe_load_skill(skill) else self._fallback_general()
+                return (
+                    skill if self.safe_load_skill(skill) else self._fallback_general()
+                )
 
         return self._fallback_general()
 

@@ -3,12 +3,31 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from math_agent.schemas import FinalAnswer, ProblemParse, SolveResult, ToolTrace, Verification
 from math_agent.agents.proof_guardian import proof_final_answer_policy
-from math_agent.tools.answer_normalizer import extract_answer_by_patterns, extract_boxed_answer
+from math_agent.schemas import (
+    FinalAnswer,
+    ProblemParse,
+    SolveResult,
+    ToolTrace,
+    Verification,
+)
+from math_agent.tools.answer_normalizer import (
+    extract_answer_by_patterns,
+    extract_boxed_answer,
+)
 
 _MAX_FINAL_LEN = 160
-_LONG_TEXT_TOKENS = ("```", "###", "步骤一", "步骤二", "证明如下", "证明：", "由此可得", "首先", "其次")
+_LONG_TEXT_TOKENS = (
+    "```",
+    "###",
+    "步骤一",
+    "步骤二",
+    "证明如下",
+    "证明：",
+    "由此可得",
+    "首先",
+    "其次",
+)
 
 
 def _is_long_markdown(text: str) -> bool:
@@ -65,8 +84,14 @@ def _pick_final_candidate(payload: dict[str, Any]) -> str:
 
 
 def detect_dirty_final_answer(result: dict | SolveResult) -> list[str]:
-    payload = result.model_dump() if isinstance(result, SolveResult) else dict(result or {})
-    final = payload.get("final_answer") if isinstance(payload.get("final_answer"), dict) else {}
+    payload = (
+        result.model_dump() if isinstance(result, SolveResult) else dict(result or {})
+    )
+    final = (
+        payload.get("final_answer")
+        if isinstance(payload.get("final_answer"), dict)
+        else {}
+    )
     value = str(final.get("value", "") or "").strip()
     boxed = str(final.get("boxed", "") or "").strip()
     flags: list[str] = []
@@ -93,12 +118,23 @@ def _minimal_failure_result(payload: dict[str, Any]) -> SolveResult:
         question_id=qid,
         domain=str(payload.get("domain") or "unknown"),
         problem_type=str(payload.get("problem_type") or "unknown"),
-        problem_parse=ProblemParse(goal=str(payload.get("question") or ""), givens=[], symbols=[]),
+        problem_parse=ProblemParse(
+            goal=str(payload.get("question") or ""), givens=[], symbols=[]
+        ),
         solution_plan=[],
         visible_solution_steps=[],
-        tool_trace=[ToolTrace(tool="none", purpose="formatter_repair", status="fail", summary="schema repaired")],
+        tool_trace=[
+            ToolTrace(
+                tool="none",
+                purpose="formatter_repair",
+                status="fail",
+                summary="schema repaired",
+            )
+        ],
         final_answer=FinalAnswer(type="text", value="", boxed=""),
-        verification=Verification(method="none", passed=False, notes="formatter repair created failure result"),
+        verification=Verification(
+            method="none", passed=False, notes="formatter repair created failure result"
+        ),
         didactic_hint="请检查输入与求解过程后重试。",
         confidence=0.0,
         status="fail",
@@ -107,7 +143,11 @@ def _minimal_failure_result(payload: dict[str, Any]) -> SolveResult:
 
 
 def proof_safe_finalize(result: dict | SolveResult) -> SolveResult:
-    model = result if isinstance(result, SolveResult) else SolveResult.model_validate(result)
+    model = (
+        result
+        if isinstance(result, SolveResult)
+        else SolveResult.model_validate(result)
+    )
     if model.final_answer.type != "proof":
         return model
     sanitized = sanitize_boxed(model.final_answer.boxed)
@@ -120,12 +160,24 @@ def proof_safe_finalize(result: dict | SolveResult) -> SolveResult:
     status = model.status
     if status == "fail" and value:
         status = "partial"
-    model = model.model_copy(update={"final_answer": model.final_answer.model_copy(update={"value": value, "boxed": sanitized if sanitized and len(sanitized) < 80 else ""}), "status": status})
+    model = model.model_copy(
+        update={
+            "final_answer": model.final_answer.model_copy(
+                update={
+                    "value": value,
+                    "boxed": sanitized if sanitized and len(sanitized) < 80 else "",
+                }
+            ),
+            "status": status,
+        }
+    )
     return proof_final_answer_policy(model)
 
 
 def repair_solve_result(result: dict | SolveResult) -> SolveResult:
-    payload = result.model_dump() if isinstance(result, SolveResult) else dict(result or {})
+    payload = (
+        result.model_dump() if isinstance(result, SolveResult) else dict(result or {})
+    )
     try:
         model = SolveResult.model_validate(payload)
         original_ok = True
@@ -150,7 +202,12 @@ def repair_solve_result(result: dict | SolveResult) -> SolveResult:
     boxed = ""
     if raw_boxed and inner_boxed:
         boxed = raw_boxed if "\\boxed" in raw_boxed else f"\\boxed{{{inner_boxed}}}"
-    if not boxed and value and fa.type in {"number", "expression", "set"} and not _is_long_markdown(value):
+    if (
+        not boxed
+        and value
+        and fa.type in {"number", "expression", "set"}
+        and not _is_long_markdown(value)
+    ):
         boxed = f"\\boxed{{{value}}}" if len(value) <= 80 else ""
 
     status = model.status

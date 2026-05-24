@@ -14,13 +14,33 @@ from math_agent.harness.demo_adapter import (
     safe_get_risk_flags,
     safe_get_tool_calls,
 )
-from math_agent.harness.replay import build_timeline, render_replay_markdown, summarize_trace
+from math_agent.harness.replay import (
+    build_timeline,
+    render_replay_markdown,
+    summarize_trace,
+)
 from math_agent.harness.trace_reader import read_trace
 from math_agent.pipeline import MathAgentPipeline
 
 
-def run_demo_pipeline(question: str, *, question_id: str, mock: bool, enable_tools: bool, trace_dir: str, max_refine_rounds: int, mode: str):
-    pipeline = MathAgentPipeline(mock=mock, enable_tools=enable_tools, save_trace=True, trace_dir=trace_dir, max_refine_rounds=max_refine_rounds, run_mode=mode)
+def run_demo_pipeline(
+    question: str,
+    *,
+    question_id: str,
+    mock: bool,
+    enable_tools: bool,
+    trace_dir: str,
+    max_refine_rounds: int,
+    mode: str,
+):
+    pipeline = MathAgentPipeline(
+        mock=mock,
+        enable_tools=enable_tools,
+        save_trace=True,
+        trace_dir=trace_dir,
+        max_refine_rounds=max_refine_rounds,
+        run_mode=mode,
+    )
     route_info = pipeline.router.route(question)
     result = pipeline.solve(question=question, question_id=question_id)
     trace_path = Path(trace_dir) / f"{question_id}.json"
@@ -35,7 +55,9 @@ def main() -> None:
         run_mode = st.selectbox("run mode", ["mock", "real"], index=0)
         enable_tools = st.toggle("enable_tools", value=False)
         mode = st.selectbox("mode", ["full", "fast", "tool-first"], index=0)
-        max_refine_rounds = int(st.number_input("max_refine_rounds", min_value=0, value=1, step=1))
+        max_refine_rounds = int(
+            st.number_input("max_refine_rounds", min_value=0, value=1, step=1)
+        )
         trace_dir = st.text_input("trace_dir", value="outputs/traces")
         show_raw_json = st.toggle("show raw json", value=False)
         replay_existing_trace = st.toggle("replay existing trace", value=False)
@@ -67,7 +89,10 @@ def main() -> None:
         st.write("final_answer:", display["final_answer"])
         st.write("status:", display["status"])
         st.write("confidence:", display["confidence"])
-        st.write("verification:", f"{display['verification_method']} / passed={display['verification_passed']}")
+        st.write(
+            "verification:",
+            f"{display['verification_method']} / passed={display['verification_passed']}",
+        )
         st.write("risk flags:", safe_get_risk_flags(result) or [])
 
         st.header("C. Agent Timeline")
@@ -92,14 +117,21 @@ def main() -> None:
         st.json(memory_summary.get("summary", {}), expanded=False)
 
         st.header("G. Budget Preview")
-        st.json(build_demo_budget_preview(question, route_info=route_info, mode=mode), expanded=False)
+        st.json(
+            build_demo_budget_preview(question, route_info=route_info, mode=mode),
+            expanded=False,
+        )
 
         st.header("H. Weighted Voting Explainer")
-        st.markdown("- verifier-gated，不是裸 majority vote\n- 默认不接入主流程\n- 后续可用于 candidate solver")
+        st.markdown(
+            "- verifier-gated，不是裸 majority vote\n- 默认不接入主流程\n- 后续可用于 candidate solver"
+        )
         st.json(build_mock_voting_demo(), expanded=False)
 
         st.header("I. Trace Replay Panel")
-        replay_path = st.text_input("trace file path", value=str(trace_path) if trace_path else "")
+        replay_path = st.text_input(
+            "trace file path", value=str(trace_path) if trace_path else ""
+        )
         if replay_existing_trace and replay_path.strip():
             trace_read = read_trace(replay_path.strip())
             if not trace_read.get("ok"):

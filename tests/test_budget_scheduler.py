@@ -58,16 +58,22 @@ def test_invalid_candidate_fallback_to_one():
 
 
 def test_voting_flags():
-    d1 = allocate_budget(request_voting=False, requested_candidate_count=5, requested_budget="hard")
+    d1 = allocate_budget(
+        request_voting=False, requested_candidate_count=5, requested_budget="hard"
+    )
     assert not d1.enable_voting
-    d2 = allocate_budget(request_voting=True, requested_candidate_count=1, requested_budget="easy")
+    d2 = allocate_budget(
+        request_voting=True, requested_candidate_count=1, requested_budget="easy"
+    )
     assert not d2.enable_voting
 
 
 def test_mode_overrides():
     d = allocate_budget(mode="tool-first")
     assert d.tool_first is True
-    d_fast = allocate_budget(mode="fast", requested_budget="hard", requested_candidate_count=5)
+    d_fast = allocate_budget(
+        mode="fast", requested_budget="hard", requested_candidate_count=5
+    )
     assert d_fast.budget_name == "easy"
     assert d_fast.max_candidates <= 1
 
@@ -96,5 +102,14 @@ def test_cli_behaviour_unchanged_and_mock(tmp_path):
     in_file = tmp_path / "in.jsonl"
     out_file = tmp_path / "out.jsonl"
     in_file.write_text('{"question_id":"q1","question":"1+1=?"}\\n', encoding="utf-8")
-    cmd2 = [sys.executable, "-m", "math_agent.cli", "batch", "--input", str(in_file), "--output", str(out_file)]
+    cmd2 = [
+        sys.executable,
+        "-m",
+        "math_agent.cli",
+        "batch",
+        "--input",
+        str(in_file),
+        "--output",
+        str(out_file),
+    ]
     subprocess.run(cmd2, capture_output=True, text=True, check=True)

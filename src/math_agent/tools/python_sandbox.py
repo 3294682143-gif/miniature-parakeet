@@ -4,6 +4,7 @@ import contextlib
 import io
 import multiprocessing as mp
 import re
+
 _BLOCK_PATTERNS = [
     r"\bimport\s+os\b",
     r"\bimport\s+sys\b",

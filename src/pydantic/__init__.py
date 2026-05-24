@@ -1,23 +1,24 @@
 from __future__ import annotations
 
 import json
-from dataclasses import MISSING, asdict, dataclass, field as dc_field
+from dataclasses import MISSING, asdict, dataclass
+from dataclasses import field as dc_field
 from typing import Any
 
 
 def Field(default=MISSING, default_factory=MISSING):
     kwargs = {}
     if default is not MISSING:
-        kwargs['default'] = default
+        kwargs["default"] = default
     if default_factory is not MISSING:
-        kwargs['default_factory'] = default_factory
+        kwargs["default_factory"] = default_factory
     return dc_field(**kwargs)
 
 
 class _BaseModelMeta(type):
     def __new__(mcls, name, bases, ns):
         cls = super().__new__(mcls, name, bases, ns)
-        if name != 'BaseModel':
+        if name != "BaseModel":
             cls = dataclass(cls)
         return cls
 

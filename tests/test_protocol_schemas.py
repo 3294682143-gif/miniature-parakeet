@@ -77,17 +77,27 @@ def test_protocol_verifier_result_invalid_method():
 
 
 def test_candidate_answer_valid_and_bounds():
-    item = CandidateAnswer(candidate_id="c1", source="solver", verifier_score=0.5, confidence=0.2, risk_score=0.1)
+    item = CandidateAnswer(
+        candidate_id="c1",
+        source="solver",
+        verifier_score=0.5,
+        confidence=0.2,
+        risk_score=0.1,
+    )
     assert item.candidate_id == "c1"
     assert item.final_answer_boxed == ""
-    item2 = CandidateAnswer(candidate_id="c3", source="solver", final_answer_boxed="\\boxed{7}")
+    item2 = CandidateAnswer(
+        candidate_id="c3", source="solver", final_answer_boxed="\\boxed{7}"
+    )
     assert item2.final_answer_boxed == "\\boxed{7}"
     with pytest.raises(Exception):
         CandidateAnswer(candidate_id="c2", source="solver", verifier_score=1.5)
 
 
 def test_weighted_vote_result_valid():
-    result = WeightedVoteResult(selected_candidate_id=None, confidence=0.0, issues=["no candidates"])
+    result = WeightedVoteResult(
+        selected_candidate_id=None, confidence=0.0, issues=["no candidates"]
+    )
     assert result.selected_candidate_id is None
 
 
@@ -95,7 +105,9 @@ def test_protocol_objects_json_dumps():
     objects = [
         AgentStep(step_id="s1", agent_name="a", role="r", status="success"),
         ToolCallRecord(tool_name="t", status="skipped"),
-        ProtocolVerifierResult(passed=False, method="none", confidence=0.0, suggested_action="fallback"),
+        ProtocolVerifierResult(
+            passed=False, method="none", confidence=0.0, suggested_action="fallback"
+        ),
         CandidateAnswer(candidate_id="c", source="x"),
         WeightedVoteResult(),
     ]
@@ -112,7 +124,9 @@ def test_legacy_solveresult_still_validates():
         "problem_parse": {"goal": "x+1=2", "givens": ["x+1=2"], "symbols": ["x"]},
         "solution_plan": ["isolate x"],
         "visible_solution_steps": ["x=1"],
-        "tool_trace": [{"tool": "none", "purpose": "n/a", "status": "skipped", "summary": "n/a"}],
+        "tool_trace": [
+            {"tool": "none", "purpose": "n/a", "status": "skipped", "summary": "n/a"}
+        ],
         "final_answer": {"type": "number", "value": "1", "boxed": "\\boxed{1}"},
         "verification": {"method": "none", "passed": True, "notes": "ok"},
         "didactic_hint": "hint",
@@ -127,7 +141,17 @@ def test_legacy_solveresult_still_validates():
 
 def test_cli_mock_solve_and_batch_smoke(tmp_path):
     solve = subprocess.run(
-        [sys.executable, "-m", "math_agent.cli", "solve", "--question", "1+1=?", "--question-id", "proto_1", "--no-trace"],
+        [
+            sys.executable,
+            "-m",
+            "math_agent.cli",
+            "solve",
+            "--question",
+            "1+1=?",
+            "--question-id",
+            "proto_1",
+            "--no-trace",
+        ],
         check=True,
         capture_output=True,
         text=True,
@@ -138,7 +162,17 @@ def test_cli_mock_solve_and_batch_smoke(tmp_path):
     outp = tmp_path / "out.jsonl"
     inp.write_text('{"question_id":"b1","question":"1+2=?"}\n', encoding="utf-8")
     subprocess.run(
-        [sys.executable, "-m", "math_agent.cli", "batch", "--input", str(inp), "--output", str(outp), "--no-trace"],
+        [
+            sys.executable,
+            "-m",
+            "math_agent.cli",
+            "batch",
+            "--input",
+            str(inp),
+            "--output",
+            str(outp),
+            "--no-trace",
+        ],
         check=True,
     )
     assert outp.exists()

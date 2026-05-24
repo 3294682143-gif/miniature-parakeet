@@ -9,7 +9,6 @@ from pathlib import Path
 
 from check_project_safety import scan_project
 
-
 EXCLUDE_DIR_NAMES = {
     ".git",
     "__pycache__",
@@ -48,7 +47,9 @@ def _safe_copy_tree(src: Path, dst: Path) -> None:
         shutil.copy2(path, target)
 
 
-def _write_readme_submission(target: Path, has_report: bool, has_demo: bool, report_name: str) -> None:
+def _write_readme_submission(
+    target: Path, has_report: bool, has_demo: bool, report_name: str
+) -> None:
     content = f"""# EvoExternMath-S1++ Frozen Submission
 
 ## 1. Frozen Harness 说明
@@ -124,11 +125,17 @@ def _print_warning(msg: str) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Export EvoExternMath-S1++ frozen submission package")
-    parser.add_argument("--results", required=True, help="Path to official results jsonl")
+    parser = argparse.ArgumentParser(
+        description="Export EvoExternMath-S1++ frozen submission package"
+    )
+    parser.add_argument(
+        "--results", required=True, help="Path to official results jsonl"
+    )
     parser.add_argument("--traces", required=True, help="Path to traces directory")
     parser.add_argument("--report", required=True, help="Path to evaluation report")
-    parser.add_argument("--run-record", required=True, help="Path to run record directory")
+    parser.add_argument(
+        "--run-record", required=True, help="Path to run record directory"
+    )
     parser.add_argument("--out", default="submission", help="Output directory")
     args = parser.parse_args()
 
@@ -199,15 +206,31 @@ def main() -> int:
     if candidate_summary.is_file():
         _safe_copy_file(candidate_summary, out_dir / "docs" / "candidate_summary.md")
 
-    _write_readme_submission(out_dir / "docs" / "README_SUBMISSION.md", report_included, demo_included, report_name)
+    _write_readme_submission(
+        out_dir / "docs" / "README_SUBMISSION.md",
+        report_included,
+        demo_included,
+        report_name,
+    )
 
     snapshot_note = {
         "project": "EvoExternMath-S1++",
         "frozen_submission": True,
-        "excluded": [".env", ".env.*", ".git", "__pycache__", ".pytest_cache", "outputs/debug*", "outputs/mock*", "outputs/local*"],
+        "excluded": [
+            ".env",
+            ".env.*",
+            ".git",
+            "__pycache__",
+            ".pytest_cache",
+            "outputs/debug*",
+            "outputs/mock*",
+            "outputs/local*",
+        ],
     }
     (out_dir / "src_snapshot_note.md").write_text(
-        "# Source Snapshot Note\n\n```json\n" + json.dumps(snapshot_note, ensure_ascii=False, indent=2) + "\n```\n",
+        "# Source Snapshot Note\n\n```json\n"
+        + json.dumps(snapshot_note, ensure_ascii=False, indent=2)
+        + "\n```\n",
         encoding="utf-8",
     )
 

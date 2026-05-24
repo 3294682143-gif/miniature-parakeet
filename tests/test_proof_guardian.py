@@ -1,4 +1,8 @@
-from math_agent.agents.proof_guardian import check_proof_structure, detect_proof_problem, proof_final_answer_policy
+from math_agent.agents.proof_guardian import (
+    check_proof_structure,
+    detect_proof_problem,
+    proof_final_answer_policy,
+)
 from math_agent.harness.formatter_repair import repair_solve_result
 from math_agent.pipeline import MathAgentPipeline
 from math_agent.schemas import FinalAnswer, ProblemParse, SolveResult, Verification
@@ -72,6 +76,8 @@ def test_guardian_error_no_crash(monkeypatch):
         raise RuntimeError("boom")
 
     monkeypatch.setattr(verifier_mod, "check_proof_structure", boom)
-    v = verifier_mod.Verifier(client=type("C", (), {"chat": lambda *_: "{}"})(), mock=True)
+    v = verifier_mod.Verifier(
+        client=type("C", (), {"chat": lambda *_: "{}"})(), mock=True
+    )
     out = v.verify("证明A", "设A", "已证", {"problem_type": "proof"})
     assert out.method in {"self_review", "logic_review"}

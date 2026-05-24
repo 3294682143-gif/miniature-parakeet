@@ -47,15 +47,11 @@ def render_prompt(template: str, **kwargs) -> str:
         raise TypeError(f"template must be a string, got {type(template).__name__}")
 
     needed_fields = {
-        field_name
-        for _, field_name, _, _ in Formatter().parse(template)
-        if field_name
+        field_name for _, field_name, _, _ in Formatter().parse(template) if field_name
     }
     missing = sorted(field for field in needed_fields if field not in kwargs)
     if missing:
-        raise KeyError(
-            "Missing variables for prompt rendering: " + ", ".join(missing)
-        )
+        raise KeyError("Missing variables for prompt rendering: " + ", ".join(missing))
 
     try:
         return template.format(**kwargs)

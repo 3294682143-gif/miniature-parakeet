@@ -13,12 +13,16 @@ def _read_records(input_path: Path) -> list[dict]:
         return _read_json(input_path)
     if suffix == ".txt":
         return _read_txt(input_path)
-    raise ValueError(f"Unsupported input file type: {suffix}. Expected .jsonl, .json, or .txt")
+    raise ValueError(
+        f"Unsupported input file type: {suffix}. Expected .jsonl, .json, or .txt"
+    )
 
 
 def _read_jsonl(input_path: Path) -> list[dict]:
     records: list[dict] = []
-    for idx, raw_line in enumerate(input_path.read_text(encoding="utf-8").splitlines(), start=1):
+    for idx, raw_line in enumerate(
+        input_path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
         line = raw_line.strip()
         if not line:
             continue
@@ -27,7 +31,9 @@ def _read_jsonl(input_path: Path) -> list[dict]:
         except json.JSONDecodeError as exc:
             raise ValueError(f"Invalid JSONL at line {idx}: {exc.msg}") from exc
         if not isinstance(obj, dict):
-            raise ValueError(f"Invalid JSONL at line {idx}: each line must be a JSON object")
+            raise ValueError(
+                f"Invalid JSONL at line {idx}: each line must be a JSON object"
+            )
         records.append(obj)
     return records
 
@@ -88,9 +94,15 @@ def convert_dataset(input_path: Path, output_path: Path) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Convert official datasets to standardized JSONL")
-    parser.add_argument("--input", required=True, help="Path to input file (.jsonl/.json/.txt)")
-    parser.add_argument("--output", default="data/official_questions.jsonl", help="Path to output JSONL")
+    parser = argparse.ArgumentParser(
+        description="Convert official datasets to standardized JSONL"
+    )
+    parser.add_argument(
+        "--input", required=True, help="Path to input file (.jsonl/.json/.txt)"
+    )
+    parser.add_argument(
+        "--output", default="data/official_questions.jsonl", help="Path to output JSONL"
+    )
     return parser
 
 

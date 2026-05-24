@@ -28,6 +28,8 @@ def test_requests_blocked() -> None:
 
 
 def test_sympy_works() -> None:
-    result = run_python_code("from sympy import symbols\nx=symbols('x')\nprint((x+x).expand())")
+    result = run_python_code(
+        "from sympy import symbols\nx=symbols('x')\nprint((x+x).expand())"
+    )
     assert result["status"] == "success"
     assert "2*x" in result["stdout"]

@@ -1,4 +1,9 @@
-from math_agent.tools.sympy_tools import check_equivalent, numeric_compare, simplify_expression, solve_equation
+from math_agent.tools.sympy_tools import (
+    check_equivalent,
+    numeric_compare,
+    simplify_expression,
+    solve_equation,
+)
 
 
 def test_simplify_expression_identity() -> None:

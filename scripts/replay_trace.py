@@ -33,7 +33,9 @@ def main() -> int:
             if item["ok"]:
                 chunks.append(render_replay_markdown(item["trace"]))
             else:
-                chunks.append(f"# Trace Replay Error\n\n- path: {item['path']}\n- error: {item['error']['code']}\n")
+                chunks.append(
+                    f"# Trace Replay Error\n\n- path: {item['path']}\n- error: {item['error']['code']}\n"
+                )
         output = "\n".join(chunks)
 
     if args.out:

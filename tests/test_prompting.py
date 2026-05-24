@@ -4,7 +4,6 @@ import pytest
 
 from math_agent.prompting import get_prompt, load_prompts, render_prompt
 
-
 REQUIRED_KEYS = {
     "router_system",
     "planner_system",
@@ -43,7 +42,9 @@ def test_get_prompt_missing_key_raises() -> None:
 
 
 def test_render_prompt_replaces_variables() -> None:
-    template = "Q: {question}; Plan: {plan}; Route: {route_info}; Answer: {final_answer}"
+    template = (
+        "Q: {question}; Plan: {plan}; Route: {route_info}; Answer: {final_answer}"
+    )
     rendered = render_prompt(
         template,
         question="1+1=?",

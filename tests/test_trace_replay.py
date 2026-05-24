@@ -3,7 +3,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from math_agent.harness.replay import build_timeline, render_replay_markdown, summarize_trace
+from math_agent.harness.replay import (
+    build_timeline,
+    render_replay_markdown,
+    summarize_trace,
+)
 from math_agent.harness.trace_reader import read_trace, read_trace_dir
 
 
@@ -70,7 +74,9 @@ def test_timeline_missing_fields():
 
 
 def test_summarize_missing_final_answer():
-    summary = summarize_trace({"question_id": "q", "question": "x", "final_result": {"status": "partial"}})
+    summary = summarize_trace(
+        {"question_id": "q", "question": "x", "final_result": {"status": "partial"}}
+    )
     assert summary["final_answer"] == ""
 
 
@@ -94,7 +100,14 @@ def test_script_trace_dir_out(tmp_path: Path):
     d.mkdir()
     (d / "q1.json").write_text(json.dumps(_sample_trace()), encoding="utf-8")
     out_md = tmp_path / "replay.md"
-    cmd = [sys.executable, "scripts/replay_trace.py", "--trace-dir", str(d), "--out", str(out_md)]
+    cmd = [
+        sys.executable,
+        "scripts/replay_trace.py",
+        "--trace-dir",
+        str(d),
+        "--out",
+        str(out_md),
+    ]
     out = subprocess.run(cmd, capture_output=True, text=True, check=False)
     assert out.returncode == 0
     assert out_md.exists()

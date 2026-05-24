@@ -31,7 +31,9 @@ def test_planner_mock_returns_structure() -> None:
 
 def test_solver_mock_returns_boxed_answer() -> None:
     solver = Solver(client=DummyClient(), mock=True)
-    out = solver.solve("2+2=?", {"recommended_solver": "general"}, {"solution_plan": []})
+    out = solver.solve(
+        "2+2=?", {"recommended_solver": "general"}, {"solution_plan": []}
+    )
     assert "\\boxed{" in out
 
 
@@ -46,7 +48,9 @@ def test_solver_mock_returns_boxed_answer() -> None:
 )
 def test_solver_select_prompt_key(solver_name: str, expected_key: str) -> None:
     solver = Solver(client=DummyClient(), mock=True)
-    assert solver._select_prompt_key({"recommended_solver": solver_name}) == expected_key
+    assert (
+        solver._select_prompt_key({"recommended_solver": solver_name}) == expected_key
+    )
 
 
 def test_verifier_mock_returns_verification_passed() -> None:
@@ -72,7 +76,11 @@ def test_explainer_mock_non_empty() -> None:
 @pytest.mark.parametrize("agent_cls", [Planner, Solver, Verifier, Refiner, Explainer])
 def test_agents_raise_on_missing_prompt_file(agent_cls: type) -> None:
     with pytest.raises(FileNotFoundError):
-        agent_cls(client=DummyClient(), prompt_config_path=Path("configs/not_exist_prompts.yaml"), mock=True)
+        agent_cls(
+            client=DummyClient(),
+            prompt_config_path=Path("configs/not_exist_prompts.yaml"),
+            mock=True,
+        )
 
 
 def test_non_mock_agents_use_client_without_real_network() -> None:

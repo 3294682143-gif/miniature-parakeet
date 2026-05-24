@@ -5,7 +5,6 @@ from pathlib import Path
 
 import yaml
 
-
 REQUIRED_MANIFEST_FIELDS = {
     "change_id",
     "created_at",

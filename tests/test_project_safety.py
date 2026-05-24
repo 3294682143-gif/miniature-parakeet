@@ -5,7 +5,9 @@ from pathlib import Path
 
 
 def _load_scan_project():
-    script_path = Path(__file__).resolve().parents[1] / "scripts" / "check_project_safety.py"
+    script_path = (
+        Path(__file__).resolve().parents[1] / "scripts" / "check_project_safety.py"
+    )
     spec = importlib.util.spec_from_file_location("check_project_safety", script_path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
@@ -24,7 +26,9 @@ def test_scan_clean_repo_passes(tmp_path: Path):
 
 
 def test_env_example_not_flagged(tmp_path: Path):
-    (tmp_path / ".env.example").write_text("INTERNS1_API_KEY=placeholder", encoding="utf-8")
+    (tmp_path / ".env.example").write_text(
+        "INTERNS1_API_KEY=placeholder", encoding="utf-8"
+    )
     findings = scan_project(tmp_path)
     assert findings == []
 
@@ -41,7 +45,10 @@ def test_bearer_token_flagged(tmp_path: Path):
     secret = "Bearer superSecretToken12345"  # safety: allow-mock-token
     (scripts_dir / "x.py").write_text(f"TOKEN = '{secret}'\n", encoding="utf-8")
     findings = scan_project(tmp_path)
-    assert any(path == "scripts/x.py" and risk == "suspected_auth_token" for path, risk in findings)
+    assert any(
+        path == "scripts/x.py" and risk == "suspected_auth_token"
+        for path, risk in findings
+    )
 
 
 def test_outputs_jsonl_flagged(tmp_path: Path):

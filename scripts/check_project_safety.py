@@ -5,8 +5,30 @@ import re
 from pathlib import Path
 
 STRONG_SCAN_DIRS = {"src", "scripts", "configs", "submission"}
-SKIP_TEXT_DIRS = {".git", ".venv", "venv", "node_modules", "outputs", "trace", "run_records", "__pycache__", ".pytest_cache"}
-TEXT_SUFFIXES = {".py", ".md", ".txt", ".yaml", ".yml", ".json", ".jsonl", ".toml", ".ini", ".cfg", ".sh"}
+SKIP_TEXT_DIRS = {
+    ".git",
+    ".venv",
+    "venv",
+    "node_modules",
+    "outputs",
+    "trace",
+    "run_records",
+    "__pycache__",
+    ".pytest_cache",
+}
+TEXT_SUFFIXES = {
+    ".py",
+    ".md",
+    ".txt",
+    ".yaml",
+    ".yml",
+    ".json",
+    ".jsonl",
+    ".toml",
+    ".ini",
+    ".cfg",
+    ".sh",
+}
 
 API_KEY_PATTERNS = [
     re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"),
@@ -27,7 +49,10 @@ TEST_AUTH_ALLOWLINE_MARKERS = (
 
 
 def _is_probably_doc(path: Path) -> bool:
-    return any(part in {"README", "docs"} for part in path.parts) or path.suffix.lower() == ".md"
+    return (
+        any(part in {"README", "docs"} for part in path.parts)
+        or path.suffix.lower() == ".md"
+    )
 
 
 def _iter_text_files(root: Path):
@@ -115,7 +140,9 @@ def scan_project(root: Path) -> list[tuple[str, str]]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check project for risky files or secret leakage.")
+    parser = argparse.ArgumentParser(
+        description="Check project for risky files or secret leakage."
+    )
     parser.add_argument("--root", default=".", help="Project root directory to scan")
     args = parser.parse_args()
 

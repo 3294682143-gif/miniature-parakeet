@@ -12,32 +12,104 @@ def _pick(d: dict[str, Any], *keys: str, default: Any = None) -> Any:
 
 def build_timeline(trace: dict[str, Any]) -> list[dict[str, Any]]:
     route = trace.get("route_info") if isinstance(trace.get("route_info"), dict) else {}
-    final_result = trace.get("final_result") if isinstance(trace.get("final_result"), dict) else {}
-    verifier = trace.get("verifier_result") if isinstance(trace.get("verifier_result"), dict) else {}
+    final_result = (
+        trace.get("final_result") if isinstance(trace.get("final_result"), dict) else {}
+    )
+    verifier = (
+        trace.get("verifier_result")
+        if isinstance(trace.get("verifier_result"), dict)
+        else {}
+    )
 
-    model_calls = trace.get("model_calls") if isinstance(trace.get("model_calls"), list) else []
-    tool_calls = trace.get("tool_calls") if isinstance(trace.get("tool_calls"), list) else []
+    model_calls = (
+        trace.get("model_calls") if isinstance(trace.get("model_calls"), list) else []
+    )
+    tool_calls = (
+        trace.get("tool_calls") if isinstance(trace.get("tool_calls"), list) else []
+    )
 
     return [
-        {"stage": "Router", "status": "ok" if route else "unavailable", "detail": route.get("problem_type", "unavailable")},
-        {"stage": "Planner", "status": "ok" if any(c.get("stage") == "planner" for c in model_calls if isinstance(c, dict)) else "skipped", "detail": "model_call"},
-        {"stage": "Solver", "status": "ok" if any(c.get("stage") == "solver" for c in model_calls if isinstance(c, dict)) else "skipped", "detail": "model_call"},
-        {"stage": "Tool", "status": "ok" if tool_calls else "skipped", "detail": f"{len(tool_calls)} calls"},
-        {"stage": "Verifier", "status": "ok" if verifier else "skipped", "detail": verifier.get("method", "unavailable")},
+        {
+            "stage": "Router",
+            "status": "ok" if route else "unavailable",
+            "detail": route.get("problem_type", "unavailable"),
+        },
+        {
+            "stage": "Planner",
+            "status": (
+                "ok"
+                if any(
+                    c.get("stage") == "planner"
+                    for c in model_calls
+                    if isinstance(c, dict)
+                )
+                else "skipped"
+            ),
+            "detail": "model_call",
+        },
+        {
+            "stage": "Solver",
+            "status": (
+                "ok"
+                if any(
+                    c.get("stage") == "solver"
+                    for c in model_calls
+                    if isinstance(c, dict)
+                )
+                else "skipped"
+            ),
+            "detail": "model_call",
+        },
+        {
+            "stage": "Tool",
+            "status": "ok" if tool_calls else "skipped",
+            "detail": f"{len(tool_calls)} calls",
+        },
+        {
+            "stage": "Verifier",
+            "status": "ok" if verifier else "skipped",
+            "detail": verifier.get("method", "unavailable"),
+        },
         {"stage": "Refiner", "status": "skipped", "detail": "not recorded"},
-        {"stage": "Formatter", "status": "ok" if final_result else "unavailable", "detail": "final_result"},
-        {"stage": "WeightedVoting", "status": "skipped", "detail": "not in main pipeline"},
-        {"stage": "FinalResult", "status": "ok" if final_result else "unavailable", "detail": final_result.get("status", "unavailable")},
+        {
+            "stage": "Formatter",
+            "status": "ok" if final_result else "unavailable",
+            "detail": "final_result",
+        },
+        {
+            "stage": "WeightedVoting",
+            "status": "skipped",
+            "detail": "not in main pipeline",
+        },
+        {
+            "stage": "FinalResult",
+            "status": "ok" if final_result else "unavailable",
+            "detail": final_result.get("status", "unavailable"),
+        },
     ]
 
 
 def summarize_trace(trace: dict[str, Any]) -> dict[str, Any]:
     route = trace.get("route_info") if isinstance(trace.get("route_info"), dict) else {}
-    final_result = trace.get("final_result") if isinstance(trace.get("final_result"), dict) else {}
-    verification = final_result.get("verification") if isinstance(final_result.get("verification"), dict) else {}
-    final_answer = final_result.get("final_answer") if isinstance(final_result.get("final_answer"), dict) else {}
-    model_calls = trace.get("model_calls") if isinstance(trace.get("model_calls"), list) else []
-    tool_calls = trace.get("tool_calls") if isinstance(trace.get("tool_calls"), list) else []
+    final_result = (
+        trace.get("final_result") if isinstance(trace.get("final_result"), dict) else {}
+    )
+    verification = (
+        final_result.get("verification")
+        if isinstance(final_result.get("verification"), dict)
+        else {}
+    )
+    final_answer = (
+        final_result.get("final_answer")
+        if isinstance(final_result.get("final_answer"), dict)
+        else {}
+    )
+    model_calls = (
+        trace.get("model_calls") if isinstance(trace.get("model_calls"), list) else []
+    )
+    tool_calls = (
+        trace.get("tool_calls") if isinstance(trace.get("tool_calls"), list) else []
+    )
 
     q = str(trace.get("question") or "")
     preview = (q[:100] + "...") if len(q) > 100 else q
@@ -87,7 +159,9 @@ def render_replay_markdown(trace_or_summary: dict[str, Any]) -> str:
         "",
     ]
     if timeline:
-        lines.extend(["## Timeline", "", "| Stage | Status | Detail |", "|---|---|---|"])
+        lines.extend(
+            ["## Timeline", "", "| Stage | Status | Detail |", "|---|---|---|"]
+        )
         for item in timeline:
             lines.append(f"| {item['stage']} | {item['status']} | {item['detail']} |")
     return "\n".join(lines) + "\n"

@@ -7,7 +7,16 @@ from math_agent.clients.interns1_client import InternS1Client
 
 def classify_error(exc: Exception) -> str:
     msg = str(exc)
-    for key in ["missing_api_key", "missing_base_url", "auth_error", "rate_limit", "timeout", "server_error", "invalid_response", "unknown_error"]:
+    for key in [
+        "missing_api_key",
+        "missing_base_url",
+        "auth_error",
+        "rate_limit",
+        "timeout",
+        "server_error",
+        "invalid_response",
+        "unknown_error",
+    ]:
         if key in msg:
             return key
     return "unknown_error"

@@ -43,7 +43,9 @@ def test_safe_get_tool_calls_empty() -> None:
 
 
 def test_safe_get_risk_flags_reads_verification_issues() -> None:
-    flags = safe_get_risk_flags({"risk_flags": ["a"], "verification": {"issues": ["b"]}})
+    flags = safe_get_risk_flags(
+        {"risk_flags": ["a"], "verification": {"issues": ["b"]}}
+    )
     assert flags == ["a", "b"]
 
 
@@ -63,7 +65,9 @@ def test_load_demo_memory_summary_missing_safe() -> None:
 
 
 def test_build_demo_budget_preview_read_only() -> None:
-    out = build_demo_budget_preview("计算 2+3", route_info={"problem_type": "calculation"}, mode="full")
+    out = build_demo_budget_preview(
+        "计算 2+3", route_info={"problem_type": "calculation"}, mode="full"
+    )
     assert "max_model_calls" in out
 
 

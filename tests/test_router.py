@@ -130,7 +130,11 @@ def test_llm_invalid_output_fallback_to_rule_based() -> None:
 def test_llm_missing_router_system_fallback_to_rule_based(tmp_path: Path) -> None:
     prompt_file = tmp_path / "prompts.yaml"
     prompt_file.write_text("planner_system: 'x'\n", encoding="utf-8")
-    router = Router(mode="llm", client=DummyLLMClient("should-not-be-used"), prompt_config_path=prompt_file)
+    router = Router(
+        mode="llm",
+        client=DummyLLMClient("should-not-be-used"),
+        prompt_config_path=prompt_file,
+    )
 
     result = router.route("证明素数有无穷多个")
     assert result.domain == "NumberTheory"
@@ -139,7 +143,11 @@ def test_llm_missing_router_system_fallback_to_rule_based(tmp_path: Path) -> Non
 
 def test_llm_missing_prompt_file_fallback_to_rule_based(tmp_path: Path) -> None:
     missing_path = tmp_path / "missing-prompts.yaml"
-    router = Router(mode="llm", client=DummyLLMClient("should-not-be-used"), prompt_config_path=missing_path)
+    router = Router(
+        mode="llm",
+        client=DummyLLMClient("should-not-be-used"),
+        prompt_config_path=missing_path,
+    )
 
     result = router.route("证明素数有无穷多个")
     assert result.domain == "NumberTheory"

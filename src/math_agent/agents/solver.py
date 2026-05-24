@@ -7,7 +7,12 @@ from math_agent.prompting import get_prompt, load_prompts, render_prompt
 
 
 class Solver:
-    def __init__(self, client: Any, prompt_config_path: str | Path = "configs/prompts.yaml", mock: bool = True) -> None:
+    def __init__(
+        self,
+        client: Any,
+        prompt_config_path: str | Path = "configs/prompts.yaml",
+        mock: bool = True,
+    ) -> None:
         self.client = client
         self.prompt_config_path = Path(prompt_config_path)
         self.mock = mock
@@ -27,11 +32,15 @@ class Solver:
 
         prompt_key = self._select_prompt_key(route_info)
         template = get_prompt(self.prompts, prompt_key)
-        system_prompt = render_prompt(template, question=question, plan=plan, route_info=route_info)
-        reply = self.client.chat([
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Question: {question}\nPlan: {plan}"},
-        ])
+        system_prompt = render_prompt(
+            template, question=question, plan=plan, route_info=route_info
+        )
+        reply = self.client.chat(
+            [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Question: {question}\nPlan: {plan}"},
+            ]
+        )
         return str(reply).strip()
 
 

@@ -8,10 +8,16 @@ from math_agent.evaluation.metrics import evaluate_results, render_markdown_repo
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Evaluate results.jsonl and generate metrics/report.")
+    parser = argparse.ArgumentParser(
+        description="Evaluate results.jsonl and generate metrics/report."
+    )
     parser.add_argument("--results", required=True, help="Path to results.jsonl")
     parser.add_argument("--answers", default=None, help="Path to answers.jsonl")
-    parser.add_argument("--report", default="outputs/evaluation_report.md", help="Output markdown report path")
+    parser.add_argument(
+        "--report",
+        default="outputs/evaluation_report.md",
+        help="Output markdown report path",
+    )
     args = parser.parse_args()
 
     metrics = evaluate_results(args.results, args.answers)
