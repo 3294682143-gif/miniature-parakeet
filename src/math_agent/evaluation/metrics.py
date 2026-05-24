@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from pathlib import Path
+from typing import Any
 
 from math_agent.evaluation.judge import (
-    exact_match,
+    exact_match as judge_exact_match,
     normalized_match,
     numeric_match,
     symbolic_match,
@@ -105,7 +107,7 @@ def evaluate_results(
                 continue
             matched_items += 1
             pred = r.final_answer.value
-            exact += int(exact_match(pred, gold))
+            exact += int(judge_exact_match(pred, gold))
             normalized += int(normalized_match(pred, gold))
             numeric += int(numeric_match(pred, gold))
             symbolic += int(symbolic_match(pred, gold))
@@ -166,10 +168,6 @@ def render_markdown_report(
     return "\n".join(lines) + "\n"
 
 
-import re
-from typing import Any
-
-
 _BOXED_PATTERN = re.compile(r"\\boxed\{([^{}]+)\}")
 
 
@@ -191,8 +189,13 @@ def normalize_answer(text: Any) -> str:
         return s
 
 
-def exact_match(pred: Any, expected: Any) -> bool:
+def normalized_exact_match(pred: Any, expected: Any) -> bool:
     return normalize_answer(pred) == normalize_answer(expected)
+
+
+def exact_match(pred: Any, expected: Any) -> bool:
+    """Backward-compatible shadow-eval exact-match wrapper."""
+    return normalized_exact_match(pred, expected)
 
 
 def compute_json_valid_rate(results: list[dict[str, Any]]) -> float:
