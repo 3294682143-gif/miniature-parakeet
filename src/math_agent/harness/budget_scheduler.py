@@ -4,7 +4,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from math_agent.agents.proof_guardian import detect_proof_problem
 

@@ -1,6 +1,7 @@
 import json
 import subprocess
 import sys
+from typing import Any
 
 from math_agent.harness.weighted_voting import (
     build_cluster_summary,
@@ -114,11 +115,12 @@ def test_unknown_answer_type_degrades_without_exception():
 
 
 def test_result_json_dumps_and_summary_jsonable():
-    cands = [
+    cands_model: list[CandidateAnswer] = [
         normalize_candidate_answer(_c("a", "2", 0.8, 0.8)),
         normalize_candidate_answer(_c("b", "2", 0.7, 0.7)),
     ]
-    summary = build_cluster_summary(cands)
+    cands: list[CandidateAnswer | dict[str, Any]] = [*cands_model]
+    summary = build_cluster_summary(cands_model)
     json.dumps(summary, ensure_ascii=False)
     json.dumps(select_best_candidate(cands).model_dump(), ensure_ascii=False)
 

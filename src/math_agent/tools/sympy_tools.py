@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import re
+from typing import Any, cast
 
-from sympy import Eq, simplify, solve, sympify
-from sympy.parsing.sympy_parser import (
+from sympy import Eq, simplify, solve, sympify  # type: ignore[import-untyped]
+from sympy.parsing.sympy_parser import (  # type: ignore[import-untyped]
     implicit_multiplication_application,
     parse_expr,
     standard_transformations,
@@ -25,8 +26,8 @@ def simplify_expression(expr: str) -> str:
 
 def check_equivalent(expr1: str, expr2: str) -> bool:
     try:
-        lhs = sympify(expr1)
-        rhs = sympify(expr2)
+        lhs = cast(Any, sympify(expr1))
+        rhs = cast(Any, sympify(expr2))
         return bool(simplify(lhs - rhs) == 0)
     except Exception:
         return False
@@ -34,8 +35,8 @@ def check_equivalent(expr1: str, expr2: str) -> bool:
 
 def numeric_compare(a: str, b: str, tol: float = 1e-6) -> bool:
     try:
-        av = float(sympify(a).evalf())
-        bv = float(sympify(b).evalf())
+        av = float(cast(Any, sympify(a)).evalf())
+        bv = float(cast(Any, sympify(b)).evalf())
         return abs(av - bv) <= tol
     except Exception:
         return False
