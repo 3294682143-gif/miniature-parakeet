@@ -14,7 +14,9 @@ from math_agent.evaluation.shadow_eval import (
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run mock/shadow evaluation (non-official).")
+    parser = argparse.ArgumentParser(
+        description="Run mock/shadow evaluation (non-official)."
+    )
     parser.add_argument("--input", default=None)
     parser.add_argument("--out", default="outputs/shadow_eval")
     parser.add_argument("--limit", type=int, default=None)
@@ -39,9 +41,13 @@ def main() -> int:
     write_summary(summary, out_dir / "shadow_summary.json")
     write_markdown_report(summary, results, out_dir / "shadow_report.md")
 
-    print(f"shadow_eval done: total={summary.total} exact_match={summary.exact_match_count}")
+    print(
+        f"shadow_eval done: total={summary.total} exact_match={summary.exact_match_count}"
+    )
 
-    if args.fail_on_format_error and any(r.failure_category == "json_invalid" for r in results):
+    if args.fail_on_format_error and any(
+        r.failure_category == "json_invalid" for r in results
+    ):
         return 2
     if args.fail_on_missing_final and summary.missing_final_count > 0:
         return 3
