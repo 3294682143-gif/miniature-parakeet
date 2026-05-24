@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -168,6 +169,23 @@ def _contains_tokens(path: Path, tokens: list[str]) -> dict[str, bool]:
     return {t: t in text for t in tokens}
 
 
+def _contains_command_signatures(path: Path, tokens: list[str]) -> dict[str, bool]:
+    """Detect command text in both shell-like and Python list literal forms."""
+    if not path.is_file():
+        return {t: False for t in tokens}
+    text = path.read_text(encoding="utf-8", errors="ignore")
+
+    matched: dict[str, bool] = {}
+    for token in tokens:
+        if token in text:
+            matched[token] = True
+            continue
+        parts = [re.escape(p) for p in token.split()]
+        pattern = r"[\s,\[\]\"']+".join(parts)
+        matched[token] = re.search(pattern, text) is not None
+    return matched
+
+
 def inspect_ci(root: Path) -> dict[str, Any]:
     ci_path = root / ".github/workflows/ci.yml"
     gate_path = root / "scripts/run_regression_gate.py"
@@ -196,7 +214,7 @@ def inspect_ci(root: Path) -> dict[str, Any]:
         "local_regression_gate": "present" if gate_path.is_file() else "missing",
         "recommended_command": "python scripts/run_regression_gate.py",
         "ci_contains": _contains_tokens(ci_path, ci_tokens),
-        "gate_contains": _contains_tokens(gate_path, gate_tokens),
+        "gate_contains": _contains_command_signatures(gate_path, gate_tokens),
         "gate_contains_real_flag": (
             "--real" in gate_path.read_text(encoding="utf-8", errors="ignore")
             if gate_path.is_file()
