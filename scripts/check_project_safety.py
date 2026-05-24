@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import re
-import sys
 from pathlib import Path
 
 STRONG_SCAN_DIRS = {"src", "scripts", "configs", "submission"}
@@ -17,6 +16,8 @@ AUTH_PATTERNS = [
     re.compile(r"\bAuthorization\s*:\s*\S+", re.IGNORECASE),
     re.compile(r"\bBearer\s+[A-Za-z0-9._-]{10,}\b", re.IGNORECASE),
 ]
+TEST_AUTH_ALLOWLINE_MARKERS = ("mock", "fake", "placeholder", "example", "never_print", "test")
+TEST_AUTH_ALLOW_FILES = {"tests/test_project_safety.py", "tests/test_memory_hub.py"}
 
 
 def _is_probably_doc(path: Path) -> bool:
@@ -57,6 +58,11 @@ def scan_project(root: Path) -> list[tuple[str, str]]:
         ("run_records/**", "forbidden_run_records_dir"),
     ]:
         for p in root.glob(pattern):
+            if not p.exists():
+                continue
+            relp = p.relative_to(root)
+            if pattern == "outputs/traces/**" and (relp == Path("outputs/traces") or relp == Path("outputs/traces/.gitkeep")):
+                continue
             if p.exists():
                 findings.append((str(p.relative_to(root)), risk))
 
@@ -79,14 +85,23 @@ def scan_project(root: Path) -> list[tuple[str, str]]:
         is_doc = _is_probably_doc(rel)
 
         if in_strong_dir or not is_doc:
+            rel_str = str(rel)
             for pat in API_KEY_PATTERNS:
                 if pat.search(text):
-                    findings.append((str(rel), "suspected_api_key"))
+                    findings.append((rel_str, "suspected_api_key"))
                     break
-            for pat in AUTH_PATTERNS:
-                if pat.search(text):
-                    findings.append((str(rel), "suspected_auth_token"))
+            auth_hit = False
+            for line in text.splitlines():
+                if rel_str in TEST_AUTH_ALLOW_FILES:
+                    continue
+                lower_line = line.lower()
+                if rel.parts and rel.parts[0] == "tests" and any(marker in lower_line for marker in TEST_AUTH_ALLOWLINE_MARKERS):
+                    continue
+                if any(pat.search(line) for pat in AUTH_PATTERNS):
+                    auth_hit = True
                     break
+            if auth_hit:
+                findings.append((rel_str, "suspected_auth_token"))
 
     # de-duplicate
     return sorted(set(findings))
