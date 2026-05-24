@@ -82,6 +82,21 @@ def test_bad_dict_not_crash():
     assert res.selected_candidate_id == "b"
 
 
+def test_unknown_answer_type_degrades_without_exception():
+    cand = normalize_candidate_answer(
+        {
+            "candidate_id": "u1",
+            "source": "mock",
+            "answer_type": "matrix",
+            "final_answer_value": "[]",
+            "confidence": "bad",
+            "verifier_score": 0.9,
+        }
+    )
+    assert isinstance(cand, CandidateAnswer)
+    assert "schema_invalid" in cand.risk_flags
+
+
 def test_result_json_dumps_and_summary_jsonable():
     cands = [normalize_candidate_answer(_c("a", "2", 0.8, 0.8)), normalize_candidate_answer(_c("b", "2", 0.7, 0.7))]
     summary = build_cluster_summary(cands)
