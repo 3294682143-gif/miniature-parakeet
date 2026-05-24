@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Any
+from typing import Any, cast
 
 import requests
 
@@ -60,7 +60,7 @@ class InternS1Client:
             return self.MOCK_RESPONSE
         self._validate_real_mode_config()
         url = self._build_chat_completions_url()
-        payload = {
+        payload: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
             "temperature": temperature,
@@ -75,7 +75,10 @@ class InternS1Client:
         for attempt in range(1, attempts + 1):
             try:
                 resp = requests.post(
-                    url, headers=headers, json=payload, timeout=self.timeout
+                    url,
+                    headers=headers,
+                    json=cast(Any, payload),
+                    timeout=self.timeout,
                 )
                 if resp.status_code in {401, 403}:
                     raise ValueError("auth_error: unauthorized (401/403)")

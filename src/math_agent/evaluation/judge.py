@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import math
 from fractions import Fraction
+from typing import Any, cast
 
-import sympy as sp
+import sympy as sp  # type: ignore[import-untyped]
 
 from math_agent.tools.answer_normalizer import normalize_answer
 
@@ -41,8 +42,8 @@ def symbolic_match(pred: str, gold: str) -> bool:
     p = normalize_answer(pred or "")
     g = normalize_answer(gold or "")
     try:
-        pexpr = sp.sympify(p)
-        gexpr = sp.sympify(g)
+        pexpr = cast(Any, sp.sympify(p))
+        gexpr = cast(Any, sp.sympify(g))
     except Exception:
         return False
     try:

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from string import Formatter
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 
 def load_prompts(path: str | Path) -> dict:

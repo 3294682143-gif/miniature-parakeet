@@ -55,7 +55,9 @@ def test_status_invalid_fails():
 
 
 def test_make_failure_result_json_serializable():
-    result = make_failure_result("qf", "1/0=?", "division by zero")
-    dumped = result.model_dump(mode="json")
+    result = make_failure_result(
+        question_id="qf", question="1/0=?", error_message="division by zero"
+    )
+    dumped = result.model_dump()
     json.dumps(dumped)
     assert dumped["status"] == "fail"
