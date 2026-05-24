@@ -6,6 +6,7 @@ from pathlib import Path
 
 from math_agent.clients.interns1_client import InternS1Client
 from math_agent.prompting import get_prompt, load_prompts, render_prompt
+from math_agent.typing import ChatClient
 from pydantic import BaseModel, Field, ValidationError
 
 
@@ -74,7 +75,7 @@ class Router:
     def __init__(
         self,
         mode: str = "rule_based",
-        client: InternS1Client | None = None,
+        client: ChatClient | None = None,
         prompt_config_path: str | Path = "configs/prompts.yaml",
     ) -> None:
         if mode not in {"rule_based", "llm"}:

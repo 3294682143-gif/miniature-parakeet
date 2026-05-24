@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import re
 from pathlib import Path
+from typing import Any
 
 from .agents import explainer, planner, refiner, router, solver, verifier
 from .clients.interns1_client import InternS1Client
@@ -18,6 +19,7 @@ from .schemas import (
 )
 from .tools import sympy_tools
 from .tools.answer_normalizer import extract_answer_by_patterns, extract_boxed_answer
+from .typing import ChatClient
 
 _ALLOWED_BINARY_OPS = {
     ast.Add: lambda a, b: a + b,
@@ -345,7 +347,7 @@ def _run_tool_assist(question: str, problem_type: str, recommended_solver: str):
 class MathAgentPipeline:
     def __init__(
         self,
-        client: InternS1Client | None = None,
+        client: ChatClient | None = None,
         prompt_config_path: str | Path = "configs/prompts.yaml",
         mock: bool = True,
         enable_tools: bool = False,
@@ -382,7 +384,7 @@ class MathAgentPipeline:
     def solve(self, question: str, question_id: str | None = None) -> SolveResult:
         qid = question_id or "unknown"
         started_at = now_iso()
-        trace_payload = {
+        trace_payload: dict[str, Any] = {
             "question_id": qid,
             "question": question,
             "started_at": started_at,
