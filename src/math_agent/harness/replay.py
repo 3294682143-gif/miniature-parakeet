@@ -3,6 +3,14 @@ from __future__ import annotations
 from typing import Any
 
 
+def _dict_or_empty(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _list_or_empty(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
 def _pick(d: dict[str, Any], *keys: str, default: Any = None) -> Any:
     for k in keys:
         if k in d and d[k] is not None:
@@ -11,22 +19,12 @@ def _pick(d: dict[str, Any], *keys: str, default: Any = None) -> Any:
 
 
 def build_timeline(trace: dict[str, Any]) -> list[dict[str, Any]]:
-    route = trace.get("route_info") if isinstance(trace.get("route_info"), dict) else {}
-    final_result = (
-        trace.get("final_result") if isinstance(trace.get("final_result"), dict) else {}
-    )
-    verifier = (
-        trace.get("verifier_result")
-        if isinstance(trace.get("verifier_result"), dict)
-        else {}
-    )
+    route = _dict_or_empty(trace.get("route_info"))
+    final_result = _dict_or_empty(trace.get("final_result"))
+    verifier = _dict_or_empty(trace.get("verifier_result"))
 
-    model_calls = (
-        trace.get("model_calls") if isinstance(trace.get("model_calls"), list) else []
-    )
-    tool_calls = (
-        trace.get("tool_calls") if isinstance(trace.get("tool_calls"), list) else []
-    )
+    model_calls = _list_or_empty(trace.get("model_calls"))
+    tool_calls = _list_or_empty(trace.get("tool_calls"))
 
     return [
         {
@@ -90,32 +88,19 @@ def build_timeline(trace: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def summarize_trace(trace: dict[str, Any]) -> dict[str, Any]:
-    route = trace.get("route_info") if isinstance(trace.get("route_info"), dict) else {}
-    final_result = (
-        trace.get("final_result") if isinstance(trace.get("final_result"), dict) else {}
-    )
-    verification = (
-        final_result.get("verification")
-        if isinstance(final_result.get("verification"), dict)
-        else {}
-    )
-    final_answer = (
-        final_result.get("final_answer")
-        if isinstance(final_result.get("final_answer"), dict)
-        else {}
-    )
-    model_calls = (
-        trace.get("model_calls") if isinstance(trace.get("model_calls"), list) else []
-    )
-    tool_calls = (
-        trace.get("tool_calls") if isinstance(trace.get("tool_calls"), list) else []
-    )
+    route = _dict_or_empty(trace.get("route_info"))
+    final_result = _dict_or_empty(trace.get("final_result"))
+    verification = _dict_or_empty(final_result.get("verification"))
+    final_answer = _dict_or_empty(final_result.get("final_answer"))
+    model_calls = _list_or_empty(trace.get("model_calls"))
+    tool_calls = _list_or_empty(trace.get("tool_calls"))
 
     q = str(trace.get("question") or "")
     preview = (q[:100] + "...") if len(q) > 100 else q
     risk_flags = []
-    if isinstance(final_result.get("risk_flags"), list):
-        risk_flags = [str(x) for x in final_result.get("risk_flags")]
+    risk_flags_raw = _list_or_empty(final_result.get("risk_flags"))
+    if risk_flags_raw:
+        risk_flags = [str(x) for x in risk_flags_raw]
 
     return {
         "question_id": str(trace.get("question_id") or "unknown"),

@@ -16,6 +16,11 @@ from math_agent.tools.answer_normalizer import (
     extract_boxed_answer,
 )
 
+
+def _dict_or_empty(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
 _MAX_FINAL_LEN = 160
 _LONG_TEXT_TOKENS = (
     "```",
@@ -72,12 +77,12 @@ def _pick_final_candidate(payload: dict[str, Any]) -> str:
             if patterned and not _is_long_markdown(patterned):
                 return patterned
     for key in ("draft_solution", "answer"):
-        text = payload.get(key)
-        if isinstance(text, str):
-            boxed = extract_boxed_answer(text)
+        text_value = payload.get(key)
+        if isinstance(text_value, str):
+            boxed = extract_boxed_answer(text_value)
             if boxed:
                 return boxed
-            patterned = extract_answer_by_patterns(text)
+            patterned = extract_answer_by_patterns(text_value)
             if patterned and not _is_long_markdown(patterned):
                 return patterned
     return ""
@@ -87,11 +92,7 @@ def detect_dirty_final_answer(result: dict | SolveResult) -> list[str]:
     payload = (
         result.model_dump() if isinstance(result, SolveResult) else dict(result or {})
     )
-    final = (
-        payload.get("final_answer")
-        if isinstance(payload.get("final_answer"), dict)
-        else {}
-    )
+    final = _dict_or_empty(payload.get("final_answer"))
     value = str(final.get("value", "") or "").strip()
     boxed = str(final.get("boxed", "") or "").strip()
     flags: list[str] = []
@@ -211,7 +212,7 @@ def repair_solve_result(result: dict | SolveResult) -> SolveResult:
         boxed = f"\\boxed{{{value}}}" if len(value) <= 80 else ""
 
     status = model.status
-    error = model.error
+    error = model.error or None
     if not value and fa.type != "proof":
         status = "partial" if status == "success" else status
         if status == "fail" and not error:

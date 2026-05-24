@@ -8,6 +8,14 @@ from math_agent.harness.skill_registry import SkillRegistry
 from math_agent.harness.weighted_voting import select_best_candidate
 
 
+def _dict_or_empty(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _list_or_empty(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
 def _to_dict(result: Any) -> dict[str, Any]:
     if hasattr(result, "model_dump"):
         try:
@@ -21,12 +29,8 @@ def _to_dict(result: Any) -> dict[str, Any]:
 
 def result_to_display_dict(result: Any) -> dict[str, Any]:
     data = _to_dict(result)
-    final_answer = (
-        data.get("final_answer") if isinstance(data.get("final_answer"), dict) else {}
-    )
-    verification = (
-        data.get("verification") if isinstance(data.get("verification"), dict) else {}
-    )
+    final_answer = _dict_or_empty(data.get("final_answer"))
+    verification = _dict_or_empty(data.get("verification"))
     return {
         "final_answer": str(final_answer.get("value") or ""),
         "status": str(data.get("status") or "unknown"),
@@ -40,9 +44,7 @@ def result_to_display_dict(result: Any) -> dict[str, Any]:
 
 def safe_get_tool_calls(result: Any) -> list[dict[str, Any]]:
     data = _to_dict(result)
-    tool_trace = (
-        data.get("tool_trace") if isinstance(data.get("tool_trace"), list) else []
-    )
+    tool_trace = _list_or_empty(data.get("tool_trace"))
     out: list[dict[str, Any]] = []
     for item in tool_trace:
         if isinstance(item, dict):
@@ -63,9 +65,7 @@ def safe_get_risk_flags(result: Any) -> list[str]:
     raw = data.get("risk_flags")
     if isinstance(raw, list):
         flags.extend(str(x) for x in raw)
-    verification = (
-        data.get("verification") if isinstance(data.get("verification"), dict) else {}
-    )
+    verification = _dict_or_empty(data.get("verification"))
     issues = verification.get("issues")
     if isinstance(issues, list):
         flags.extend(str(x) for x in issues)
