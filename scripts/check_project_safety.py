@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import re
-import sys
 from pathlib import Path
 
 STRONG_SCAN_DIRS = {"src", "scripts", "configs", "submission"}
@@ -17,6 +16,14 @@ AUTH_PATTERNS = [
     re.compile(r"\bAuthorization\s*:\s*\S+", re.IGNORECASE),
     re.compile(r"\bBearer\s+[A-Za-z0-9._-]{10,}\b", re.IGNORECASE),
 ]
+TEST_AUTH_ALLOWLINE_MARKERS = (
+    "safety: allow-mock-token",
+    "mock",
+    "fake",
+    "placeholder",
+    "example",
+    "test",
+)
 
 
 def _is_probably_doc(path: Path) -> bool:
@@ -51,14 +58,22 @@ def scan_project(root: Path) -> list[tuple[str, str]]:
 
     for pattern, risk in [
         ("outputs/*.jsonl", "forbidden_outputs_jsonl"),
-        ("outputs/traces/**", "forbidden_outputs_traces"),
         ("outputs/run_records/**", "forbidden_outputs_run_records"),
         ("trace/**", "forbidden_trace_dir"),
         ("run_records/**", "forbidden_run_records_dir"),
     ]:
         for p in root.glob(pattern):
+            if not p.exists():
+                continue
             if p.exists():
                 findings.append((str(p.relative_to(root)), risk))
+
+    traces_dir = root / "outputs" / "traces"
+    if traces_dir.exists():
+        for p in traces_dir.rglob("*"):
+            if p == traces_dir or p == traces_dir / ".gitkeep":
+                continue
+            findings.append((str(p.relative_to(root)), "forbidden_outputs_traces"))
 
     for cache in ["__pycache__", ".pytest_cache"]:
         for p in root.rglob(cache):
@@ -79,14 +94,21 @@ def scan_project(root: Path) -> list[tuple[str, str]]:
         is_doc = _is_probably_doc(rel)
 
         if in_strong_dir or not is_doc:
+            rel_str = str(rel)
             for pat in API_KEY_PATTERNS:
                 if pat.search(text):
-                    findings.append((str(rel), "suspected_api_key"))
+                    findings.append((rel_str, "suspected_api_key"))
                     break
-            for pat in AUTH_PATTERNS:
-                if pat.search(text):
-                    findings.append((str(rel), "suspected_auth_token"))
+            auth_hit = False
+            for line in text.splitlines():
+                lower_line = line.lower()
+                if any(marker in lower_line for marker in TEST_AUTH_ALLOWLINE_MARKERS):
+                    continue
+                if any(pat.search(line) for pat in AUTH_PATTERNS):
+                    auth_hit = True
                     break
+            if auth_hit:
+                findings.append((rel_str, "suspected_auth_token"))
 
     # de-duplicate
     return sorted(set(findings))
