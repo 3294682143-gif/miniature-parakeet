@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  quality-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .[dev]
+          python -m pip install ruff black isort mypy pyright
+
+      - name: Ruff
+        run: ruff check .
+
+      - name: Black
+        run: black --check src scripts demo tests
+
+      - name: Isort
+        run: isort --check-only src scripts demo tests
+
+      - name: Mypy
+        run: mypy src --show-error-codes
+
+      - name: Pyright
+        run: pyright
+
+      - name: Compile all
+        run: python -m compileall src scripts demo tests
+
+      - name: CLI smoke (mock/no-trace)
+        run: python -m math_agent.cli solve --question "计算 2+3" --enable-tools --mode fast --no-trace
+
+      - name: Pytest
+        run: python -m pytest -q
+
+      - name: Cleanup caches and runtime artifacts
+        run: |
+          rm -rf .pytest_cache
+          find . -type d -name '__pycache__' -prune -exec rm -rf {} +
+          if [ -d outputs ]; then
+            find outputs -mindepth 1 ! -name '.gitkeep' -exec rm -rf {} +
+          fi
+          if [ -d trace ]; then
+            find trace -mindepth 1 ! -name '.gitkeep' -exec rm -rf {} +
+          fi
+
+      - name: Project safety check
+        run: python scripts/check_project_safety.py
