@@ -5,11 +5,17 @@ import json
 from pathlib import Path
 
 from math_agent.evaluation.report import write_markdown_report
-from math_agent.evaluation.shadow_eval import ShadowEvalResult, summarize_results, write_summary
+from math_agent.evaluation.shadow_eval import (
+    ShadowEvalResult,
+    summarize_results,
+    write_summary,
+)
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Build shadow summary/report from shadow_results.jsonl")
+    parser = argparse.ArgumentParser(
+        description="Build shadow summary/report from saved results"
+    )
     parser.add_argument("--results", required=True)
     parser.add_argument("--out-dir", required=True)
     args = parser.parse_args()
