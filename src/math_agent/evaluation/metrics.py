@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from pathlib import Path
+from typing import Any
 
+from math_agent.evaluation.judge import exact_match as judge_exact_match
 from math_agent.evaluation.judge import (
-    exact_match,
     normalized_match,
     numeric_match,
     symbolic_match,
@@ -105,7 +107,7 @@ def evaluate_results(
                 continue
             matched_items += 1
             pred = r.final_answer.value
-            exact += int(exact_match(pred, gold))
+            exact += int(judge_exact_match(pred, gold))
             normalized += int(normalized_match(pred, gold))
             numeric += int(numeric_match(pred, gold))
             symbolic += int(symbolic_match(pred, gold))
@@ -164,3 +166,90 @@ def render_markdown_report(
             lines.append(f"- **{k}**: {metrics.get(k)}")
 
     return "\n".join(lines) + "\n"
+
+
+_BOXED_PATTERN = re.compile(r"\\boxed\{([^{}]+)\}")
+
+
+def normalize_answer(text: Any) -> str:
+    if text is None:
+        return ""
+    if isinstance(text, (int, float)):
+        n = float(text)
+        return str(int(n)) if n.is_integer() else str(n)
+
+    s = str(text).strip().lower()
+    s = _BOXED_PATTERN.sub(r"\1", s)
+    s = s.rstrip("。.").strip()
+
+    try:
+        n = float(s)
+        return str(int(n)) if n.is_integer() else str(n)
+    except (ValueError, TypeError):
+        return s
+
+
+def normalized_exact_match(pred: Any, expected: Any) -> bool:
+    return normalize_answer(pred) == normalize_answer(expected)
+
+
+def exact_match(pred: Any, expected: Any) -> bool:
+    """Backward-compatible shadow-eval exact-match wrapper."""
+    return normalized_exact_match(pred, expected)
+
+
+def compute_json_valid_rate(results: list[dict[str, Any]]) -> float:
+    if not results:
+        return 0.0
+    return sum(1 for r in results if r.get("json_valid", False)) / len(results)
+
+
+def compute_missing_final_rate(results: list[dict[str, Any]]) -> float:
+    if not results:
+        return 0.0
+    return sum(1 for r in results if not r.get("final_answer_exists", True)) / len(
+        results
+    )
+
+
+def compute_dirty_boxed_rate(results: list[dict[str, Any]]) -> float:
+    if not results:
+        return 0.0
+    return sum(1 for r in results if r.get("dirty_boxed", False)) / len(results)
+
+
+def compute_trace_coverage_rate(results: list[dict[str, Any]]) -> float:
+    if not results:
+        return 0.0
+    return sum(1 for r in results if r.get("trace_exists", False)) / len(results)
+
+
+def compute_failure_counts(results: list[dict[str, Any]]) -> dict[str, int]:
+    counter = Counter(str(r.get("failure_category", "unknown")) for r in results)
+    return dict(sorted(counter.items()))
+
+
+def _summarize_dimension(results: list[dict[str, Any]], key: str) -> dict[str, Any]:
+    grouped: dict[str, dict[str, int]] = {}
+    for r in results:
+        k = str(r.get(key, "unknown") or "unknown")
+        g = grouped.setdefault(k, {"total": 0, "exact_match_count": 0})
+        g["total"] += 1
+        g["exact_match_count"] += int(bool(r.get("exact_match", False)))
+    out: dict[str, Any] = {}
+    for name, d in sorted(grouped.items()):
+        total = d["total"]
+        out[name] = {
+            "total": total,
+            "exact_match_count": d["exact_match_count"],
+            "exact_match_rate": d["exact_match_count"] / total if total else 0.0,
+        }
+    return out
+
+
+def summarize_by_domain(results: list[dict[str, Any]]) -> dict[str, Any]:
+    return _summarize_dimension(results, "domain")
+
+
+def summarize_by_difficulty(results: list[dict[str, Any]]) -> dict[str, Any]:
+    return _summarize_dimension(results, "difficulty")
