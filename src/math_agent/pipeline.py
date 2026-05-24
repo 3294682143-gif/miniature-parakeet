@@ -261,7 +261,9 @@ def _looks_like_long_markdown(text: str) -> bool:
     )
 
 
-def _run_tool_assist(question: str, problem_type: str, recommended_solver: str):
+def _run_tool_assist(
+    question: str, problem_type: str, recommended_solver: str
+) -> tuple[str | None, Verification | None, ToolTrace]:
     q = question.strip()
     try:
         equation_match = re.search(
@@ -344,6 +346,14 @@ def _run_tool_assist(question: str, problem_type: str, recommended_solver: str):
     )
 
 
+def _as_str(value: Any, default: str = "") -> str:
+    return value if isinstance(value, str) else default
+
+
+def _as_float(value: Any, default: float = 0.0) -> float:
+    return float(value) if isinstance(value, (int, float)) else default
+
+
 class MathAgentPipeline:
     def __init__(
         self,
@@ -384,6 +394,16 @@ class MathAgentPipeline:
     def solve(self, question: str, question_id: str | None = None) -> SolveResult:
         qid = question_id or "unknown"
         started_at = now_iso()
+        plan: dict[str, Any] = {}
+        draft: str = ""
+        current: str = ""
+        final: str = ""
+        status: str = "partial"
+        verification = Verification(method="none", passed=False, notes="not verified")
+        traces: list[ToolTrace] = []
+        result = make_failure_result(
+            question_id=qid, question=question, error_message="pipeline not executed"
+        )
         trace_payload: dict[str, Any] = {
             "question_id": qid,
             "question": question,
@@ -399,7 +419,6 @@ class MathAgentPipeline:
             "final_result": {},
             "errors": [],
         }
-        traces = []
         try:
             route_info = self.router.route(question)
             route_dict = (
@@ -417,13 +436,19 @@ class MathAgentPipeline:
 
             tool_first_done = False
             if self.run_mode == "tool-first" and self.enable_tools:
+                problem_type = _as_str(route_dict.get("problem_type", ""), "")
+                recommended_solver = _as_str(
+                    route_dict.get("recommended_solver", ""), ""
+                )
                 tv, tvf, ttrace = _run_tool_assist(
                     question,
-                    route_dict.get("problem_type", ""),
-                    route_dict.get("recommended_solver", ""),
+                    problem_type,
+                    recommended_solver,
                 )
                 traces.append(ttrace)
-                trace_payload["tool_calls"].append(ttrace.model_dump())
+                tool_calls = trace_payload.get("tool_calls")
+                if isinstance(tool_calls, list):
+                    tool_calls.append(ttrace.model_dump())
                 if tv is not None and tvf is not None and tvf.passed:
                     plan = planner._fallback_plan(question, route_dict)
                     draft = f"工具优先求得答案: \boxed{{{str(tv).strip()}}}"
@@ -462,8 +487,12 @@ class MathAgentPipeline:
                 final = _extract_final_answer_non_proof(draft, draft, None)
                 status = "success"
                 if not final:
-                    final = _mock_answer_from_question(question) if self.mock else ""
-                    if not final:
+                    mock_final = (
+                        _mock_answer_from_question(question) if self.mock else ""
+                    )
+                    if mock_final:
+                        final = mock_final
+                    else:
                         status = "partial"
                         final = ""
 
@@ -491,19 +520,25 @@ class MathAgentPipeline:
 
             current = draft
             if self.enable_tools:
+                problem_type = _as_str(route_dict.get("problem_type", ""), "")
+                recommended_solver = _as_str(
+                    route_dict.get("recommended_solver", ""), ""
+                )
                 tv, tvf, ttrace = _run_tool_assist(
                     question,
-                    route_dict.get("problem_type", ""),
-                    route_dict.get("recommended_solver", ""),
+                    problem_type,
+                    recommended_solver,
                 )
                 traces.append(ttrace)
-                trace_payload["tool_calls"].append(ttrace.model_dump())
+                tool_calls = trace_payload.get("tool_calls")
+                if isinstance(tool_calls, list):
+                    tool_calls.append(ttrace.model_dump())
                 if tv is not None and tvf is not None:
                     final, verification, status = str(tv).strip(), tvf, "success"
                     current = f"工具校验/计算得到最终答案为 \\boxed{{{final}}}。"
             if not _is_proof_problem(
-                route_dict.get("problem_type", ""),
-                route_dict.get("recommended_solver", ""),
+                _as_str(route_dict.get("problem_type", ""), ""),
+                _as_str(route_dict.get("recommended_solver", ""), ""),
             ):
                 final = _extract_final_answer_non_proof(draft, current, final)
                 if not final:
@@ -557,8 +592,10 @@ class MathAgentPipeline:
                 final_boxed = ""
             result = SolveResult(
                 question_id=qid,
-                domain=route_dict.get("domain", "unknown"),
-                problem_type=route_dict.get("problem_type", "unknown"),
+                domain=_as_str(route_dict.get("domain", "unknown"), "unknown"),
+                problem_type=_as_str(
+                    route_dict.get("problem_type", "unknown"), "unknown"
+                ),
                 problem_parse=problem_parse,
                 solution_plan=plan_steps,
                 visible_solution_steps=[current],
@@ -568,7 +605,9 @@ class MathAgentPipeline:
                 ),
                 verification=verification,
                 didactic_hint=explainer.run(question),
-                confidence=max(0.0, min(1.0, route_dict.get("confidence", 0.5) or 0.5)),
+                confidence=max(
+                    0.0, min(1.0, _as_float(route_dict.get("confidence", 0.5), 0.5))
+                ),
                 status=status,
                 error=None,
             )
