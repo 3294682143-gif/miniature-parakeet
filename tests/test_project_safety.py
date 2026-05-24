@@ -38,7 +38,7 @@ def test_env_file_flagged(tmp_path: Path):
 def test_bearer_token_flagged(tmp_path: Path):
     scripts_dir = tmp_path / "scripts"
     scripts_dir.mkdir()
-    secret = "Bearer superSecretToken12345"
+    secret = "Bearer superSecretToken12345"  # safety: allow-mock-token
     (scripts_dir / "x.py").write_text(f"TOKEN = '{secret}'\n", encoding="utf-8")
     findings = scan_project(tmp_path)
     assert any(path == "scripts/x.py" and risk == "suspected_auth_token" for path, risk in findings)
@@ -62,7 +62,7 @@ def test_pycache_flagged(tmp_path: Path):
 def test_no_secret_echo_in_findings(tmp_path: Path):
     scripts_dir = tmp_path / "scripts"
     scripts_dir.mkdir()
-    secret = "Bearer NEVER_PRINT_THIS_SECRET_12345"
+    secret = "Bearer NEVER_PRINT_THIS_SECRET_12345"  # safety: allow-mock-token
     (scripts_dir / "leak.py").write_text(secret, encoding="utf-8")
     findings = scan_project(tmp_path)
     rendered = "\n".join(f"{risk}:{path}" for path, risk in findings)

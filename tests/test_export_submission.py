@@ -104,7 +104,7 @@ def test_excluded_files_not_in_zip(tmp_path: Path):
 def test_sensitive_content_fails_without_echoing_secret(tmp_path: Path):
     real_repo_root = Path(__file__).resolve().parents[1]
     repo = _setup_fake_repo(tmp_path, real_repo_root)
-    (repo / "scripts" / "leak.py").write_text("Authorization: Bearer NEVER_PRINT_SECRET_123456", encoding="utf-8")
+    (repo / "scripts" / "leak.py").write_text("Authorization: Bearer NEVER_PRINT_SECRET_123456", encoding="utf-8")  # safety: allow-mock-token
 
     proc = _run_export(real_repo_root, repo, expect_code=3)
     assert "high-risk sensitive content" in proc.stderr

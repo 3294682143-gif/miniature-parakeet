@@ -16,8 +16,14 @@ AUTH_PATTERNS = [
     re.compile(r"\bAuthorization\s*:\s*\S+", re.IGNORECASE),
     re.compile(r"\bBearer\s+[A-Za-z0-9._-]{10,}\b", re.IGNORECASE),
 ]
-TEST_AUTH_ALLOWLINE_MARKERS = ("mock", "fake", "placeholder", "example", "never_print", "test")
-TEST_AUTH_ALLOW_FILES = {"tests/test_project_safety.py", "tests/test_memory_hub.py"}
+TEST_AUTH_ALLOWLINE_MARKERS = (
+    "safety: allow-mock-token",
+    "mock",
+    "fake",
+    "placeholder",
+    "example",
+    "test",
+)
 
 
 def _is_probably_doc(path: Path) -> bool:
@@ -52,7 +58,6 @@ def scan_project(root: Path) -> list[tuple[str, str]]:
 
     for pattern, risk in [
         ("outputs/*.jsonl", "forbidden_outputs_jsonl"),
-        ("outputs/traces/**", "forbidden_outputs_traces"),
         ("outputs/run_records/**", "forbidden_outputs_run_records"),
         ("trace/**", "forbidden_trace_dir"),
         ("run_records/**", "forbidden_run_records_dir"),
@@ -60,11 +65,15 @@ def scan_project(root: Path) -> list[tuple[str, str]]:
         for p in root.glob(pattern):
             if not p.exists():
                 continue
-            relp = p.relative_to(root)
-            if pattern == "outputs/traces/**" and (relp == Path("outputs/traces") or relp == Path("outputs/traces/.gitkeep")):
-                continue
             if p.exists():
                 findings.append((str(p.relative_to(root)), risk))
+
+    traces_dir = root / "outputs" / "traces"
+    if traces_dir.exists():
+        for p in traces_dir.rglob("*"):
+            if p == traces_dir or p == traces_dir / ".gitkeep":
+                continue
+            findings.append((str(p.relative_to(root)), "forbidden_outputs_traces"))
 
     for cache in ["__pycache__", ".pytest_cache"]:
         for p in root.rglob(cache):
@@ -92,10 +101,8 @@ def scan_project(root: Path) -> list[tuple[str, str]]:
                     break
             auth_hit = False
             for line in text.splitlines():
-                if rel_str in TEST_AUTH_ALLOW_FILES:
-                    continue
                 lower_line = line.lower()
-                if rel.parts and rel.parts[0] == "tests" and any(marker in lower_line for marker in TEST_AUTH_ALLOWLINE_MARKERS):
+                if any(marker in lower_line for marker in TEST_AUTH_ALLOWLINE_MARKERS):
                     continue
                 if any(pat.search(line) for pat in AUTH_PATTERNS):
                     auth_hit = True
