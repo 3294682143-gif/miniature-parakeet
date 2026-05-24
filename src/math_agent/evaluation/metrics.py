@@ -207,7 +207,9 @@ def compute_json_valid_rate(results: list[dict[str, Any]]) -> float:
 def compute_missing_final_rate(results: list[dict[str, Any]]) -> float:
     if not results:
         return 0.0
-    return sum(1 for r in results if not r.get("final_answer_exists", True)) / len(results)
+    return sum(1 for r in results if not r.get("final_answer_exists", True)) / len(
+        results
+    )
 
 
 def compute_dirty_boxed_rate(results: list[dict[str, Any]]) -> float:
