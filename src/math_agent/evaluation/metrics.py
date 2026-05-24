@@ -6,8 +6,6 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from pydantic import ValidationError
-
 from math_agent.evaluation.judge import (
     exact_match as judge_exact_match,
     normalized_match,
@@ -15,6 +13,7 @@ from math_agent.evaluation.judge import (
     symbolic_match,
 )
 from math_agent.schemas import SolveResult
+from pydantic import ValidationError
 
 
 def accuracy(correct: int, total: int) -> float:
