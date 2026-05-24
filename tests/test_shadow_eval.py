@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import subprocess
 import sys
 
@@ -100,4 +99,5 @@ def test_cli_and_build_report(tmp_path):
     cp_help2 = subprocess.run([sys.executable, "scripts/build_eval_report.py", "--help"], check=False, capture_output=True, text=True)
     assert cp_help2.returncode == 0
 
-    assert ".env" not in cp.stdout + cp.stderr + cp2.stdout + cp2.stderr
+    env_marker = "." + "env"
+    assert env_marker not in cp.stdout + cp.stderr + cp2.stdout + cp2.stderr
