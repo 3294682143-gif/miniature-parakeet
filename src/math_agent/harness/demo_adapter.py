@@ -6,6 +6,7 @@ from math_agent.harness.budget_scheduler import allocate_budget
 from math_agent.harness.memory import MemoryHub
 from math_agent.harness.skill_registry import SkillRegistry
 from math_agent.harness.weighted_voting import select_best_candidate
+from math_agent.schemas import CandidateAnswer
 
 
 def _dict_or_empty(value: Any) -> dict[str, Any]:
@@ -149,7 +150,7 @@ def build_demo_budget_preview(
 
 
 def build_mock_voting_demo() -> dict[str, Any]:
-    candidates = [
+    candidates: list[CandidateAnswer | dict[str, Any]] = [
         {
             "candidate_id": "c1",
             "source": "mock",
