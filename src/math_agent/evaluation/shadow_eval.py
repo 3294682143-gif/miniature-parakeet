@@ -80,7 +80,14 @@ DEFAULT_CASES = [
     ShadowEvalCase("mock-002", "解方程 x+1=3", "2", "algebra", "easy", "number"),
     ShadowEvalCase("mock-003", "化简 1/2+1/3", "5/6", "arithmetic", "easy", "fraction"),
     ShadowEvalCase("mock-004", "判断 4 是否为偶数", "yes", "logic", "easy", "boolean"),
-    ShadowEvalCase("mock-005", "给出一个简短证明：偶数加偶数为偶数", None, "proof", "medium", "proof"),
+    ShadowEvalCase(
+        "mock-005",
+        "给出一个简短证明：偶数加偶数为偶数",
+        None,
+        "proof",
+        "medium",
+        "proof",
+    ),
 ]
 
 
@@ -101,7 +108,11 @@ def load_cases(path: Path | str | None) -> list[ShadowEvalCase]:
         ShadowEvalCase(
             id=str(r["id"]),
             question=str(r["question"]),
-            expected_answer=None if r.get("expected_answer") is None else str(r.get("expected_answer")),
+            expected_answer=(
+                None
+                if r.get("expected_answer") is None
+                else str(r.get("expected_answer"))
+            ),
             domain=str(r.get("domain", "unknown")),
             difficulty=str(r.get("difficulty", "unknown")),
             answer_type=str(r.get("answer_type", "text")),
@@ -118,7 +129,10 @@ def _mock_runner(case: ShadowEvalCase, _options: dict[str, Any]) -> dict[str, An
         "判断 4 是否为偶数": "yes",
     }
     if case.answer_type == "proof":
-        return {"predicted_answer": "设 a=2m,b=2n，则 a+b=2(m+n)，故为偶数。", "proof_partial": False}
+        return {
+            "predicted_answer": "设 a=2m,b=2n，则 a+b=2(m+n)，故为偶数。",
+            "proof_partial": False,
+        }
     return {"predicted_answer": mapping.get(case.question, "mock-answer")}
 
 
@@ -144,7 +158,9 @@ def run_shadow_eval(
                 difficulty=case.difficulty,
                 answer_type=case.answer_type,
                 json_valid=bool(rr.get("json_valid", True)),
-                final_answer_exists=bool(rr.get("final_answer_exists", predicted.strip() != "")),
+                final_answer_exists=bool(
+                    rr.get("final_answer_exists", predicted.strip() != "")
+                ),
                 dirty_boxed=bool(rr.get("dirty_boxed", False)),
                 boxed_42_fallback=bool(rr.get("boxed_42_fallback", False)),
                 trace_exists=bool(rr.get("trace_exists", False)),
@@ -185,16 +201,24 @@ def summarize_results(results: list[ShadowEvalResult]) -> ShadowEvalSummary:
         solved_count=sum(1 for r in rows if r.get("status") == "ok"),
         exact_match_count=sum(1 for r in rows if r.get("exact_match", False)),
         json_valid_rate=compute_json_valid_rate(rows),
-        missing_final_count=sum(1 for r in rows if not r.get("final_answer_exists", True)),
+        missing_final_count=sum(
+            1 for r in rows if not r.get("final_answer_exists", True)
+        ),
         missing_final_rate=compute_missing_final_rate(rows),
         dirty_boxed_count=sum(1 for r in rows if r.get("dirty_boxed", False)),
         dirty_boxed_rate=compute_dirty_boxed_rate(rows),
-        boxed_42_fallback_count=sum(1 for r in rows if r.get("boxed_42_fallback", False)),
+        boxed_42_fallback_count=sum(
+            1 for r in rows if r.get("boxed_42_fallback", False)
+        ),
         trace_coverage_rate=compute_trace_coverage_rate(rows),
         verifier_failed_count=sum(1 for r in rows if r.get("verifier_passed") is False),
         repair_used_count=sum(1 for r in rows if r.get("repair_used", False)),
-        tool_usage_rate=(sum(1 for r in rows if r.get("tool_used", False)) / total if total else 0.0),
-        average_latency_ms=(sum(int(r.get("latency_ms", 0)) for r in rows) / total if total else 0.0),
+        tool_usage_rate=(
+            sum(1 for r in rows if r.get("tool_used", False)) / total if total else 0.0
+        ),
+        average_latency_ms=(
+            sum(int(r.get("latency_ms", 0)) for r in rows) / total if total else 0.0
+        ),
         failure_category_counts=compute_failure_counts(rows),
         domain_breakdown=summarize_by_domain(rows),
         difficulty_breakdown=summarize_by_difficulty(rows),
@@ -204,16 +228,24 @@ def summarize_results(results: list[ShadowEvalResult]) -> ShadowEvalSummary:
 def write_jsonl(results: list[ShadowEvalResult], path: Path | str) -> None:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text("\n".join(json.dumps(asdict(r), ensure_ascii=False) for r in results) + "\n", encoding="utf-8")
+    p.write_text(
+        "\n".join(json.dumps(asdict(r), ensure_ascii=False) for r in results) + "\n",
+        encoding="utf-8",
+    )
 
 
 def write_summary(summary: ShadowEvalSummary, path: Path | str) -> None:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(asdict(summary), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    p.write_text(
+        json.dumps(asdict(summary), ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
 
-def render_markdown_report(summary: ShadowEvalSummary, results: list[ShadowEvalResult]) -> str:
+def render_markdown_report(
+    summary: ShadowEvalSummary, results: list[ShadowEvalResult]
+) -> str:
     return (
         "# Shadow Eval Report\n\n"
         "This is NOT official evaluation.\n"
