@@ -54,7 +54,14 @@ def test_dirty_boxed_markdown_and_code_flags():
 
 
 def test_proof_empty_boxed_valid():
-    base = _base_result().model_copy(update={"problem_type": "proof", "final_answer": FinalAnswer(type="proof", value="已证明：命题成立", boxed="")})
+    base = _base_result().model_copy(
+        update={
+            "problem_type": "proof",
+            "final_answer": FinalAnswer(
+                type="proof", value="已证明：命题成立", boxed=""
+            ),
+        }
+    )
     repaired = proof_safe_finalize(base)
     assert repaired.final_answer.boxed == ""
     assert repaired.status in {"success", "partial"}
@@ -62,7 +69,11 @@ def test_proof_empty_boxed_valid():
 
 def test_proof_boxed_pollution_flagged():
     base = _base_result().model_dump()
-    base["final_answer"] = {"type": "proof", "value": "已证明：成立", "boxed": "证明如下：步骤一，步骤二"}
+    base["final_answer"] = {
+        "type": "proof",
+        "value": "已证明：成立",
+        "boxed": "证明如下：步骤一，步骤二",
+    }
     flags = detect_dirty_final_answer(base)
     assert "proof_boxed_pollution" in flags
 
@@ -86,7 +97,13 @@ def test_normal_number_not_modified():
 
 
 def test_normal_expression_not_modified():
-    base = _base_result().model_copy(update={"final_answer": FinalAnswer(type="expression", value="x+1", boxed="\\boxed{x+1}")})
+    base = _base_result().model_copy(
+        update={
+            "final_answer": FinalAnswer(
+                type="expression", value="x+1", boxed="\\boxed{x+1}"
+            )
+        }
+    )
     repaired = repair_solve_result(base)
     assert repaired.final_answer.value == "x+1"
 
@@ -102,8 +119,20 @@ def test_cli_mock_solve_and_batch_still_work(tmp_path):
     assert json.loads(p1.stdout)["status"] in {"success", "partial", "fail"}
 
     in_file = tmp_path / "in.jsonl"
-    in_file.write_text('{"question_id":"q1","question":"1+1=?"}\n{"question_id":"q2","question":"2+2=?"}\n', encoding="utf-8")
+    in_file.write_text(
+        '{"question_id":"q1","question":"1+1=?"}\n{"question_id":"q2","question":"2+2=?"}\n',
+        encoding="utf-8",
+    )
     out_file = tmp_path / "out.jsonl"
-    batch_cmd = [sys.executable, "-m", "math_agent.cli", "batch", "--input", str(in_file), "--output", str(out_file)]
+    batch_cmd = [
+        sys.executable,
+        "-m",
+        "math_agent.cli",
+        "batch",
+        "--input",
+        str(in_file),
+        "--output",
+        str(out_file),
+    ]
     subprocess.run(batch_cmd, capture_output=True, text=True, check=True)
     assert out_file.exists()

@@ -22,31 +22,40 @@ _SENSITIVE_KEY_PATTERNS = (
 _REPLACEMENT = "[REDACTED]"
 
 
-
 def ensure_dir(path: str | Path) -> Path:
     p = Path(path)
     p.mkdir(parents=True, exist_ok=True)
     return p
 
 
-
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-
 def _sanitize_string(text: str) -> str:
     lowered = text.lower()
-    if any(k in lowered for k in ("inter ns1_api_key".replace(" ", ""), "authorization", "bearer", ".env", "api_key")):
-        text = re.sub(r"(?i)(authorization\s*[:=]\s*)([^\s,;]+)", rf"\1{_REPLACEMENT}", text)
+    if any(
+        k in lowered
+        for k in (
+            "inter ns1_api_key".replace(" ", ""),
+            "authorization",
+            "bearer",
+            ".env",
+            "api_key",
+        )
+    ):
+        text = re.sub(
+            r"(?i)(authorization\s*[:=]\s*)([^\s,;]+)", rf"\1{_REPLACEMENT}", text
+        )
         text = re.sub(r"(?i)(bearer\s+)([^\s,;]+)", rf"\1{_REPLACEMENT}", text)
-        text = re.sub(r"(?i)(inter\w*api\w*key\s*[:=]\s*)([^\s,;]+)", rf"\1{_REPLACEMENT}", text)
+        text = re.sub(
+            r"(?i)(inter\w*api\w*key\s*[:=]\s*)([^\s,;]+)", rf"\1{_REPLACEMENT}", text
+        )
         text = re.sub(r"(?i)interns?1_api_key", _REPLACEMENT, text)
         text = re.sub(r"(?i)authorization", _REPLACEMENT, text)
         text = re.sub(r"(?i)bearer", _REPLACEMENT, text)
         text = text.replace(".env", _REPLACEMENT)
     return text
-
 
 
 def sanitize_trace(data: Any) -> Any:
@@ -66,17 +75,17 @@ def sanitize_trace(data: Any) -> Any:
     return data
 
 
-
 def safe_json_dump(data: dict[str, Any], path: str | Path) -> bool:
     try:
         out = Path(path)
         ensure_dir(out.parent)
         sanitized = sanitize_trace(data)
-        out.write_text(json.dumps(sanitized, ensure_ascii=False, indent=2), encoding="utf-8")
+        out.write_text(
+            json.dumps(sanitized, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
         return True
     except Exception:
         return False
-
 
 
 def write_trace(trace: dict, trace_dir: str | Path, question_id: str) -> Path:

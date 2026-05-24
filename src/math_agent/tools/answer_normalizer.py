@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 
-
 _ANSWER_PATTERNS = [
     r"最终答案\s*[：:]\s*(.+)$",
     r"最终结论\s*[：:]\s*(.+)$",
@@ -97,7 +96,12 @@ def _clean_extracted_answer(raw: str) -> str:
 
 def strip_units(text: str) -> str:
     value = text.strip()
-    value = re.sub(r"\s*(cm|mm|m|km|kg|g|mg|s|sec|°c|celsius|dollars|usd|%)+\b", "", value, flags=re.I)
+    value = re.sub(
+        r"\s*(cm|mm|m|km|kg|g|mg|s|sec|°c|celsius|dollars|usd|%)+\b",
+        "",
+        value,
+        flags=re.I,
+    )
     return value.strip()
 
 
@@ -105,7 +109,7 @@ def normalize_latex(text: str) -> str:
     value = text.strip()
     value = value.replace("\\left", "").replace("\\right", "")
     value = value.replace("^", "**")
-    value = value.replace('\\', '')
+    value = value.replace("\\", "")
     return value.strip()
 
 

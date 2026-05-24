@@ -25,7 +25,12 @@ def _fallback_plan(question: str, route_info: dict) -> dict:
 
 
 class Planner:
-    def __init__(self, client: Any, prompt_config_path: str | Path = "configs/prompts.yaml", mock: bool = True) -> None:
+    def __init__(
+        self,
+        client: Any,
+        prompt_config_path: str | Path = "configs/prompts.yaml",
+        mock: bool = True,
+    ) -> None:
         self.client = client
         self.prompt_config_path = Path(prompt_config_path)
         self.mock = mock
@@ -38,10 +43,12 @@ class Planner:
         template = get_prompt(self.prompts, "planner_system")
         system_prompt = render_prompt(template, question=question)
         user_prompt = f"Route info: {route_info}\nReturn JSON with keys: problem_parse, solution_plan, potential_tools, risk_points."
-        reply = self.client.chat([
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ])
+        reply = self.client.chat(
+            [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
+        )
         try:
             data = json.loads(reply)
             if isinstance(data, dict):

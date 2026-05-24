@@ -4,10 +4,9 @@ import json
 import re
 from pathlib import Path
 
-from pydantic import BaseModel, Field, ValidationError
-
 from math_agent.clients.interns1_client import InternS1Client
 from math_agent.prompting import get_prompt, load_prompts, render_prompt
+from pydantic import BaseModel, Field, ValidationError
 
 
 class RouteInfo(BaseModel):
@@ -22,9 +21,22 @@ class RouteInfo(BaseModel):
 class Router:
     DOMAIN_RULES: dict[str, list[str]] = {
         "PDE": ["偏微分方程", "pde", "边值问题", "boundary condition"],
-        "ComplexAnalysis": ["解析函数", "留数", "围道积分", "contour integral", "residue"],
+        "ComplexAnalysis": [
+            "解析函数",
+            "留数",
+            "围道积分",
+            "contour integral",
+            "residue",
+        ],
         "Topology": ["拓扑", "同胚", "紧致", "compact", "homeomorphism"],
-        "Optimization": ["线性规划", "约束", "最优", "最大化", "最小化", "linear programming"],
+        "Optimization": [
+            "线性规划",
+            "约束",
+            "最优",
+            "最大化",
+            "最小化",
+            "linear programming",
+        ],
         "Algebra": ["矩阵", "特征值", "群", "环", "域", "eigenvalue"],
         "Geometry": ["几何", "三角形", "圆", "angle", "triangle", "circle"],
         "Probability": ["概率", "期望", "方差", "随机变量", "random variable"],
@@ -34,12 +46,29 @@ class Router:
 
     PROBLEM_TYPE_RULES: dict[str, list[str]] = {
         "proof": ["证明", "show that", "prove"],
-        "optimization": ["最优", "最大化", "最小化", "maximize", "minimize", "constraint"],
+        "optimization": [
+            "最优",
+            "最大化",
+            "最小化",
+            "maximize",
+            "minimize",
+            "constraint",
+        ],
         "calculation": ["计算", "求", "evaluate", "compute"],
         "conceptual": ["解释", "定义", "为什么", "concept", "definition"],
     }
 
-    PROGRAM_HINTS = ["数值", "方程", "积分", "矩阵", "表达式", "equation", "integral", "matrix", "expression"]
+    PROGRAM_HINTS = [
+        "数值",
+        "方程",
+        "积分",
+        "矩阵",
+        "表达式",
+        "equation",
+        "integral",
+        "matrix",
+        "expression",
+    ]
     TOOL_HINTS = ["计算", "求解", "solve", "compute", "evaluate"]
 
     def __init__(
@@ -154,7 +183,9 @@ class Router:
             return "proof"
         if problem_type == "optimization" or domain == "Optimization":
             return "optimization"
-        if problem_type in {"calculation", "derivation"} and any(h in text for h in self.PROGRAM_HINTS):
+        if problem_type in {"calculation", "derivation"} and any(
+            h in text for h in self.PROGRAM_HINTS
+        ):
             return "program"
         return "general"
 

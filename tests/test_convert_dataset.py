@@ -3,7 +3,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 SCRIPT = [sys.executable, "scripts/convert_dataset.py"]
 
 
@@ -16,7 +15,14 @@ def _run_convert(input_path: Path, output_path: Path):
 
 
 def _read_jsonl(path: Path) -> list[dict]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").strip().splitlines()] if path.exists() and path.read_text(encoding="utf-8").strip() else []
+    return (
+        [
+            json.loads(line)
+            for line in path.read_text(encoding="utf-8").strip().splitlines()
+        ]
+        if path.exists() and path.read_text(encoding="utf-8").strip()
+        else []
+    )
 
 
 def test_jsonl_input_conversion(tmp_path: Path):
@@ -43,10 +49,13 @@ def test_json_input_conversion(tmp_path: Path):
     in_file = tmp_path / "raw.json"
     out_file = tmp_path / "official.jsonl"
     in_file.write_text(
-        json.dumps([
-            {"id": "x1", "question": "A"},
-            {"question_id": "x2", "problem": "B"},
-        ], ensure_ascii=False),
+        json.dumps(
+            [
+                {"id": "x1", "question": "A"},
+                {"question_id": "x2", "problem": "B"},
+            ],
+            ensure_ascii=False,
+        ),
         encoding="utf-8",
     )
 

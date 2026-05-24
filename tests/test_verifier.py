@@ -2,7 +2,9 @@ from math_agent.agents.verifier import Verifier
 
 
 class DummyClient:
-    def __init__(self, reply: str = '{"method":"self_review","passed":true,"notes":"ok"}') -> None:
+    def __init__(
+        self, reply: str = '{"method":"self_review","passed":true,"notes":"ok"}'
+    ) -> None:
         self.reply = reply
 
     def chat(self, _messages):

@@ -38,7 +38,9 @@ def test_real_mode_missing_base_url_raises() -> None:
         client.chat(messages=[{"role": "user", "content": "x"}])
 
 
-def test_error_message_does_not_include_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_error_message_does_not_include_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     secret = "super-secret-key"
 
     def _post(*args, **kwargs):
@@ -60,11 +62,18 @@ def test_payload_contains_model_and_messages(monkeypatch: pytest.MonkeyPatch) ->
         captured["headers"] = headers
         captured["json"] = json
         captured["timeout"] = timeout
-        return DummyResponse(status_code=200, payload={"choices": [{"message": {"content": "ok"}}]})
+        return DummyResponse(
+            status_code=200, payload={"choices": [{"message": {"content": "ok"}}]}
+        )
 
     monkeypatch.setattr("requests.post", _post)
 
-    client = InternS1Client(api_key="dummy", base_url="https://example.com/v1", model="intern-s1", mock=False)
+    client = InternS1Client(
+        api_key="dummy",
+        base_url="https://example.com/v1",
+        model="intern-s1",
+        mock=False,
+    )
     out = client.chat(messages=[{"role": "user", "content": "question"}])
 
     assert out == "ok"
@@ -77,14 +86,20 @@ def test_base_url_append_chat_completions(monkeypatch: pytest.MonkeyPatch) -> No
 
     def _post(url, headers, json, timeout):
         urls.append(url)
-        return DummyResponse(status_code=200, payload={"choices": [{"message": {"content": "ok"}}]})
+        return DummyResponse(
+            status_code=200, payload={"choices": [{"message": {"content": "ok"}}]}
+        )
 
     monkeypatch.setattr("requests.post", _post)
 
-    client1 = InternS1Client(api_key="dummy", base_url="https://example.com/v1", mock=False)
+    client1 = InternS1Client(
+        api_key="dummy", base_url="https://example.com/v1", mock=False
+    )
     client1.chat(messages=[{"role": "user", "content": "q"}])
 
-    client2 = InternS1Client(api_key="dummy", base_url="https://example.com/chat/completions", mock=False)
+    client2 = InternS1Client(
+        api_key="dummy", base_url="https://example.com/chat/completions", mock=False
+    )
     client2.chat(messages=[{"role": "user", "content": "q"}])
 
     assert urls[0] == "https://example.com/v1/chat/completions"
@@ -100,7 +115,9 @@ def test_4xx_should_not_retry(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr("requests.post", _post)
 
-    client = InternS1Client(api_key="dummy", base_url="https://example.com", mock=False, max_retries=3)
+    client = InternS1Client(
+        api_key="dummy", base_url="https://example.com", mock=False, max_retries=3
+    )
     with pytest.raises(ValueError, match="HTTP 400"):
         client.chat(messages=[{"role": "user", "content": "q"}])
     assert calls["count"] == 1
@@ -113,11 +130,15 @@ def test_5xx_should_retry(monkeypatch: pytest.MonkeyPatch) -> None:
         calls["count"] += 1
         if calls["count"] < 2:
             return DummyResponse(status_code=500)
-        return DummyResponse(status_code=200, payload={"choices": [{"message": {"content": "ok"}}]})
+        return DummyResponse(
+            status_code=200, payload={"choices": [{"message": {"content": "ok"}}]}
+        )
 
     monkeypatch.setattr("requests.post", _post)
 
-    client = InternS1Client(api_key="dummy", base_url="https://example.com", mock=False, max_retries=2)
+    client = InternS1Client(
+        api_key="dummy", base_url="https://example.com", mock=False, max_retries=2
+    )
     out = client.chat(messages=[{"role": "user", "content": "q"}])
     assert out == "ok"
     assert calls["count"] == 2

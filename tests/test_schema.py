@@ -1,9 +1,9 @@
 import json
 
 import pytest
-from pydantic import ValidationError
 
 from math_agent.schemas import SolveResult, make_failure_result, validate_result_dict
+from pydantic import ValidationError
 
 
 def _valid_payload() -> dict:
@@ -14,9 +14,20 @@ def _valid_payload() -> dict:
         "problem_parse": {"goal": "solve x+1=2", "givens": ["x+1=2"], "symbols": ["x"]},
         "solution_plan": ["isolate x"],
         "visible_solution_steps": ["x=1"],
-        "tool_trace": [{"tool": "none", "purpose": "mental", "status": "skipped", "summary": "not needed"}],
+        "tool_trace": [
+            {
+                "tool": "none",
+                "purpose": "mental",
+                "status": "skipped",
+                "summary": "not needed",
+            }
+        ],
         "final_answer": {"type": "number", "value": "1", "boxed": "1"},
-        "verification": {"method": "substitution", "passed": True, "notes": "checks out"},
+        "verification": {
+            "method": "substitution",
+            "passed": True,
+            "notes": "checks out",
+        },
         "didactic_hint": "Move constants across equation.",
         "confidence": 0.8,
         "status": "success",

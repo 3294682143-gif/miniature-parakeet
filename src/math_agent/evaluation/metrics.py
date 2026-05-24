@@ -4,10 +4,14 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from pydantic import ValidationError
-
-from math_agent.evaluation.judge import exact_match, normalized_match, numeric_match, symbolic_match
+from math_agent.evaluation.judge import (
+    exact_match,
+    normalized_match,
+    numeric_match,
+    symbolic_match,
+)
 from math_agent.schemas import SolveResult
+from pydantic import ValidationError
 
 
 def accuracy(correct: int, total: int) -> float:
@@ -50,7 +54,9 @@ def load_answers(path: str | Path | None) -> dict[str, str]:
     return answers
 
 
-def evaluate_results(results_path: str | Path, answers_path: str | Path | None = None) -> dict:
+def evaluate_results(
+    results_path: str | Path, answers_path: str | Path | None = None
+) -> dict:
     raw_rows, json_invalid = load_jsonl(results_path)
     answers = load_answers(answers_path)
 
@@ -70,7 +76,11 @@ def evaluate_results(results_path: str | Path, answers_path: str | Path | None =
     type_counter = Counter(r.problem_type for r in valid_results)
 
     verifier_pass = sum(1 for r in valid_results if r.verification.passed)
-    avg_conf = sum(r.confidence for r in valid_results) / json_valid_count if json_valid_count else 0.0
+    avg_conf = (
+        sum(r.confidence for r in valid_results) / json_valid_count
+        if json_valid_count
+        else 0.0
+    )
 
     metrics: dict[str, object] = {
         "total": total,
@@ -113,7 +123,9 @@ def evaluate_results(results_path: str | Path, answers_path: str | Path | None =
     return metrics
 
 
-def render_markdown_report(metrics: dict, results_path: str, answers_path: str | None = None) -> str:
+def render_markdown_report(
+    metrics: dict, results_path: str, answers_path: str | None = None
+) -> str:
     lines = ["# Evaluation Report", "", f"- Results: `{results_path}`"]
     if answers_path:
         lines.append(f"- Answers: `{answers_path}`")
@@ -142,7 +154,13 @@ def render_markdown_report(metrics: dict, results_path: str, answers_path: str |
 
     if "exact_match" in metrics:
         lines.extend(["", "## Answer Matching"])
-        for k in ["answer_covered_count", "exact_match", "normalized_match", "numeric_match", "symbolic_match"]:
+        for k in [
+            "answer_covered_count",
+            "exact_match",
+            "normalized_match",
+            "numeric_match",
+            "symbolic_match",
+        ]:
             lines.append(f"- **{k}**: {metrics.get(k)}")
 
     return "\n".join(lines) + "\n"

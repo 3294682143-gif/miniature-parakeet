@@ -20,16 +20,30 @@ class MemoryHub:
         return self._safe_load_yaml("regression_cases.yaml", default={"cases": []})
 
     def load_route_stats(self) -> dict[str, Any]:
-        return self._safe_load_json("route_stats.json", default={"total": 0, "by_domain": {}, "by_problem_type": {}, "by_status": {}})
+        return self._safe_load_json(
+            "route_stats.json",
+            default={
+                "total": 0,
+                "by_domain": {},
+                "by_problem_type": {},
+                "by_status": {},
+            },
+        )
 
     def load_skill_success_stats(self) -> dict[str, Any]:
-        return self._safe_load_json("skill_success_stats.json", default={"total": 0, "skills": {}})
+        return self._safe_load_json(
+            "skill_success_stats.json", default={"total": 0, "skills": {}}
+        )
 
     def load_verifier_failures(self) -> dict[str, Any]:
-        return self._safe_load_json("verifier_failures.json", default={"total": 0, "items": []})
+        return self._safe_load_json(
+            "verifier_failures.json", default={"total": 0, "items": []}
+        )
 
     def load_answer_cluster_stats(self) -> dict[str, Any]:
-        return self._safe_load_json("answer_cluster_stats.json", default={"total": 0, "clusters": []})
+        return self._safe_load_json(
+            "answer_cluster_stats.json", default={"total": 0, "clusters": []}
+        )
 
     def summarize_memory(self) -> dict[str, Any]:
         route = self.load_route_stats()
@@ -67,7 +81,9 @@ class MemoryHub:
         data["total"] = int(data.get("total", 0) or 0) + 1
         self._safe_write_json("skill_success_stats.json", data)
 
-    def record_verifier_failure(self, question_id: str, reason: str, route_info: dict[str, Any] | None = None) -> None:
+    def record_verifier_failure(
+        self, question_id: str, reason: str, route_info: dict[str, Any] | None = None
+    ) -> None:
         data = self.load_verifier_failures()
         entry = {
             "question_id": self._normalize_value(question_id, fallback="unknown"),
@@ -80,7 +96,13 @@ class MemoryHub:
         items.append(entry)
         self._safe_write_json("verifier_failures.json", data)
 
-    def record_answer_cluster(self, question_id: str, normalized_answer: str, cluster_size: int, selected: bool) -> None:
+    def record_answer_cluster(
+        self,
+        question_id: str,
+        normalized_answer: str,
+        cluster_size: int,
+        selected: bool,
+    ) -> None:
         data = self.load_answer_cluster_stats()
         cluster = {
             "question_id": self._normalize_value(question_id, fallback="unknown"),
@@ -92,7 +114,9 @@ class MemoryHub:
         data.setdefault("clusters", []).append(cluster)
         self._safe_write_json("answer_cluster_stats.json", data)
 
-    def add_regression_case(self, case: dict[str, Any], allow_full_question: bool = False) -> None:
+    def add_regression_case(
+        self, case: dict[str, Any], allow_full_question: bool = False
+    ) -> None:
         data = self.load_regression_cases()
         clean = self._sanitize_payload(case)
         question = str(clean.get("question", "") or "")
@@ -137,12 +161,17 @@ class MemoryHub:
     def _safe_write_json(self, filename: str, payload: dict[str, Any]) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
         path = self.root / filename
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
 
     def _safe_write_yaml(self, filename: str, payload: dict[str, Any]) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
         path = self.root / filename
-        path.write_text(yaml.safe_dump(payload, allow_unicode=True, sort_keys=False), encoding="utf-8")
+        path.write_text(
+            yaml.safe_dump(payload, allow_unicode=True, sort_keys=False),
+            encoding="utf-8",
+        )
 
     @staticmethod
     def _inc(counter: dict[str, int], key: str) -> None:
@@ -171,7 +200,17 @@ class MemoryHub:
     @staticmethod
     def _is_sensitive_key(key: str) -> bool:
         lower = key.lower()
-        return any(token in lower for token in ("api_key", "authorization", "bearer", ".env", "secret", "token"))
+        return any(
+            token in lower
+            for token in (
+                "api_key",
+                "authorization",
+                "bearer",
+                ".env",
+                "secret",
+                "token",
+            )
+        )
 
     @staticmethod
     def _sanitize_text(text: str, limit: int = 500) -> str:

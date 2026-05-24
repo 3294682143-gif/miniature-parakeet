@@ -22,7 +22,16 @@ def test_cli_batch_processes_and_isolation(tmp_path: Path):
         encoding="utf-8",
     )
     out_file = tmp_path / "results.jsonl"
-    cmd = [sys.executable, "-m", "math_agent.cli", "batch", "--input", str(in_file), "--output", str(out_file)]
+    cmd = [
+        sys.executable,
+        "-m",
+        "math_agent.cli",
+        "batch",
+        "--input",
+        str(in_file),
+        "--output",
+        str(out_file),
+    ]
     subprocess.run(cmd, capture_output=True, text=True, check=True)
     lines = out_file.read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == 3
@@ -37,7 +46,15 @@ def test_cli_batch_processes_and_isolation(tmp_path: Path):
 
 
 def test_cli_solve_enable_tools_outputs_json():
-    cmd = [sys.executable, "-m", "math_agent.cli", "solve", "--question", "计算 2+3", "--enable-tools"]
+    cmd = [
+        sys.executable,
+        "-m",
+        "math_agent.cli",
+        "solve",
+        "--question",
+        "计算 2+3",
+        "--enable-tools",
+    ]
     proc = subprocess.run(cmd, capture_output=True, text=True, check=True)
     data = json.loads(proc.stdout.strip())
     model = SolveResult.model_validate(data)
@@ -47,8 +64,8 @@ def test_cli_solve_enable_tools_outputs_json():
 def test_cli_batch_enable_tools_schema(tmp_path: Path):
     in_file = tmp_path / "in_tools.jsonl"
     in_file.write_text(
-        "{\"question_id\":\"q1\",\"question\":\"计算 2+3\"}\n"
-        "{\"question_id\":\"q2\",\"question\":\"化简 sin(x)^2 + cos(x)^2\"}\n",
+        '{"question_id":"q1","question":"计算 2+3"}\n'
+        '{"question_id":"q2","question":"化简 sin(x)^2 + cos(x)^2"}\n',
         encoding="utf-8",
     )
     out_file = tmp_path / "results_tools.jsonl"
@@ -70,17 +87,43 @@ def test_cli_batch_enable_tools_schema(tmp_path: Path):
 
 def test_cli_solve_no_trace(tmp_path: Path):
     trace_dir = tmp_path / "traces"
-    cmd = [sys.executable, "-m", "math_agent.cli", "solve", "--question", "1+1=?", "--question-id", "qt", "--trace-dir", str(trace_dir), "--no-trace"]
+    cmd = [
+        sys.executable,
+        "-m",
+        "math_agent.cli",
+        "solve",
+        "--question",
+        "1+1=?",
+        "--question-id",
+        "qt",
+        "--trace-dir",
+        str(trace_dir),
+        "--no-trace",
+    ]
     subprocess.run(cmd, capture_output=True, text=True, check=True)
     assert not (trace_dir / "qt.json").exists()
 
 
 def test_cli_batch_trace_generation(tmp_path: Path):
     in_file = tmp_path / "in_batch.jsonl"
-    in_file.write_text('{"question_id":"q1","question":"1+1=?"}\n{"question_id":"q2","question":"2+2=?"}\n', encoding="utf-8")
+    in_file.write_text(
+        '{"question_id":"q1","question":"1+1=?"}\n{"question_id":"q2","question":"2+2=?"}\n',
+        encoding="utf-8",
+    )
     out_file = tmp_path / "results.jsonl"
     trace_dir = tmp_path / "traces"
-    cmd = [sys.executable, "-m", "math_agent.cli", "batch", "--input", str(in_file), "--output", str(out_file), "--trace-dir", str(trace_dir)]
+    cmd = [
+        sys.executable,
+        "-m",
+        "math_agent.cli",
+        "batch",
+        "--input",
+        str(in_file),
+        "--output",
+        str(out_file),
+        "--trace-dir",
+        str(trace_dir),
+    ]
     subprocess.run(cmd, capture_output=True, text=True, check=True)
     assert (trace_dir / "q1.json").exists()
     assert (trace_dir / "q2.json").exists()

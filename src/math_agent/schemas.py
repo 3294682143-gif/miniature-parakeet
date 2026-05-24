@@ -31,7 +31,12 @@ class FinalAnswer(BaseModel):
 
 class Verification(BaseModel):
     method: Literal[
-        "symbolic_check", "numeric_check", "substitution", "logic_review", "self_review", "none"
+        "symbolic_check",
+        "numeric_check",
+        "substitution",
+        "logic_review",
+        "self_review",
+        "none",
     ]
     passed: bool
     notes: str
@@ -57,7 +62,15 @@ class SolveResult(BaseModel):
 MathResult = SolveResult
 
 
-_SENSITIVE_KEYWORDS = ("api_key", "authorization", "bearer", "token", "secret", "password", ".env")
+_SENSITIVE_KEYWORDS = (
+    "api_key",
+    "authorization",
+    "bearer",
+    "token",
+    "secret",
+    "password",
+    ".env",
+)
 
 
 def sanitize_protocol_metadata(data: dict[str, Any]) -> dict[str, Any]:
@@ -184,7 +197,9 @@ def make_tool_call_record(**kwargs: Any) -> ToolCallRecord:
     return ToolCallRecord(**kwargs)
 
 
-def make_failure_result(question_id: str, question: str, error_message: str) -> SolveResult:
+def make_failure_result(
+    question_id: str, question: str, error_message: str
+) -> SolveResult:
     return SolveResult(
         question_id=question_id,
         domain="unknown",
@@ -201,7 +216,9 @@ def make_failure_result(question_id: str, question: str, error_message: str) -> 
             )
         ],
         final_answer=FinalAnswer(type="text", value="", boxed=""),
-        verification=Verification(method="none", passed=False, notes="No verification due to failure."),
+        verification=Verification(
+            method="none", passed=False, notes="No verification due to failure."
+        ),
         didactic_hint="请先检查题目输入格式或稍后重试。",
         confidence=0.0,
         status="fail",
