@@ -31,7 +31,7 @@ jobs:
         run: black --check src scripts demo tests
 
       - name: Isort
-        run: isort --check-only src scripts demo tests
+        run: isort --check-only --diff src scripts demo tests
 
       - name: Mypy
         run: mypy src --show-error-codes
