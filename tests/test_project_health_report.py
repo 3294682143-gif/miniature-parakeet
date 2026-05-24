@@ -133,6 +133,38 @@ def test_gate_no_real(tmp_path: Path) -> None:
     assert ci["gate_contains_real_flag"] is False
 
 
+def test_gate_command_signature_detects_python_list_literals(tmp_path: Path) -> None:
+    gate = tmp_path / "scripts" / "run_regression_gate.py"
+    gate.parent.mkdir(parents=True, exist_ok=True)
+    gate.write_text(
+        """
+commands = [
+    ["ruff", "check", "."],
+    ["black", "--check", "src", "scripts", "demo", "tests"],
+    ["isort", "--check-only", "src", "scripts", "demo", "tests"],
+    ["mypy", "src", "--show-error-codes"],
+    ["pyright"],
+    ["python", "-m", "pytest", "-q"],
+    ["python", "-m", "math_agent.cli", "solve", "--no-trace"],
+    ["python", "scripts/check_project_safety.py"],
+]
+""",
+        encoding="utf-8",
+    )
+    tokens = [
+        "ruff check .",
+        "black --check",
+        "isort --check-only",
+        "mypy",
+        "pyright",
+        "pytest",
+        "check_project_safety.py",
+        "--no-trace",
+    ]
+    found = phr._contains_command_signatures(gate, tokens)
+    assert all(found.values())
+
+
 def test_no_token_printed(tmp_path: Path) -> None:
     root = _setup_repo(tmp_path)
     (root / ".env").write_text("OPENAI_API_KEY=supersecret\n", encoding="utf-8")
