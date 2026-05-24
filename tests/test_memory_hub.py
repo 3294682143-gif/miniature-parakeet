@@ -59,7 +59,7 @@ def test_record_verifier_failure_filters_sensitive_fields(tmp_path: Path) -> Non
     hub = MemoryHub(root=str(tmp_path / "memory"))
     hub.record_verifier_failure(
         question_id="q1",
-        reason="Authorization: abc Bearer token",
+        reason="Authorization: abc Bearer token",  # safety: allow-mock-token
         route_info={"domain": "proof", "api_key": "secret", "Authorization": "hidden"},
     )
     payload = hub.load_verifier_failures()

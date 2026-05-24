@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import MISSING, asdict, dataclass, field as dc_field, fields
+from dataclasses import MISSING, asdict, dataclass, field as dc_field
 from typing import Any
 
 
