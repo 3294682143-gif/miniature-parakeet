@@ -6,13 +6,14 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from math_agent.schemas import SolveResult
+
+from math_agent.evaluation.judge import exact_match as judge_exact_match
 from math_agent.evaluation.judge import (
-    exact_match as judge_exact_match,
     normalized_match,
     numeric_match,
     symbolic_match,
 )
-from math_agent.schemas import SolveResult
 from pydantic import ValidationError
 
 
