@@ -19,11 +19,51 @@ from math_agent.debugger.root_cause import infer_root_cause, infer_severity
 
 def _write_jsonl(path: Path) -> None:
     rows = [
-        {"id": "1", "question": "q", "expected_answer": "5", "predicted_answer": "4", "domain": "arith", "difficulty": "easy", "answer_type": "number", "exact_match": False, "failure_category": "wrong_answer", "status": "ok", "json_valid": True, "final_answer_exists": True},
-        {"id": "2", "question": "q2", "expected_answer": "6", "predicted_answer": "6", "domain": "algebra", "difficulty": "hard", "answer_type": "number", "exact_match": True, "failure_category": "missing_final", "status": "ok", "final_answer_exists": False},
-        {"id": "3", "question": "q3", "expected_answer": "7", "predicted_answer": "7", "domain": "proof", "difficulty": "medium", "answer_type": "proof", "exact_match": True, "failure_category": "json_invalid", "status": "ok", "json_valid": False},
+        {
+            "id": "1",
+            "question": "q",
+            "expected_answer": "5",
+            "predicted_answer": "4",
+            "domain": "arith",
+            "difficulty": "easy",
+            "answer_type": "number",
+            "exact_match": False,
+            "failure_category": "wrong_answer",
+            "status": "ok",
+            "json_valid": True,
+            "final_answer_exists": True,
+        },
+        {
+            "id": "2",
+            "question": "q2",
+            "expected_answer": "6",
+            "predicted_answer": "6",
+            "domain": "algebra",
+            "difficulty": "hard",
+            "answer_type": "number",
+            "exact_match": True,
+            "failure_category": "missing_final",
+            "status": "ok",
+            "final_answer_exists": False,
+        },
+        {
+            "id": "3",
+            "question": "q3",
+            "expected_answer": "7",
+            "predicted_answer": "7",
+            "domain": "proof",
+            "difficulty": "medium",
+            "answer_type": "proof",
+            "exact_match": True,
+            "failure_category": "json_invalid",
+            "status": "ok",
+            "json_valid": False,
+        },
     ]
-    path.write_text("\n".join(json.dumps(r) for r in rows) + "\n{bad json}\n", encoding="utf-8")
+    path.write_text(
+        "\n".join(json.dumps(r) for r in rows) + "\n{bad json}\n",
+        encoding="utf-8",
+    )
 
 
 def test_debugger_flow(tmp_path: Path) -> None:
@@ -37,8 +77,10 @@ def test_debugger_flow(tmp_path: Path) -> None:
     cats = {c.failure_category for c in fails}
     assert "wrong_answer" in cats and "missing_final" in cats and "json_invalid" in cats
 
-    assert infer_root_cause([c for c in fails if c.failure_category == "missing_final"][0]).owner == "formatter / final_answer"
-    assert infer_severity(type("x", (), {"failure_category": "boxed_42_fallback"})()) == "P0"
+    missing_final = [c for c in fails if c.failure_category == "missing_final"][0]
+    assert infer_root_cause(missing_final).owner == "formatter / final_answer"
+    fallback_case = type("x", (), {"failure_category": "boxed_42_fallback"})()
+    assert infer_severity(fallback_case) == "P0"
 
     clusters = cluster_failures(fails)
     assert any(c.key == "wrong_answer" for c in clusters)
@@ -60,23 +102,39 @@ def test_cli_and_outputs(tmp_path: Path) -> None:
     _write_jsonl(results)
     out = tmp_path / "out"
 
-    help_run = subprocess.run([sys.executable, "scripts/debug_shadow_failures.py", "--help"], capture_output=True, text=True, check=False)
+    help_run = subprocess.run(
+        [sys.executable, "scripts/debug_shadow_failures.py", "--help"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     assert help_run.returncode == 0
 
     env = os.environ.copy()
     env["SECRET_TOKEN"] = "tok_123"
-    run = subprocess.run([
-        sys.executable,
-        "scripts/debug_shadow_failures.py",
-        "--results",
-        str(results),
-        "--out-dir",
-        str(out),
-        "--fail-on-p0",
-    ], capture_output=True, text=True, check=False, env=env)
+    run = subprocess.run(
+        [
+            sys.executable,
+            "scripts/debug_shadow_failures.py",
+            "--results",
+            str(results),
+            "--out-dir",
+            str(out),
+            "--fail-on-p0",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+    )
     assert run.returncode != 0
 
-    for name in ["failure_debug_report.md", "failure_clusters.json", "root_causes.json", "demo_cases.md"]:
+    for name in [
+        "failure_debug_report.md",
+        "failure_clusters.json",
+        "root_causes.json",
+        "demo_cases.md",
+    ]:
         assert (out / name).is_file()
     assert not (out / "official_results.jsonl").exists()
 
