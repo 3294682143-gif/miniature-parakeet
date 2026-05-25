@@ -60,7 +60,9 @@ def _to_case(row: dict[str, Any], idx: int) -> FailureCase:
         id=str(row.get("id", f"row-{idx:04d}")),
         question=str(row.get("question", "")),
         expected_answer=(
-            None if row.get("expected_answer") is None else str(row.get("expected_answer"))
+            None
+            if row.get("expected_answer") is None
+            else str(row.get("expected_answer"))
         ),
         predicted_answer=str(row.get("predicted_answer", "")),
         domain=str(row.get("domain", "unknown")),
@@ -145,7 +147,9 @@ def cluster_failures(cases: list[FailureCase]) -> list[FailureCluster]:
     return out
 
 
-def select_representatives(cases: list[FailureCase], limit: int = 10) -> list[FailureCase]:
+def select_representatives(
+    cases: list[FailureCase], limit: int = 10
+) -> list[FailureCase]:
     ranked = sorted(cases, key=lambda c: (infer_severity(c), c.failure_category, c.id))
     return ranked[: max(0, limit)]
 
@@ -158,7 +162,9 @@ def build_debugger_report(cases: list[FailureCase]) -> DebuggerReport:
         sev = infer_severity(c)
         info = infer_root_cause(c)
         if sev in actions:
-            actions[sev].add(f"[{c.failure_category}] owner={info.owner}: {info.action}")
+            actions[sev].add(
+                f"[{c.failure_category}] owner={info.owner}: {info.action}"
+            )
     return DebuggerReport(
         total=len(cases),
         failed_count=len(failures),
