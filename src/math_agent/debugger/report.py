@@ -55,14 +55,21 @@ def render_failure_debug_report(report: DebuggerReport) -> str:
     lines.append("## 11. P2 Actions")
     lines.extend([f"- {a}" for a in report.p2_actions] or ["- none"])
     lines.extend(
-        ["## 12. Official Submission Warning", "- This debugger output is not official scoring."]
+        [
+            "## 12. Official Submission Warning",
+            "- This debugger output is not official scoring.",
+        ]
     )
     return "\n".join(lines) + "\n"
 
 
 def render_demo_case_list(report: DebuggerReport) -> str:
     def _pick(categories: set[str]) -> list[str]:
-        items = [c for c in report.representative_failures if c.failure_category in categories]
+        items = [
+            c
+            for c in report.representative_failures
+            if c.failure_category in categories
+        ]
         return [
             f"- id={c.id} domain={c.domain} difficulty={c.difficulty} "
             f"failure_category={c.failure_category} suggested demo angle="
