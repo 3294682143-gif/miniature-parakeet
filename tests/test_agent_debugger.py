@@ -13,7 +13,10 @@ from math_agent.debugger.failure_attribution import (
     load_shadow_results,
     select_representatives,
 )
-from math_agent.debugger.report import render_demo_case_list, render_failure_debug_report
+from math_agent.debugger.report import (
+    render_demo_case_list,
+    render_failure_debug_report,
+)
 from math_agent.debugger.root_cause import infer_root_cause, infer_severity
 
 
