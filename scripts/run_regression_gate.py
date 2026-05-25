@@ -10,12 +10,15 @@ from typing import Iterable, Sequence
 
 
 def build_commands(
-    skip_type_checks: bool, skip_slow: bool, no_cli_smoke: bool
+    skip_type_checks: bool,
+    skip_slow: bool,
+    no_cli_smoke: bool,
+    include_shadow_eval: bool,
 ) -> list[list[str]]:
     commands: list[list[str]] = [
         ["ruff", "check", "."],
         ["black", "--check", "src", "scripts", "demo", "tests"],
-        ["isort", "--check-only", "src", "scripts", "demo", "tests"],
+        ["isort", "--check-only", "--diff", "src", "scripts", "demo", "tests"],
     ]
 
     if not skip_type_checks:
@@ -44,6 +47,29 @@ def build_commands(
                 "--mode",
                 "fast",
                 "--no-trace",
+            ]
+        )
+
+    if include_shadow_eval:
+        commands.extend(
+            [
+                [
+                    "python",
+                    "scripts/shadow_eval.py",
+                    "--mock",
+                    "--limit",
+                    "5",
+                    "--out",
+                    "outputs/shadow_eval_gate",
+                ],
+                [
+                    "python",
+                    "scripts/build_eval_report.py",
+                    "--results",
+                    "outputs/shadow_eval_gate/shadow_results.jsonl",
+                    "--out-dir",
+                    "outputs/shadow_eval_gate",
+                ],
             ]
         )
 
@@ -79,6 +105,13 @@ def clean_traces(root: Path) -> None:
             path.rmdir()
 
 
+def clean_shadow_eval_outputs(root: Path) -> None:
+    for rel in ["outputs/shadow_eval_gate", "outputs/shadow_eval_test"]:
+        target = root / rel
+        if target.exists():
+            shutil.rmtree(target)
+
+
 def run_command(index: int, total: int, command: Sequence[str]) -> None:
     printable = " ".join(command)
     print(f"\n[{index}/{total}] Running: {printable}")
@@ -106,6 +139,11 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         action="store_true",
         help="Skip CLI smoke test.",
     )
+    parser.add_argument(
+        "--include-shadow-eval",
+        action="store_true",
+        help="Run optional mock shadow eval smoke + report gate.",
+    )
     return parser.parse_args(list(argv))
 
 
@@ -118,6 +156,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         skip_type_checks=args.skip_type_checks,
         skip_slow=args.skip_slow,
         no_cli_smoke=args.no_cli_smoke,
+        include_shadow_eval=args.include_shadow_eval,
     )
 
     print("=== Local Regression Gate ===")
@@ -131,6 +170,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     clean_pytest_cache(root)
     clean_pycache(root)
     clean_traces(root)
+    clean_shadow_eval_outputs(root)
 
     run_command(len(commands), len(commands), safety_command)
 

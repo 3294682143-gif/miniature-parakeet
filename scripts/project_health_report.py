@@ -208,18 +208,36 @@ def inspect_ci(root: Path) -> dict[str, Any]:
         "pytest",
         "check_project_safety.py",
         "--no-trace",
+        "scripts/shadow_eval.py",
+        "scripts/build_eval_report.py",
+        "--include-shadow-eval",
+        "--mock",
+        "--limit 5",
+        "outputs/shadow_eval_gate/shadow_results.jsonl",
     ]
+    gate_found = _contains_command_signatures(gate_path, gate_tokens)
+    shadow_supported = all(
+        gate_found.get(token, False)
+        for token in [
+            "scripts/shadow_eval.py",
+            "scripts/build_eval_report.py",
+            "--include-shadow-eval",
+            "--mock",
+            "--no-trace",
+        ]
+    ) and ("--real" not in gate_path.read_text(encoding="utf-8", errors="ignore"))
     return {
         "ci_status": "present" if ci_path.is_file() else "missing",
         "local_regression_gate": "present" if gate_path.is_file() else "missing",
         "recommended_command": "python scripts/run_regression_gate.py",
         "ci_contains": _contains_tokens(ci_path, ci_tokens),
-        "gate_contains": _contains_command_signatures(gate_path, gate_tokens),
+        "gate_contains": gate_found,
         "gate_contains_real_flag": (
             "--real" in gate_path.read_text(encoding="utf-8", errors="ignore")
             if gate_path.is_file()
             else False
         ),
+        "shadow_eval_gate": "supported" if shadow_supported else "missing",
     }
 
 
@@ -390,6 +408,7 @@ def render_markdown(report: dict[str, Any], include_file_table: bool = False) ->
     lines += [
         f"- CI status: {ci['ci_status']}",
         f"- local regression gate: {ci['local_regression_gate']}",
+        f"- Shadow Eval Gate: {ci['shadow_eval_gate']}",
         f"- recommended command: {ci['recommended_command']}",
         f"- gate_contains_real_flag: {ci['gate_contains_real_flag']}",
     ]
