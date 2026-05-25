@@ -59,7 +59,9 @@ def _to_case(row: dict[str, Any], idx: int) -> FailureCase:
     return FailureCase(
         id=str(row.get("id", f"row-{idx:04d}")),
         question=str(row.get("question", "")),
-        expected_answer=(None if row.get("expected_answer") is None else str(row.get("expected_answer"))),
+        expected_answer=(
+            None if row.get("expected_answer") is None else str(row.get("expected_answer"))
+        ),
         predicted_answer=str(row.get("predicted_answer", "")),
         domain=str(row.get("domain", "unknown")),
         difficulty=str(row.get("difficulty", "unknown")),
@@ -126,18 +128,20 @@ def cluster_failures(cases: list[FailureCase]) -> list[FailureCluster]:
     out: list[FailureCluster] = []
     for key, group in sorted(grouped.items(), key=lambda kv: (-len(kv[1]), kv[0])):
         info = infer_root_cause(group[0])
-        out.append(FailureCluster(
-            key=key,
-            count=len(group),
-            case_ids=[g.id for g in group],
-            domains=dict(Counter(g.domain for g in group)),
-            difficulties=dict(Counter(g.difficulty for g in group)),
-            answer_types=dict(Counter(g.answer_type for g in group)),
-            representative_ids=[g.id for g in group[:3]],
-            severity=infer_severity(group[0]),
-            suggested_owner=info.owner,
-            suggested_next_action=info.action,
-        ))
+        out.append(
+            FailureCluster(
+                key=key,
+                count=len(group),
+                case_ids=[g.id for g in group],
+                domains=dict(Counter(g.domain for g in group)),
+                difficulties=dict(Counter(g.difficulty for g in group)),
+                answer_types=dict(Counter(g.answer_type for g in group)),
+                representative_ids=[g.id for g in group[:3]],
+                severity=infer_severity(group[0]),
+                suggested_owner=info.owner,
+                suggested_next_action=info.action,
+            )
+        )
     return out
 
 
@@ -172,13 +176,34 @@ def build_debugger_report(cases: list[FailureCase]) -> DebuggerReport:
 
 
 def write_debugger_outputs(report: DebuggerReport, out_dir: Path | str) -> None:
-    from math_agent.debugger.report import render_demo_case_list, render_failure_debug_report, write_markdown
+    from math_agent.debugger.report import (
+        render_demo_case_list,
+        render_failure_debug_report,
+        write_markdown,
+    )
 
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     write_markdown(out / "failure_debug_report.md", render_failure_debug_report(report))
     write_markdown(out / "demo_cases.md", render_demo_case_list(report))
-    (out / "failure_clusters.json").write_text(json.dumps([asdict(c) for c in report.clusters], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    (out / "root_causes.json").write_text(json.dumps([
-        {**asdict(c), "root_cause": asdict(infer_root_cause(c)), "severity": infer_severity(c)} for c in report.representative_failures
-    ], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (out / "failure_clusters.json").write_text(
+        json.dumps([asdict(c) for c in report.clusters], ensure_ascii=False, indent=2)
+        + "\n",
+        encoding="utf-8",
+    )
+    (out / "root_causes.json").write_text(
+        json.dumps(
+            [
+                {
+                    **asdict(c),
+                    "root_cause": asdict(infer_root_cause(c)),
+                    "severity": infer_severity(c),
+                }
+                for c in report.representative_failures
+            ],
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
