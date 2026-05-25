@@ -13,18 +13,78 @@ class RootCauseInfo:
 
 ROOT_CAUSE_MAP: dict[str, RootCauseInfo] = {
     "ok": RootCauseInfo("ok", "no failure", "none", "none"),
-    "json_invalid": RootCauseInfo("json_invalid", "output serialization / schema violation", "formatter / schema", "inspect formatter and JSON serialization"),
-    "missing_final": RootCauseInfo("missing_final", "final answer extraction failed", "formatter / final_answer", "strengthen final_answer extraction and fallback checks"),
-    "dirty_boxed": RootCauseInfo("dirty_boxed", "boxed answer contains reasoning or polluted text", "formatter", "enforce boxed-only answer cleanup"),
-    "boxed_42_fallback": RootCauseInfo("boxed_42_fallback", "unsafe fallback answer pattern", "fallback policy", "remove or gate fallback answers"),
-    "tool_error": RootCauseInfo("tool_error", "tool execution failed", "tools", "inspect tool error and add tool failure fallback"),
-    "verifier_failed": RootCauseInfo("verifier_failed", "verifier rejected answer", "verifier / solver", "compare solver output with verifier notes"),
-    "formatter_repair_failed": RootCauseInfo("formatter_repair_failed", "formatter repair did not recover valid output", "formatter repair", "add repair regression case"),
-    "proof_partial": RootCauseInfo("proof_partial", "proof answer incomplete or not finalizable", "proof guardian", "add proof rubric / proof completion check"),
-    "timeout": RootCauseInfo("timeout", "runtime timeout", "runtime / budget scheduler", "inspect latency and budget policy"),
-    "exception": RootCauseInfo("exception", "unhandled exception", "runtime / harness", "inspect error_message and add regression test"),
-    "wrong_answer": RootCauseInfo("wrong_answer", "predicted answer differs from expected answer", "solver / reasoning", "inspect domain-specific solver and add candidate case"),
-    "unknown": RootCauseInfo("unknown", "unknown failure", "debugger", "improve taxonomy"),
+    "json_invalid": RootCauseInfo(
+        "json_invalid",
+        "output serialization / schema violation",
+        "formatter / schema",
+        "inspect formatter and JSON serialization",
+    ),
+    "missing_final": RootCauseInfo(
+        "missing_final",
+        "final answer extraction failed",
+        "formatter / final_answer",
+        "strengthen final_answer extraction and fallback checks",
+    ),
+    "dirty_boxed": RootCauseInfo(
+        "dirty_boxed",
+        "boxed answer contains reasoning or polluted text",
+        "formatter",
+        "enforce boxed-only answer cleanup",
+    ),
+    "boxed_42_fallback": RootCauseInfo(
+        "boxed_42_fallback",
+        "unsafe fallback answer pattern",
+        "fallback policy",
+        "remove or gate fallback answers",
+    ),
+    "tool_error": RootCauseInfo(
+        "tool_error",
+        "tool execution failed",
+        "tools",
+        "inspect tool error and add tool failure fallback",
+    ),
+    "verifier_failed": RootCauseInfo(
+        "verifier_failed",
+        "verifier rejected answer",
+        "verifier / solver",
+        "compare solver output with verifier notes",
+    ),
+    "formatter_repair_failed": RootCauseInfo(
+        "formatter_repair_failed",
+        "formatter repair did not recover valid output",
+        "formatter repair",
+        "add repair regression case",
+    ),
+    "proof_partial": RootCauseInfo(
+        "proof_partial",
+        "proof answer incomplete or not finalizable",
+        "proof guardian",
+        "add proof rubric / proof completion check",
+    ),
+    "timeout": RootCauseInfo(
+        "timeout",
+        "runtime timeout",
+        "runtime / budget scheduler",
+        "inspect latency and budget policy",
+    ),
+    "exception": RootCauseInfo(
+        "exception",
+        "unhandled exception",
+        "runtime / harness",
+        "inspect error_message and add regression test",
+    ),
+    "wrong_answer": RootCauseInfo(
+        "wrong_answer",
+        "predicted answer differs from expected answer",
+        "solver / reasoning",
+        "inspect domain-specific solver and add candidate case",
+    ),
+    "unknown": RootCauseInfo(
+        "unknown",
+        "unknown failure",
+        "debugger",
+        "improve taxonomy",
+    ),
 }
 
 
