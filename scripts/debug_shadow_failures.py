@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import sys
 
 from math_agent.debugger.failure_attribution import (
     build_debugger_report,
@@ -27,9 +26,14 @@ def main() -> int:
         report.representative_failures, args.limit_representatives
     )
     write_debugger_outputs(report, args.out_dir)
-    top_failure = max(report.failure_category_counts.items(), key=lambda x: x[1])[0] if report.failure_category_counts else "none"
+    top_failure = (
+        max(report.failure_category_counts.items(), key=lambda x: x[1])[0]
+        if report.failure_category_counts
+        else "none"
+    )
     print(
-        f"total={report.total} failed_count={report.failed_count} p0_count={len(report.p0_actions)} top_failure_category={top_failure}"
+        f"total={report.total} failed_count={report.failed_count} "
+        f"p0_count={len(report.p0_actions)} top_failure_category={top_failure}"
     )
     return 1 if args.fail_on_p0 and report.p0_actions else 0
 
