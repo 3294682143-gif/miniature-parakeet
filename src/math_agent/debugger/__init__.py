@@ -9,7 +9,11 @@ from math_agent.debugger.failure_attribution import (
     select_representatives,
     write_debugger_outputs,
 )
-from math_agent.debugger.root_cause import RootCauseInfo, infer_root_cause, infer_severity
+from math_agent.debugger.root_cause import (
+    RootCauseInfo,
+    infer_root_cause,
+    infer_severity,
+)
 
 __all__ = [
     "FailureCase",
