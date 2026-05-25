@@ -17,9 +17,11 @@ def _setup_repo(tmp_path: Path) -> Path:
         "def test_ok():\n    assert True\n", encoding="utf-8"
     )
     (tmp_path / "scripts/run_regression_gate.py").write_text(
-        "ruff check .\nblack --check\nisort --check-only\nmypy\npyright\npytest\ncheck_project_safety.py\n--no-trace\n",
+        "ruff check .\nblack --check\nisort --check-only --diff\nmypy\npyright\npytest\ncheck_project_safety.py\n--include-shadow-eval\npython scripts/shadow_eval.py --mock --limit 5 --out outputs/shadow_eval_gate\npython scripts/build_eval_report.py --results outputs/shadow_eval_gate/shadow_results.jsonl --out-dir outputs/shadow_eval_gate\n--no-trace\n",
         encoding="utf-8",
     )
+    (tmp_path / "scripts/shadow_eval.py").write_text("# mock\n", encoding="utf-8")
+    (tmp_path / "scripts/build_eval_report.py").write_text("# mock\n", encoding="utf-8")
     (tmp_path / ".github/workflows/ci.yml").write_text(
         "ruff\nblack\nisort\nmypy\npyright\npytest\ncheck_project_safety.py\n--no-trace\n",
         encoding="utf-8",
@@ -131,6 +133,30 @@ def test_gate_no_real(tmp_path: Path) -> None:
     root = _setup_repo(tmp_path)
     ci = phr.inspect_ci(root)
     assert ci["gate_contains_real_flag"] is False
+    assert ci["shadow_eval_gate"] == "supported"
+
+
+def test_gate_detects_shadow_tokens(tmp_path: Path) -> None:
+    root = _setup_repo(tmp_path)
+    ci = phr.inspect_ci(root)
+    assert ci["gate_contains"]["scripts/shadow_eval.py"] is True
+    assert ci["gate_contains"]["scripts/build_eval_report.py"] is True
+    assert ci["gate_contains"]["--include-shadow-eval"] is True
+    assert ci["gate_contains"]["--mock"] is True
+    assert ci["gate_contains"]["--no-trace"] is True
+    assert ci["gate_contains_real_flag"] is False
+
+
+def test_markdown_contains_shadow_eval_supported(tmp_path: Path) -> None:
+    root = _setup_repo(tmp_path)
+    md = phr.render_markdown(phr.build_report(root, collect_tests=False))
+    assert "Shadow Eval Gate: supported" in md
+
+
+def test_json_contains_shadow_eval_gate(tmp_path: Path) -> None:
+    root = _setup_repo(tmp_path)
+    report = phr.build_report(root, collect_tests=False)
+    assert report["ci"]["shadow_eval_gate"] == "supported"
 
 
 def test_gate_command_signature_detects_python_list_literals(tmp_path: Path) -> None:
