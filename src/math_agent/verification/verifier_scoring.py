@@ -6,6 +6,7 @@ from typing import Any
 from math_agent.harness.weighted_voting import (
     normalize_candidate_answer as _normalize_candidate,
 )
+from math_agent.proof import score_proof_candidate
 from math_agent.schemas import CandidateAnswer
 
 
@@ -84,11 +85,16 @@ def score_candidate(
     )
     ps = 0.5
     if (answer_type or "text").lower() == "proof":
-        ps = 0.75 if n else 0.2
-        if "proof_partial" in flags:
-            ps -= 0.25
-        if "proof_invalid" in flags:
-            ps -= 0.4
+        proof_score = score_proof_candidate(
+            m, answer_type="proof", candidate_id=m.candidate_id
+        )
+        ps = proof_score.score
+        flags.update(proof_score.risk_flags)
+        reasons.extend([f"proof_rubric:{r}" for r in proof_score.reasons])
+        if proof_score.proof_partial:
+            ps -= 0.05
+        if proof_score.proof_invalid:
+            ps -= 0.2
     ps = _clamp(ps)
     penalties = {
         "dirty_boxed": 0.1,

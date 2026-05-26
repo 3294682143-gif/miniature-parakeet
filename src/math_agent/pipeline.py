@@ -13,6 +13,10 @@ from .control.candidate_budget import (
 )
 from .control.hard_mode import HardModePolicy, policy_to_metadata
 from .control.pipeline_hook import build_runtime_config, runtime_config_to_metadata
+from .control.proof_guardian_hook import (
+    build_proof_guardian_runtime_plan,
+    proof_guardian_runtime_plan_to_metadata,
+)
 from .control.verifier_routing import (
     build_verifier_routing_plan,
     verifier_routing_plan_to_metadata,
@@ -438,7 +442,14 @@ class MathAgentPipeline:
             "errors": [],
         }
         if self.hard_mode_policy is not None:
-            answer_type_hint = "proof" if "证明" in question else "text"
+            answer_type_hint = (
+                "proof"
+                if any(
+                    tok in question.lower()
+                    for tok in ["证明", "prove", "show that", "证"]
+                )
+                else "text"
+            )
             runtime_config = build_runtime_config(
                 self.hard_mode_policy,
                 no_trace=not self.save_trace,
@@ -497,6 +508,17 @@ class MathAgentPipeline:
                 trace_payload["metadata"]["weighted_vote_decision"] = (
                     decision_to_metadata(_decision)
                 )
+                proof_plan = build_proof_guardian_runtime_plan(
+                    runtime_config,
+                    verifier_routing_plan,
+                    current_answer={"final_answer_value": ""},
+                    answer_type=answer_type_hint,
+                )
+                if proof_plan.enabled:
+                    trace_payload["metadata"]["proof_guardian_plan"] = (
+                        proof_guardian_runtime_plan_to_metadata(proof_plan)
+                    )
+                    trace_payload["metadata"]["proof_guardian_effect"] = "preview_only"
                 trace_payload["metadata"][
                     "hard_mode_execution_effect"
                 ] = "candidate_and_verifier_routing_preview"

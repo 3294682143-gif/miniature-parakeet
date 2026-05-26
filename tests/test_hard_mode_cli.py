@@ -100,3 +100,28 @@ def test_invalid_hard_mode_level_rejected() -> None:
         "solve", "--question", "1+1=?", "--hard-mode", "--hard-mode-level", "bad"
     )
     assert proc.returncode != 0
+
+
+def test_hard_mode_strict_proof_trace_has_proof_guardian(tmp_path: Path) -> None:
+    trace_dir = tmp_path / "proof"
+    qid = "q_proof"
+    proc = _run_cli(
+        "solve",
+        "--question",
+        "证明偶数加偶数仍为偶数",
+        "--question-id",
+        qid,
+        "--enable-tools",
+        "--mode",
+        "fast",
+        "--trace-dir",
+        str(trace_dir),
+        "--hard-mode",
+        "--hard-mode-level",
+        "strict",
+    )
+    assert proc.returncode == 0
+    payload = json.loads((trace_dir / f"{qid}.json").read_text(encoding="utf-8"))
+    meta = payload.get("metadata", {})
+    assert meta.get("proof_guardian_effect") == "preview_only"
+    assert "proof_guardian_plan" in meta
