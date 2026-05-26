@@ -7,8 +7,16 @@ from typing import Any
 
 from .agents import explainer, planner, refiner, router, solver, verifier
 from .clients.interns1_client import InternS1Client
+from .control.candidate_budget import (
+    build_candidate_budget_plan,
+    candidate_budget_plan_to_metadata,
+)
 from .control.hard_mode import HardModePolicy, policy_to_metadata
 from .control.pipeline_hook import build_runtime_config, runtime_config_to_metadata
+from .control.verifier_routing import (
+    build_verifier_routing_plan,
+    verifier_routing_plan_to_metadata,
+)
 from .harness.formatter_repair import detect_dirty_final_answer, repair_solve_result
 from .logging_utils import now_iso, write_trace
 from .schemas import (
@@ -441,6 +449,21 @@ class MathAgentPipeline:
                 "hard_mode_candidate_budget_preview": runtime_config.effective_candidate_budget,
                 "hard_mode_verifier_level_preview": runtime_config.verifier_level,
             }
+            if runtime_config.enabled:
+                candidate_budget_plan = build_candidate_budget_plan(runtime_config)
+                verifier_routing_plan = build_verifier_routing_plan(
+                    runtime_config,
+                    answer_type=answer_type_hint,
+                )
+                trace_payload["metadata"]["candidate_budget_plan"] = (
+                    candidate_budget_plan_to_metadata(candidate_budget_plan)
+                )
+                trace_payload["metadata"]["verifier_routing_plan"] = (
+                    verifier_routing_plan_to_metadata(verifier_routing_plan)
+                )
+                trace_payload["metadata"][
+                    "hard_mode_execution_effect"
+                ] = "candidate_and_verifier_routing_preview"
         try:
             route_info = self.router.route(question)
             route_dict = (

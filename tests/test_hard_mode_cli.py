@@ -33,6 +33,7 @@ def test_default_smoke_and_no_hard_mode_in_output() -> None:
     assert proc.returncode == 0
     assert "traceback" not in proc.stdout.lower()
     assert "hard_mode_policy" not in proc.stdout
+    assert "candidate_budget_plan" not in proc.stdout
     assert '"value":"5"' in proc.stdout or "\\boxed{5}" in proc.stdout
 
 
@@ -63,6 +64,11 @@ def test_hard_mode_smokes_and_trace_metadata(tmp_path: Path) -> None:
         assert meta.get("hard_mode_level") == level
         assert meta.get("hard_mode_effect") == "controlled_runtime_hook"
         assert "hard_mode_runtime" in meta
+        if level == "strict":
+            assert (
+                meta.get("verifier_routing_plan", {}).get("route")
+                == "strict_verifier_preview"
+            )
         assert "--real" not in proc.args
 
 
