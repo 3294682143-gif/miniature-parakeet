@@ -7,6 +7,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from .clients.interns1_client import InternS1Client
+from .control.hard_mode import build_hard_mode_policy
 from .pipeline import solve_question
 from .schemas import MathQuestion, make_failure_result
 
@@ -19,6 +20,11 @@ def _validate_real_mode_or_raise(real: bool) -> None:
 
 def cmd_solve(args: argparse.Namespace) -> int:
     _validate_real_mode_or_raise(args.real)
+    hard_mode_policy = None
+    if args.hard_mode:
+        hard_mode_policy = build_hard_mode_policy(
+            enabled=True, level=args.hard_mode_level
+        )
     result = solve_question(
         MathQuestion(question=args.question, question_id=args.question_id),
         mock=not args.real,
@@ -26,6 +32,7 @@ def cmd_solve(args: argparse.Namespace) -> int:
         save_trace=not args.no_trace,
         trace_dir=args.trace_dir,
         run_mode=args.mode,
+        hard_mode_policy=hard_mode_policy,
     )
     print(result.model_dump_json(ensure_ascii=False))
     return 0
@@ -82,6 +89,12 @@ def build_parser() -> argparse.ArgumentParser:
     solve_p.add_argument("--no-trace", action="store_true", default=False)
     solve_p.add_argument(
         "--mode", choices=["full", "fast", "tool-first"], default="full"
+    )
+    solve_p.add_argument("--hard-mode", action="store_true", default=False)
+    solve_p.add_argument(
+        "--hard-mode-level",
+        choices=["off", "light", "standard", "strict"],
+        default="standard",
     )
     solve_p.set_defaults(func=cmd_solve)
     batch_p = sub.add_parser("batch")
