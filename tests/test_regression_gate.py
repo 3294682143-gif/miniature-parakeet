@@ -60,6 +60,12 @@ def test_command_list_contains_required_checks() -> None:
     assert "python -m pytest -q" in command_lines
     assert "python scripts/check_project_safety.py" in command_lines
     assert any("python -m math_agent.cli solve" in line for line in command_lines)
+    lines = [" ".join(cmd) for cmd in commands]
+    assert lines.index("python scripts/check_project_safety.py") < next(
+        i
+        for i, line in enumerate(lines)
+        if line.startswith("python -m math_agent.cli solve")
+    )
 
 
 def test_command_list_has_no_real_flag_and_no_dotenv_read() -> None:
@@ -114,6 +120,32 @@ def test_clean_shadow_eval_outputs(tmp_path: Path) -> None:
     run_regression_gate.clean_shadow_eval_outputs(tmp_path)
     assert not gate_dir.exists()
     assert not test_dir.exists()
+
+
+def test_clean_transient_output_dirs(tmp_path: Path) -> None:
+    dirs = [
+        "outputs/full_system_audit",
+        "outputs/literature_traceability",
+        "outputs/demo_pack",
+        "outputs/demo_pack_test",
+        "outputs/debug_shadow",
+        "outputs/debug_shadow_test",
+        "outputs/hard_mode_ablation",
+        "outputs/hard_mode_ablation_test",
+        "outputs/proof_guardian_demo",
+        "outputs/proof_guardian_demo_test",
+        "outputs/official_dry_run",
+        "outputs/official_dry_run_test",
+    ]
+    for rel in dirs:
+        folder = tmp_path / rel
+        folder.mkdir(parents=True)
+        (folder / "tmp.txt").write_text("x", encoding="utf-8")
+
+    run_regression_gate.clean_shadow_eval_outputs(tmp_path)
+
+    for rel in dirs:
+        assert not (tmp_path / rel).exists()
 
 
 def test_run_regression_gate_does_not_use_shell_true() -> None:
