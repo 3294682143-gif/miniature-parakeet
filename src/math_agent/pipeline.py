@@ -17,6 +17,10 @@ from .control.verifier_routing import (
     build_verifier_routing_plan,
     verifier_routing_plan_to_metadata,
 )
+from .control.weighted_voting_hook import (
+    build_weighted_voting_runtime_plan,
+    runtime_plan_to_metadata,
+)
 from .harness.formatter_repair import detect_dirty_final_answer, repair_solve_result
 from .logging_utils import now_iso, write_trace
 from .schemas import (
@@ -30,6 +34,8 @@ from .schemas import (
 from .tools import sympy_tools
 from .tools.answer_normalizer import extract_answer_by_patterns, extract_boxed_answer
 from .typing import ChatClient
+from .verification.verifier_scoring import score_candidates, score_to_metadata
+from .verification.weighted_voting import decision_to_metadata, weighted_vote
 
 _ALLOWED_BINARY_OPS = {
     ast.Add: lambda a, b: a + b,
@@ -460,6 +466,36 @@ class MathAgentPipeline:
                 )
                 trace_payload["metadata"]["verifier_routing_plan"] = (
                     verifier_routing_plan_to_metadata(verifier_routing_plan)
+                )
+                weighted_plan = build_weighted_voting_runtime_plan(
+                    runtime_config,
+                    candidate_budget_plan,
+                    verifier_routing_plan,
+                    current_answer="",
+                    answer_type=answer_type_hint,
+                )
+                trace_payload["metadata"]["weighted_voting_plan"] = (
+                    runtime_plan_to_metadata(weighted_plan)
+                )
+                trace_payload["metadata"]["weighted_voting_effect"] = "preview_only"
+                _candidates = [
+                    {
+                        "candidate_id": "candidate-0",
+                        "source": "solver",
+                        "final_answer_value": "",
+                    }
+                ]
+                _scores = score_candidates(
+                    _candidates,
+                    verifier_level=weighted_plan.verifier_level,
+                    answer_type=answer_type_hint,
+                )
+                _decision = weighted_vote(_candidates, _scores)
+                trace_payload["metadata"]["verifier_scores"] = [
+                    score_to_metadata(x) for x in _scores
+                ]
+                trace_payload["metadata"]["weighted_vote_decision"] = (
+                    decision_to_metadata(_decision)
                 )
                 trace_payload["metadata"][
                     "hard_mode_execution_effect"
