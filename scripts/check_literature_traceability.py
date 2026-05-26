@@ -17,7 +17,10 @@ MODULE_MATRIX = [
     {"module": "Shadow Eval", "references": ["[R2]", "[R3]", "[R4]"]},
     {"module": "Agent Debugger", "references": ["[R3]", "[R5]"]},
     {"module": "Hard-mode Control", "references": ["[R1]", "[R2]", "[R5]"]},
-    {"module": "Candidate Budget / Verifier Routing", "references": ["[R4]", "[R7]", "[R8]"]},
+    {
+        "module": "Candidate Budget / Verifier Routing",
+        "references": ["[R4]", "[R7]", "[R8]"],
+    },
     {"module": "Weighted Voting / Verifier Scoring", "references": ["[R7]", "[R8]"]},
     {"module": "Proof Guardian", "references": ["[R5]", "[R7]", "[R8]"]},
     {"module": "Official-like Dry Run", "references": ["[R2]", "[R3]", "[R4]"]},
@@ -45,17 +48,19 @@ def main() -> int:
         out_dir = (root / out_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    readme = (root / "README.md")
-    lit = (root / "docs/literature_traceability.md")
-    mapping = (root / "docs/reference_mapping.md")
+    readme = root / "README.md"
+    lit = root / "docs/literature_traceability.md"
+    mapping = root / "docs/reference_mapping.md"
 
-    readme_text = readme.read_text(encoding="utf-8", errors="ignore") if readme.exists() else ""
+    readme_text = (
+        readme.read_text(encoding="utf-8", errors="ignore") if readme.exists() else ""
+    )
     lit_text = lit.read_text(encoding="utf-8", errors="ignore") if lit.exists() else ""
-    mapping_text = mapping.read_text(encoding="utf-8", errors="ignore") if mapping.exists() else ""
 
     checks = {
         "readme_has_research_section": (
-            "Research Foundation" in readme_text or "Literature Traceability" in readme_text
+            "Research Foundation" in readme_text
+            or "Literature Traceability" in readme_text
         ),
         "readme_has_r1_to_r8": all(r in readme_text for r in REF_IDS),
         "docs_literature_traceability_exists": lit.exists(),
@@ -79,9 +84,15 @@ def main() -> int:
         },
     }
 
-    (out_dir / "reference_inventory.json").write_text(json.dumps(ref_inventory, indent=2, ensure_ascii=False), encoding="utf-8")
-    (out_dir / "module_reference_matrix.json").write_text(json.dumps(MODULE_MATRIX, indent=2, ensure_ascii=False), encoding="utf-8")
-    (out_dir / "literature_traceability_summary.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    (out_dir / "reference_inventory.json").write_text(
+        json.dumps(ref_inventory, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    (out_dir / "module_reference_matrix.json").write_text(
+        json.dumps(MODULE_MATRIX, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    (out_dir / "literature_traceability_summary.json").write_text(
+        json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
 
     report = (
         "# Literature Traceability Report\n\n"
@@ -89,12 +100,17 @@ def main() -> int:
         + "\n\n## Checks\n"
         + "\n".join(f"- {k}: {'PASS' if v else 'FAIL'}" for k, v in checks.items())
         + "\n\n## References\n"
-        + "\n".join(f"- {x['id']}: {'present' if x['present'] else 'missing'}" for x in ref_inventory)
+        + "\n".join(
+            f"- {x['id']}: {'present' if x['present'] else 'missing'}"
+            for x in ref_inventory
+        )
         + "\n\nmissing_reference_count=2\n"
     )
     (out_dir / "literature_traceability_report.md").write_text(report, encoding="utf-8")
 
-    if args.fail_on_missing and (not all(checks.values()) or not all(x["present"] for x in ref_inventory)):
+    if args.fail_on_missing and (
+        not all(checks.values()) or not all(x["present"] for x in ref_inventory)
+    ):
         return 1
     return 0
 

@@ -10,7 +10,12 @@ def test_script_exists() -> None:
 
 
 def test_help_runs() -> None:
-    p = subprocess.run(["python", "scripts/check_literature_traceability.py", "--help"], capture_output=True, text=True, check=False)
+    p = subprocess.run(
+        ["python", "scripts/check_literature_traceability.py", "--help"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     assert p.returncode == 0
 
 
@@ -24,7 +29,17 @@ def test_script_static_constraints() -> None:
 
 def test_generate_outputs(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
-    p = subprocess.run(["python", "scripts/check_literature_traceability.py", "--out-dir", str(out_dir)], capture_output=True, text=True, check=False)
+    p = subprocess.run(
+        [
+            "python",
+            "scripts/check_literature_traceability.py",
+            "--out-dir",
+            str(out_dir),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     assert p.returncode == 0
 
     inv = json.loads((out_dir / "reference_inventory.json").read_text(encoding="utf-8"))
@@ -32,14 +47,18 @@ def test_generate_outputs(tmp_path: Path) -> None:
     for i in range(1, 9):
         assert f"[R{i}]" in ids
 
-    matrix = json.loads((out_dir / "module_reference_matrix.json").read_text(encoding="utf-8"))
+    matrix = json.loads(
+        (out_dir / "module_reference_matrix.json").read_text(encoding="utf-8")
+    )
     names = {x["module"] for x in matrix}
     assert "Stable Core / Pipeline" in names
     assert "Proof Guardian" in names
     assert "Official-like Dry Run" in names
 
     assert (out_dir / "literature_traceability_report.md").is_file()
-    summary = json.loads((out_dir / "literature_traceability_summary.json").read_text(encoding="utf-8"))
+    summary = json.loads(
+        (out_dir / "literature_traceability_summary.json").read_text(encoding="utf-8")
+    )
     assert "checks" in summary
     assert not (out_dir / "official_results.jsonl").exists()
 

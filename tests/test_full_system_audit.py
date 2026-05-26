@@ -9,7 +9,9 @@ from scripts import full_system_audit as fsa
 
 def test_registry_exists_and_categories() -> None:
     assert isinstance(fsa.FUNCTION_AUDIT_REGISTRY, list)
-    assert set("ABCDEFGHIJKLMNOPQRSTUVWX").issubset({x["category"] for x in fsa.FUNCTION_AUDIT_REGISTRY})
+    assert set("ABCDEFGHIJKLMNOPQRSTUVWX").issubset(
+        {x["category"] for x in fsa.FUNCTION_AUDIT_REGISTRY}
+    )
 
 
 def test_registry_required_fields() -> None:
@@ -19,7 +21,18 @@ def test_registry_required_fields() -> None:
 
 def test_skip_slow_outputs_and_constraints(tmp_path: Path) -> None:
     out = tmp_path / "audit"
-    result = subprocess.run(["python", "scripts/full_system_audit.py", "--skip-slow", "--out-dir", str(out)], capture_output=True, text=True, check=False)
+    result = subprocess.run(
+        [
+            "python",
+            "scripts/full_system_audit.py",
+            "--skip-slow",
+            "--out-dir",
+            str(out),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     assert result.returncode == 0
 
     inv_json = json.loads((out / "function_inventory.json").read_text(encoding="utf-8"))
@@ -37,7 +50,11 @@ def test_skip_slow_outputs_and_constraints(tmp_path: Path) -> None:
 
     all_text = "\n".join(
         (out / name).read_text(encoding="utf-8")
-        for name in ["full_system_audit_report.md", "function_inventory.md", "function_inventory_by_category.md"]
+        for name in [
+            "full_system_audit_report.md",
+            "function_inventory.md",
+            "function_inventory_by_category.md",
+        ]
     )
     for banned in ["API_KEY=", "sk-", "OPENAI_API_KEY="]:
         assert banned not in all_text
@@ -46,7 +63,7 @@ def test_skip_slow_outputs_and_constraints(tmp_path: Path) -> None:
 def test_no_shell_true_or_env_read() -> None:
     text = Path("scripts/full_system_audit.py").read_text(encoding="utf-8")
     assert "shell=True" not in text
-    assert '.env' not in text or 'read_text(".env"' not in text
+    assert ".env" not in text or 'read_text(".env"' not in text
 
 
 def test_readme_sections_and_ci_statement_consistent() -> None:
