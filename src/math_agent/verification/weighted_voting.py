@@ -24,7 +24,7 @@ class WeightedVoteDecision:
 def group_candidates_by_normalized_answer(
     candidates: list[Any], scores: list[VerifierScore]
 ) -> dict[str, Any]:
-    groups = {}
+    groups: dict[str, dict[str, Any]] = {}
     for i, (cand, score) in enumerate(zip(candidates, scores)):
         key = (score.normalized_answer or "").strip() or "__invalid__"
         m = _candidate_model(cand, i)
@@ -37,9 +37,9 @@ def group_candidates_by_normalized_answer(
                 "selected_answer": m.final_answer_value,
             },
         )
-        g["weight"] += score.final_score
+        g["weight"] = float(g["weight"]) + score.final_score
         g["candidate_ids"].append(score.candidate_id)
-        g["top_score"] = max(g["top_score"], score.final_score)
+        g["top_score"] = max(float(g["top_score"]), score.final_score)
     return groups
 
 
@@ -47,7 +47,11 @@ def weighted_vote(
     candidates: list[Any], scores: list[VerifierScore], allow_fallback: bool = True
 ) -> WeightedVoteDecision:
     groups = group_candidates_by_normalized_answer(candidates, scores)
-    valid = {k: v for k, v in groups.items() if k != "__invalid__" and v["weight"] > 0}
+    valid: dict[str, dict[str, Any]] = {
+        k: v
+        for k, v in groups.items()
+        if k != "__invalid__" and float(v["weight"]) > 0
+    }
     if not valid:
         return WeightedVoteDecision(
             None,
@@ -65,21 +69,24 @@ def weighted_vote(
     items = sorted(
         valid.items(),
         key=lambda kv: (
-            kv[1]["weight"],
-            kv[1]["top_score"],
+            float(kv[1]["weight"]),
+            float(kv[1]["top_score"]),
             sorted(kv[1]["candidate_ids"])[0],
         ),
         reverse=True,
     )
     top_key, top = items[0]
-    tie = len(items) > 1 and abs(items[0][1]["weight"] - items[1][1]["weight"]) < 1e-12
+    tie = (
+        len(items) > 1
+        and abs(float(items[0][1]["weight"]) - float(items[1][1]["weight"])) < 1e-12
+    )
     selected_id = sorted(top["candidate_ids"])[0]
-    total = sum(v["weight"] for v in valid.values())
+    total = sum(float(v["weight"]) for v in valid.values())
     return WeightedVoteDecision(
         selected_id,
-        top.get("selected_answer") or top_key,
+        str(top.get("selected_answer") or top_key),
         top_key,
-        (top["weight"] / total if total > 0 else 0.0),
+        (float(top["weight"]) / total if total > 0 else 0.0),
         len(candidates),
         groups,
         [asdict(s) for s in scores],
