@@ -24,7 +24,7 @@ class WeightedVoteDecision:
 def group_candidates_by_normalized_answer(
     candidates: list[Any], scores: list[VerifierScore]
 ) -> dict[str, Any]:
-    groups = {}
+    groups: dict[str, Any] = {}
     for i, (cand, score) in enumerate(zip(candidates, scores)):
         key = (score.normalized_answer or "").strip() or "__invalid__"
         m = _candidate_model(cand, i)
