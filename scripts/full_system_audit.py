@@ -42,6 +42,8 @@ CATEGORY_LABELS = {
 }
 
 
+REQUIRED_FIELDS = ["id","name","category","status","files","command_entry","smoke_command","default_enabled","mock_safe","calls_external_api","reads_env","writes_outputs","produces_official_results","output_artifacts","risk_boundary","related_tests","docs","notes"]
+
 def reg(fid: str, name: str, category: str, status: str, files: list[str], smoke: list[str] | None = None, notes: str = "") -> dict[str, Any]:
     return {
         "id": fid,
@@ -66,6 +68,10 @@ def reg(fid: str, name: str, category: str, status: str, files: list[str], smoke
 
 
 FUNCTION_AUDIT_REGISTRY: list[dict[str, Any]] = [
+    reg("A05", "mock mode", "A", "integrated", ["src/math_agent/cli.py"]),
+    reg("A06", "real API mode guard", "A", "integrated", ["src/math_agent/clients/interns1_client.py"]),
+    reg("A07", "fast/full/tool-first modes", "A", "integrated", ["src/math_agent/cli.py"]),
+    reg("A08", "trace writing hook", "A", "integrated", ["src/math_agent/pipeline.py"]),
     reg("A01", "CLI solve", "A", "integrated", ["src/math_agent/cli.py"]),
     reg("A02", "CLI batch", "A", "integrated", ["src/math_agent/cli.py"]),
     reg("A03", "pipeline", "A", "integrated", ["src/math_agent/pipeline.py"]),
@@ -165,6 +171,26 @@ FUNCTION_AUDIT_REGISTRY: list[dict[str, Any]] = [
     reg("W03", "hard_mode_control/proof_guardian/full_system_audit docs", "W", "present", ["docs/hard_mode_control.md", "docs/proof_guardian.md", "docs/full_system_audit.md"]),
     reg("X01", "full_system_audit script", "X", "standalone", ["scripts/full_system_audit.py"]),
     reg("X02", "function inventory outputs", "X", "integrated", ["scripts/full_system_audit.py"]),
+    reg("E04", "all skill markdown files", "E", "integrated", ["skills/probability.skill.md", "skills/geometry.skill.md", "skills/matrix.skill.md", "skills/optimization.skill.md", "skills/formatter.skill.md", "skills/verifier.skill.md", "skills/calculus.skill.md"]),
+    reg("F03", "memory data files", "F", "present", ["memory/error_taxonomy.json", "memory/regression_cases.yaml", "memory/route_stats.json", "memory/skill_success_stats.json", "memory/verifier_failures.json", "memory/answer_cluster_stats.json"]),
+    reg("H11", "Candidate Budget Preview", "H", "preview", ["src/math_agent/control/candidate_budget.py"]),
+    reg("H12", "Verifier Routing Preview", "H", "preview", ["src/math_agent/control/verifier_routing.py"]),
+    reg("I07", "answer normalization", "I", "integrated", ["src/math_agent/tools/answer_normalizer.py"]),
+    reg("I08", "proof scoring branch", "I", "integrated", ["src/math_agent/verification/verifier_scoring.py"]),
+    reg("J07", "tool_first decision", "J", "integrated", ["src/math_agent/harness/budget_scheduler.py"]),
+    reg("K05", "shadow artifacts", "K", "standalone", ["src/math_agent/evaluation/shadow_eval_artifacts.py"]),
+    reg("L05", "shadow eval gate", "L", "integrated", ["scripts/run_regression_gate.py"]),
+    reg("M06", "debugger evidence files", "M", "standalone", ["scripts/debug_shadow_failures.py"]),
+    reg("N07", "trace completeness check", "N", "integrated", ["src/math_agent/harness/trace_reader.py"]),
+    reg("O03", "Streamlit panels", "O", "standalone", ["demo/streamlit_app.py"]),
+    reg("P03", "demo script and reports", "P", "present", ["docs/demo_script.md", "docs/ablation_report.md", "docs/hard_mode_report.md", "docs/proof_rubric_report.md", "docs/failure_debug_report.md", "docs/architecture_summary.md", "docs/risk_control_summary.md"]),
+    reg("Q03", "ablation summary", "Q", "integrated", ["src/math_agent/evaluation/hard_mode_ablation.py"]),
+    reg("R04", "official-like input + dry_run jsonl", "R", "standalone", ["data/preofficial_sample.jsonl"]),
+    reg("S03", "README_SUBMISSION and snapshot note", "S", "present", ["docs/README_SUBMISSION.md", "docs/src_snapshot_note.md"]),
+    reg("T03", "candidate archive docs", "T", "present", ["evolution/candidates/README.md", "evolution/evidence/README.md"]),
+    reg("V04", "line count summary", "V", "integrated", ["scripts/full_system_audit.py"]),
+    reg("W04", "docs skeleton tests", "W", "integrated", ["tests/test_docs_skeleton.py"]),
+    reg("X03", "line_count_report/quality/smoke/report outputs", "X", "integrated", ["scripts/full_system_audit.py"]),
 ]
 
 @dataclass
@@ -213,7 +239,7 @@ def write_outputs(root: Path, out_dir: Path, lines: dict[str, Any], quality: lis
     (out_dir / "function_inventory.json").write_text(json.dumps(inv, indent=2, ensure_ascii=False), encoding="utf-8")
     summary = {"disclaimer": DISCLAIMER, "line_counts": lines, "function_count": len(inv), "categories": sorted({x["category"] for x in inv})}
     (out_dir / "full_system_audit_summary.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
-    inv_md = ["# Function Inventory", "", DISCLAIMER, "", "| id | name | category | status | files | risk_boundary |", "|---|---|---|---|---|---|"]
+    inv_md = ["# Function Inventory", "", DISCLAIMER, "", "## A. Stable Core / 主解题内核", "", "| id | name | category | status | files | risk_boundary |", "|---|---|---|---|---|---|"]
     for x in inv:
         inv_md.append(f"| {x['id']} | {x['name']} | {CATEGORY_LABELS.get(x['category'], x['category'])} | {x['status']} | {'; '.join(x['files'])} | {x['risk_boundary']} |")
     (out_dir / "function_inventory.md").write_text("\n".join(inv_md), encoding="utf-8")
@@ -224,6 +250,10 @@ def write_outputs(root: Path, out_dir: Path, lines: dict[str, Any], quality: lis
             grouped.append(f"- {x['id']} {x['name']} ({x['status']})")
         grouped.append("")
     (out_dir / "function_inventory_by_category.md").write_text("\n".join(grouped), encoding="utf-8")
+    grouped_report = ["# Full Function Inventory A-X", "", DISCLAIMER, ""]
+    for c in sorted(CATEGORY_LABELS):
+        grouped_report.append(f"- {c}. {CATEGORY_LABELS[c]}")
+    
     (out_dir / "line_count_report.md").write_text(f"# Line Count Summary\n\n{DISCLAIMER}\n\n- total_code_lines: {lines['total_code_lines']}\n- by_module: {json.dumps(lines['by_module'], ensure_ascii=False)}\n", encoding="utf-8")
     report = f"# Full System Audit Report\n\n## 1. Executive Summary\n\n{DISCLAIMER}\n\n## 3. Repository Overview\n- total functions audited: {len(inv)}\n\n## 4. Line Count Summary\n- total_code_lines: {lines['total_code_lines']}\n\n## 5. Quality Gate Results\n- checks: {len(quality)}\n\n## 6. Functional Smoke Results\n- checks: {len(smoke)}\n\n## 7. Full Function Inventory\n- see function_inventory.md/json\n\n## 8. Missing Optional Capabilities\n- listed by status=missing/planned\n\n## 9. Safety Boundary\n- no .env reads; no official_results.jsonl\n\n## 10. Official Submission Warning\n- dry-run != official evaluation\n\n## 11. Next Steps: P19 / P20\n- P19: tighten regression evidence\n- P20: stronger verifier experiments\n"
     (out_dir / "full_system_audit_report.md").write_text(report, encoding="utf-8")

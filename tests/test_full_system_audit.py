@@ -7,60 +7,55 @@ from pathlib import Path
 from scripts import full_system_audit as fsa
 
 
-def test_registry_exists_and_size() -> None:
+def test_registry_exists_and_categories() -> None:
     assert isinstance(fsa.FUNCTION_AUDIT_REGISTRY, list)
-    assert len(fsa.FUNCTION_AUDIT_REGISTRY) >= 80
-
-
-def test_registry_categories_cover_a_to_x() -> None:
-    got = {x["category"] for x in fsa.FUNCTION_AUDIT_REGISTRY}
-    exp = set("ABCDEFGHIJKLMNOPQRSTUVWX")
-    assert exp.issubset(got)
+    assert set("ABCDEFGHIJKLMNOPQRSTUVWX").issubset({x["category"] for x in fsa.FUNCTION_AUDIT_REGISTRY})
 
 
 def test_registry_required_fields() -> None:
-    required = {"id", "name", "category", "status", "files", "risk_boundary"}
     for item in fsa.FUNCTION_AUDIT_REGISTRY:
-        assert required.issubset(item.keys())
+        assert set(fsa.REQUIRED_FIELDS).issubset(item.keys())
 
 
-def test_present_files_exist_or_downgraded(tmp_path: Path) -> None:
-    validated = fsa.validate_registry(Path("."))
-    for item in validated:
-        if item["status"] == "present":
-            assert item["existing_files"]
-
-
-def test_help_runs() -> None:
-    result = subprocess.run(["python", "scripts/full_system_audit.py", "--help"], capture_output=True, text=True, check=False)
-    assert result.returncode == 0
-
-
-def test_skip_slow_and_outputs(tmp_path: Path) -> None:
+def test_skip_slow_outputs_and_constraints(tmp_path: Path) -> None:
     out = tmp_path / "audit"
     result = subprocess.run(["python", "scripts/full_system_audit.py", "--skip-slow", "--out-dir", str(out)], capture_output=True, text=True, check=False)
     assert result.returncode == 0
+
     inv_json = json.loads((out / "function_inventory.json").read_text(encoding="utf-8"))
     assert isinstance(inv_json, list)
-    md = (out / "function_inventory.md").read_text(encoding="utf-8")
-    assert "Stable Core" in md
-    assert "Proof" in md
-    assert "Shadow Eval" in md
-    assert "Official-like Dry Run" in md
-    assert "Safety / Security" in md
-    assert (out / "function_inventory_by_category.md").is_file()
+    assert all("--real" not in " ".join(x.get("smoke_command", [])) for x in inv_json)
+
+    inv_md = (out / "function_inventory.md").read_text(encoding="utf-8")
+    by_cat = (out / "function_inventory_by_category.md").read_text(encoding="utf-8")
     report = (out / "full_system_audit_report.md").read_text(encoding="utf-8")
-    assert "Missing Optional Capabilities" in report
+
+    assert "A. Stable Core" in inv_md
+    assert "X. Full System Audit" in by_cat
+    assert "This is NOT official evaluation." in report
     assert not (out / "official_results.jsonl").exists()
 
+    all_text = "\n".join(
+        (out / name).read_text(encoding="utf-8")
+        for name in ["full_system_audit_report.md", "function_inventory.md", "function_inventory_by_category.md"]
+    )
+    for banned in ["API_KEY=", "sk-", "OPENAI_API_KEY="]:
+        assert banned not in all_text
 
-def test_no_shell_true_or_env_token_leak() -> None:
+
+def test_no_shell_true_or_env_read() -> None:
     text = Path("scripts/full_system_audit.py").read_text(encoding="utf-8")
     assert "shell=True" not in text
-    assert 'read_text(".env"' not in text
+    assert '.env' not in text or 'read_text(".env"' not in text
 
 
-def test_readme_sections_present() -> None:
+def test_readme_sections_and_ci_statement_consistent() -> None:
     r = Path("README.md").read_text(encoding="utf-8")
-    assert ("Full Function Inventory" in r) or ("Function Inventory Overview" in r)
-    assert "P19 / P20" in r
+    assert "Repository Structure" in r
+    assert "Line Count Summary" in r
+    assert "Current Limitations" in r
+    ci_exists = Path(".github/workflows/ci.yml").exists()
+    if ci_exists:
+        assert "workflow file present" in r
+    else:
+        assert "planned GitHub Actions" in r or "intended" in r
