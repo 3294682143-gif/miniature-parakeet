@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from math_agent.control.candidate_budget import build_candidate_budget_plan
 from math_agent.control.hard_mode import build_hard_mode_policy
 from math_agent.control.pipeline_hook import (
     build_runtime_config,
@@ -142,3 +143,10 @@ def test_cli_strict_no_trace_and_status_success(tmp_path: Path) -> None:
     assert payload["final_answer"]["value"] == "5"
     assert not (trace_dir / "q_nt.json").exists()
     assert not Path("official_results.jsonl").exists()
+
+
+def test_runtime_config_candidate_budget_plan_consistent() -> None:
+    cfg = build_runtime_config(build_hard_mode_policy(True, "strict"))
+    plan = build_candidate_budget_plan(cfg)
+    assert plan.requested_budget == cfg.candidate_budget
+    assert plan.effective_budget == cfg.effective_candidate_budget
