@@ -61,7 +61,8 @@ def test_hard_mode_smokes_and_trace_metadata(tmp_path: Path) -> None:
         payload = json.loads(trace_file.read_text(encoding="utf-8"))
         meta = payload.get("metadata", {})
         assert meta.get("hard_mode_level") == level
-        assert meta.get("hard_mode_effect") == "metadata_only"
+        assert meta.get("hard_mode_effect") == "controlled_runtime_hook"
+        assert "hard_mode_runtime" in meta
         assert "--real" not in proc.args
 
 
