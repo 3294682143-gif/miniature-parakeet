@@ -65,6 +65,59 @@ outputs/full_system_audit/readme_update_notes.md
 
 These generated files are runtime artifacts and must not be committed.
 
+
+## Repository Structure / 目录结构
+
+```text
+src/math_agent/
+  agents/
+  clients/
+  control/
+  debugger/
+  evaluation/
+  evidence/
+  harness/
+  proof/
+  submission/
+  tools/
+  verification/
+
+scripts/
+tests/
+docs/
+skills/
+memory/
+evolution/
+demo/
+configs/
+```
+
+## Line Count Summary / 代码行数摘要
+
+Run:
+
+```bash
+python scripts/full_system_audit.py --out-dir outputs/full_system_audit --skip-slow
+```
+
+Then inspect:
+
+```text
+outputs/full_system_audit/line_count_report.md
+```
+
+The README does not commit dynamic line-count artifacts. The latest numbers must be regenerated locally.
+
+## Current Limitations / 当前限制
+
+- Shadow Eval / audit / dry-run reports are not official accuracy.
+- Proof Guardian is deterministic rubric, not a formal proof checker.
+- Weighted Voting / verifier scoring are preview or controlled layers unless explicitly enabled.
+- Hard-mode defaults to off / preview-safe behavior.
+- Official results must only be generated through the final official batch flow.
+- Real API evaluation should be performed on the trusted local machine, not in cloud PR checks.
+- Literature mapping is traceability evidence, not full paper reproduction.
+
 ## Architecture / Full Chain
 
 ```mermaid
@@ -143,7 +196,7 @@ docs/reference_mapping.md
 | Proof Guardian | `src/math_agent/proof/**`, `src/math_agent/control/proof_guardian_hook.py` | [R5], [R7], [R8] | preview / integrated metadata | deterministic rubric, not a formal proof checker |
 | Official-like Dry Run | `src/math_agent/submission/**`, `scripts/run_official_dry_run.py` | [R2], [R3], [R4] | standalone harness | explicitly blocks official result naming and real-run misuse |
 | Demo Evidence Pack | `src/math_agent/evidence/**`, `scripts/generate_demo_pack.py` | [R2], [R3], [R4] | standalone reporting | aggregates evidence; does not create official metrics |
-| Safety / Quality Gates | `scripts/check_project_safety.py`, `scripts/run_regression_gate.py`, `.github/workflows/ci.yml` | [R2], [R3], [R5], [R6] | integrated | CI may fail for account/permission reasons independent of code |
+| Safety / Quality Gates | `scripts/check_project_safety.py`, `scripts/run_regression_gate.py`, `.github/workflows/ci.yml` | [R2], [R3], [R5], [R6] | integrated (workflow file present) | GitHub Actions execution also depends on repository/account settings and permission toggles |
 | Full System Audit | `scripts/full_system_audit.py`, `tests/test_full_system_audit.py`, `docs/full_system_audit.md` | [R3], [R4], [R6] | standalone acceptance gate | outputs are generated locally and not committed |
 | Literature Traceability | `scripts/check_literature_traceability.py`, `docs/literature_traceability.md`, `docs/reference_mapping.md` | [R1]-[R8] | docs / audit | mapping is evidence of influence, not full reproduction |
 
