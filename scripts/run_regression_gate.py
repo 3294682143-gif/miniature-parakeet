@@ -34,22 +34,6 @@ def build_commands(
     if not skip_slow:
         commands.append(["python", "-m", "pytest", "-q"])
 
-    if not no_cli_smoke:
-        commands.append(
-            [
-                "python",
-                "-m",
-                "math_agent.cli",
-                "solve",
-                "--question",
-                "计算 2+3",
-                "--enable-tools",
-                "--mode",
-                "fast",
-                "--no-trace",
-            ]
-        )
-
     if include_shadow_eval:
         commands.extend(
             [
@@ -74,6 +58,21 @@ def build_commands(
         )
 
     commands.append(["python", "scripts/check_project_safety.py"])
+    if not no_cli_smoke:
+        commands.append(
+            [
+                "python",
+                "-m",
+                "math_agent.cli",
+                "solve",
+                "--question",
+                "计算 2+3",
+                "--enable-tools",
+                "--mode",
+                "fast",
+                "--no-trace",
+            ]
+        )
     return commands
 
 
@@ -106,7 +105,22 @@ def clean_traces(root: Path) -> None:
 
 
 def clean_shadow_eval_outputs(root: Path) -> None:
-    for rel in ["outputs/shadow_eval_gate", "outputs/shadow_eval_test"]:
+    for rel in [
+        "outputs/full_system_audit",
+        "outputs/literature_traceability",
+        "outputs/demo_pack",
+        "outputs/demo_pack_test",
+        "outputs/shadow_eval_gate",
+        "outputs/shadow_eval_test",
+        "outputs/debug_shadow",
+        "outputs/debug_shadow_test",
+        "outputs/hard_mode_ablation",
+        "outputs/hard_mode_ablation_test",
+        "outputs/proof_guardian_demo",
+        "outputs/proof_guardian_demo_test",
+        "outputs/official_dry_run",
+        "outputs/official_dry_run_test",
+    ]:
         target = root / rel
         if target.exists():
             shutil.rmtree(target)
@@ -160,8 +174,9 @@ def main(argv: Iterable[str] | None = None) -> int:
     )
 
     print("=== Local Regression Gate ===")
-    pre_cleanup_commands = commands[:-1]
-    safety_command = commands[-1]
+    safety_index = commands.index(["python", "scripts/check_project_safety.py"])
+    pre_cleanup_commands = commands[:safety_index]
+    post_safety_commands = commands[safety_index + 1 :]
 
     for idx, command in enumerate(pre_cleanup_commands, start=1):
         run_command(idx, len(commands), command)
@@ -172,7 +187,9 @@ def main(argv: Iterable[str] | None = None) -> int:
     clean_traces(root)
     clean_shadow_eval_outputs(root)
 
-    run_command(len(commands), len(commands), safety_command)
+    run_command(safety_index + 1, len(commands), commands[safety_index])
+    for idx, command in enumerate(post_safety_commands, start=safety_index + 2):
+        run_command(idx, len(commands), command)
 
     elapsed = time.perf_counter() - start
     print(f"\nPASS: regression gate completed in {elapsed:.2f}s")

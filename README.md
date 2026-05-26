@@ -296,6 +296,23 @@ python scripts/check_project_safety.py
 
 `run_regression_gate.py` wraps the local regression gate. The full audit records pass/fail summaries instead of hiding failures.
 
+### 本地完整验收顺序（Pre-submit）
+
+1. 跑质量门禁（ruff / black / isort / mypy / pyright / compileall）。
+2. 跑 `python -m pytest -q`。
+3. 清理 `.pytest_cache` / `__pycache__` / `outputs/traces` 与临时输出目录。
+4. 跑 `python scripts/check_project_safety.py`。
+5. 通过后再进入 P19 Frozen Submission / Safety Freeze。
+
+参考清理命令：
+
+```bash
+rm -rf .pytest_cache
+find . -type d -name "__pycache__" -prune -exec rm -rf {} +
+find outputs/traces -mindepth 1 ! -name ".gitkeep" -delete 2>/dev/null || true
+rm -rf outputs/full_system_audit outputs/literature_traceability outputs/demo_pack outputs/demo_pack_test outputs/shadow_eval_gate outputs/shadow_eval_test outputs/debug_shadow outputs/debug_shadow_test outputs/hard_mode_ablation outputs/hard_mode_ablation_test outputs/proof_guardian_demo outputs/proof_guardian_demo_test outputs/official_dry_run outputs/official_dry_run_test
+```
+
 ## Safety Boundaries
 
 - Do not read or commit `.env` content.
