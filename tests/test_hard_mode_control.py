@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
+
 from math_agent.control.hard_mode import (
     HardModePolicy,
     build_hard_mode_policy,
     infer_hard_mode_level,
+    policy_to_metadata,
     should_enable_proof_guardian,
     should_require_trace,
     validate_policy,
@@ -74,3 +77,26 @@ def test_should_require_trace_helper() -> None:
     assert (
         should_require_trace(build_hard_mode_policy(enabled=True, level="off")) is False
     )
+
+
+def test_policy_to_metadata_jsonable_and_strict_flags() -> None:
+    strict = build_hard_mode_policy(enabled=True, level="strict", answer_type="proof")
+    metadata = policy_to_metadata(strict)
+    json.dumps(metadata, ensure_ascii=False)
+    assert metadata["shadow_eval_required"] is True
+    assert metadata["debugger_required"] is True
+
+
+def test_standard_proof_and_off_metadata() -> None:
+    standard = build_hard_mode_policy(
+        enabled=True, level="standard", answer_type="proof"
+    )
+    off = build_hard_mode_policy(enabled=False, level="off")
+    standard_metadata = policy_to_metadata(standard)
+    off_metadata = policy_to_metadata(off)
+    assert standard_metadata["proof_guardian"] is True
+    assert off_metadata["enabled"] is False or off_metadata["level"] == "off"
+    dumped = json.dumps({"std": standard_metadata, "off": off_metadata}).lower()
+    assert "token" not in dumped
+    assert "api_key" not in dumped
+    assert ".env" not in dumped

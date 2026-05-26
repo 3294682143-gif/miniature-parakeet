@@ -7,6 +7,7 @@ from typing import Any
 
 from .agents import explainer, planner, refiner, router, solver, verifier
 from .clients.interns1_client import InternS1Client
+from .control.hard_mode import HardModePolicy, policy_to_metadata
 from .harness.formatter_repair import detect_dirty_final_answer, repair_solve_result
 from .logging_utils import now_iso, write_trace
 from .schemas import (
@@ -366,6 +367,7 @@ class MathAgentPipeline:
         trace_dir: str | Path = "outputs/traces",
         prompt_version: str = "default",
         run_mode: str = "full",
+        hard_mode_policy: HardModePolicy | None = None,
     ) -> None:
         if run_mode not in {"full", "fast", "tool-first"}:
             raise ValueError("run_mode must be one of: full, fast, tool-first")
@@ -376,6 +378,7 @@ class MathAgentPipeline:
         self.trace_dir = Path(trace_dir)
         self.prompt_version = prompt_version
         self.run_mode = run_mode
+        self.hard_mode_policy = hard_mode_policy
         self.client = client or InternS1Client(mock=mock)
         self.prompt_config_path = Path(prompt_config_path)
         self.router = router.Router(
@@ -419,6 +422,18 @@ class MathAgentPipeline:
             "final_result": {},
             "errors": [],
         }
+        if self.hard_mode_policy is not None:
+            policy_snapshot = policy_to_metadata(self.hard_mode_policy)
+            if not self.save_trace and self.hard_mode_policy.require_trace:
+                policy_snapshot["notes"] = list(policy_snapshot.get("notes", [])) + [
+                    "trace_required_by_policy_but_no_trace_flag_wins"
+                ]
+            trace_payload["metadata"] = {
+                "hard_mode_policy": policy_snapshot,
+                "hard_mode_enabled": self.hard_mode_policy.enabled,
+                "hard_mode_level": self.hard_mode_policy.level,
+                "hard_mode_effect": "metadata_only",
+            }
         try:
             route_info = self.router.route(question)
             route_dict = (
@@ -653,6 +668,7 @@ def solve_question(
     save_trace: bool = True,
     trace_dir: str | Path = "outputs/traces",
     run_mode: str = "full",
+    hard_mode_policy: HardModePolicy | None = None,
 ):
     _ = model
     return MathAgentPipeline(
@@ -661,4 +677,5 @@ def solve_question(
         save_trace=save_trace,
         trace_dir=trace_dir,
         run_mode=run_mode,
+        hard_mode_policy=hard_mode_policy,
     ).solve(question.question, question.question_id)

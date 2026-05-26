@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 _ALLOWED_LEVELS = {"off", "light", "standard", "strict"}
 
@@ -116,3 +117,19 @@ def validate_policy(policy: HardModePolicy) -> list[str]:
     if not policy.enabled and policy.level != "off":
         errors.append("disabled hard mode must use level 'off'")
     return errors
+
+
+def policy_to_metadata(policy: HardModePolicy) -> dict[str, Any]:
+    return {
+        "enabled": policy.enabled,
+        "level": policy.level,
+        "candidate_budget": policy.candidate_budget,
+        "verifier_level": policy.verifier_level,
+        "allow_tool_assist": policy.allow_tool_assist,
+        "allow_repair": policy.allow_repair,
+        "require_trace": policy.require_trace,
+        "proof_guardian": policy.proof_guardian,
+        "shadow_eval_required": policy.shadow_eval_required,
+        "debugger_required": policy.debugger_required,
+        "notes": list(policy.notes),
+    }
