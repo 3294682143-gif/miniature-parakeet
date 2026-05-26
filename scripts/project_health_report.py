@@ -159,6 +159,17 @@ def inspect_assets(root: Path) -> dict[str, Any]:
         "submission_checklist_exists": (
             root / "docs/submission_checklist.md"
         ).is_file(),
+        "hard_mode_control": (
+            "present"
+            if all(
+                [
+                    (root / "src/math_agent/control/hard_mode.py").is_file(),
+                    (root / "docs/hard_mode_control.md").is_file(),
+                    (root / "tests/test_hard_mode_control.py").is_file(),
+                ]
+            )
+            else "missing"
+        ),
     }
 
 
