@@ -8,6 +8,7 @@ from typing import Any
 from .agents import explainer, planner, refiner, router, solver, verifier
 from .clients.interns1_client import InternS1Client
 from .control.hard_mode import HardModePolicy, policy_to_metadata
+from .control.pipeline_hook import build_runtime_config, runtime_config_to_metadata
 from .harness.formatter_repair import detect_dirty_final_answer, repair_solve_result
 from .logging_utils import now_iso, write_trace
 from .schemas import (
@@ -423,16 +424,22 @@ class MathAgentPipeline:
             "errors": [],
         }
         if self.hard_mode_policy is not None:
+            answer_type_hint = "proof" if "证明" in question else "text"
+            runtime_config = build_runtime_config(
+                self.hard_mode_policy,
+                no_trace=not self.save_trace,
+                answer_type=answer_type_hint,
+                max_candidate_budget=3,
+            )
             policy_snapshot = policy_to_metadata(self.hard_mode_policy)
-            if not self.save_trace and self.hard_mode_policy.require_trace:
-                policy_snapshot["notes"] = list(policy_snapshot.get("notes", [])) + [
-                    "trace_required_by_policy_but_no_trace_flag_wins"
-                ]
             trace_payload["metadata"] = {
                 "hard_mode_policy": policy_snapshot,
+                "hard_mode_runtime": runtime_config_to_metadata(runtime_config),
                 "hard_mode_enabled": self.hard_mode_policy.enabled,
                 "hard_mode_level": self.hard_mode_policy.level,
-                "hard_mode_effect": "metadata_only",
+                "hard_mode_effect": runtime_config.effect,
+                "hard_mode_candidate_budget_preview": runtime_config.effective_candidate_budget,
+                "hard_mode_verifier_level_preview": runtime_config.verifier_level,
             }
         try:
             route_info = self.router.route(question)

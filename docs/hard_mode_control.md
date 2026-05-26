@@ -72,3 +72,7 @@ python -m math_agent.cli solve \
 - Default pipeline behavior is unchanged.
 - This mode does not call external APIs by itself.
 - This mode does not claim official accuracy.
+
+
+## 8. P13 Runtime Hook
+P13 adds controlled pipeline runtime metadata hook (`hard_mode_runtime`) while keeping solver/final schema unchanged.
