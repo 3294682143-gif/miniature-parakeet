@@ -32,6 +32,9 @@ __all__ = [
     "WeightedVotingRuntimePlan",
     "build_weighted_voting_runtime_plan",
     "runtime_plan_to_metadata",
+    "ProofGuardianRuntimePlan",
+    "build_proof_guardian_runtime_plan",
+    "proof_guardian_runtime_plan_to_metadata",
 ]
 
 from .pipeline_hook import (
@@ -39,6 +42,11 @@ from .pipeline_hook import (
     apply_policy_notes,
     build_runtime_config,
     runtime_config_to_metadata,
+)
+from .proof_guardian_hook import (
+    ProofGuardianRuntimePlan,
+    build_proof_guardian_runtime_plan,
+    proof_guardian_runtime_plan_to_metadata,
 )
 from .verifier_routing import (
     VerifierRoutingPlan,

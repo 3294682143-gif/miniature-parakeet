@@ -87,3 +87,18 @@ def test_cli_smoke_weighted_metadata(tmp_path):
         check=True,
     )
     assert '"status":"success"' in p2.stdout
+
+
+def test_proof_rubric_scoring_effects():
+    good = score_candidate(
+        {"final_answer_value": "设a，因为a=2m，所以成立，故命题成立"},
+        answer_type="proof",
+    )
+    bad = score_candidate(
+        {"final_answer_value": "矛盾 contradiction"}, answer_type="proof"
+    )
+    assert good.proof_score != 0.5
+    assert bad.final_score < good.final_score
+    assert any("proof_rubric" in r for r in bad.reasons)
+    normal = score_candidate({"final_answer_value": "5"}, answer_type="number")
+    assert not any("proof_rubric" in r for r in normal.reasons)
