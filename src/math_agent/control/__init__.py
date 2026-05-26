@@ -29,6 +29,9 @@ __all__ = [
     "apply_policy_notes",
     "build_runtime_config",
     "runtime_config_to_metadata",
+    "WeightedVotingRuntimePlan",
+    "build_weighted_voting_runtime_plan",
+    "runtime_plan_to_metadata",
 ]
 
 from .pipeline_hook import (
@@ -41,4 +44,9 @@ from .verifier_routing import (
     VerifierRoutingPlan,
     build_verifier_routing_plan,
     verifier_routing_plan_to_metadata,
+)
+from .weighted_voting_hook import (
+    WeightedVotingRuntimePlan,
+    build_weighted_voting_runtime_plan,
+    runtime_plan_to_metadata,
 )
