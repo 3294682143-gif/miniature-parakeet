@@ -159,6 +159,12 @@ def test_json_contains_shadow_eval_gate(tmp_path: Path) -> None:
     assert report["ci"]["shadow_eval_gate"] == "supported"
 
 
+def test_assets_contains_hard_mode_control_key(tmp_path: Path) -> None:
+    root = _setup_repo(tmp_path)
+    report = phr.build_report(root, collect_tests=False)
+    assert report["assets"]["hard_mode_control"] == "missing"
+
+
 def test_gate_command_signature_detects_python_list_literals(tmp_path: Path) -> None:
     gate = tmp_path / "scripts" / "run_regression_gate.py"
     gate.parent.mkdir(parents=True, exist_ok=True)
