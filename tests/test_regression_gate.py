@@ -22,27 +22,6 @@ def test_help_runs() -> None:
     assert "--include-shadow-eval" in result.stdout
 
 
-def test_clean_traces_keeps_gitkeep(tmp_path: Path) -> None:
-    traces = tmp_path / "outputs" / "traces"
-    traces.mkdir(parents=True)
-    (traces / ".gitkeep").write_text("", encoding="utf-8")
-
-    run_regression_gate.clean_traces(tmp_path)
-
-    assert (traces / ".gitkeep").exists()
-
-
-def test_clean_traces_removes_fake_json(tmp_path: Path) -> None:
-    traces = tmp_path / "outputs" / "traces"
-    traces.mkdir(parents=True)
-    fake = traces / "fake.json"
-    fake.write_text("{}", encoding="utf-8")
-
-    run_regression_gate.clean_traces(tmp_path)
-
-    assert not fake.exists()
-
-
 def test_command_list_contains_required_checks() -> None:
     commands = run_regression_gate.build_commands(
         skip_type_checks=False,
@@ -59,13 +38,21 @@ def test_command_list_contains_required_checks() -> None:
     assert "pyright" in command_lines
     assert "python -m pytest -q" in command_lines
     assert "python scripts/check_project_safety.py" in command_lines
+    assert "git status --short" in command_lines
     assert any("python -m math_agent.cli solve" in line for line in command_lines)
     lines = [" ".join(cmd) for cmd in commands]
-    assert lines.index("python scripts/check_project_safety.py") < next(
+    compile_idx = lines.index("python -m compileall src scripts demo tests")
+    pytest_idx = lines.index("python -m pytest -q")
+    cli_idx = next(
         i
         for i, line in enumerate(lines)
         if line.startswith("python -m math_agent.cli solve")
     )
+    safety_idx = lines.index("python scripts/check_project_safety.py")
+    assert compile_idx < safety_idx
+    assert pytest_idx < safety_idx
+    assert cli_idx < safety_idx
+    assert safety_idx < lines.index("git status --short")
 
 
 def test_command_list_has_no_real_flag_and_no_dotenv_read() -> None:
@@ -108,44 +95,6 @@ def test_shadow_eval_included_when_enabled() -> None:
     assert "outputs/shadow_eval_gate/shadow_results.jsonl" in flattened
     assert "--real" not in flattened
     assert ".env" not in flattened
-
-
-def test_clean_shadow_eval_outputs(tmp_path: Path) -> None:
-    gate_dir = tmp_path / "outputs" / "shadow_eval_gate"
-    test_dir = tmp_path / "outputs" / "shadow_eval_test"
-    gate_dir.mkdir(parents=True)
-    test_dir.mkdir(parents=True)
-    (gate_dir / "tmp.txt").write_text("x", encoding="utf-8")
-    (test_dir / "tmp.txt").write_text("x", encoding="utf-8")
-    run_regression_gate.clean_shadow_eval_outputs(tmp_path)
-    assert not gate_dir.exists()
-    assert not test_dir.exists()
-
-
-def test_clean_transient_output_dirs(tmp_path: Path) -> None:
-    dirs = [
-        "outputs/full_system_audit",
-        "outputs/literature_traceability",
-        "outputs/demo_pack",
-        "outputs/demo_pack_test",
-        "outputs/debug_shadow",
-        "outputs/debug_shadow_test",
-        "outputs/hard_mode_ablation",
-        "outputs/hard_mode_ablation_test",
-        "outputs/proof_guardian_demo",
-        "outputs/proof_guardian_demo_test",
-        "outputs/official_dry_run",
-        "outputs/official_dry_run_test",
-    ]
-    for rel in dirs:
-        folder = tmp_path / rel
-        folder.mkdir(parents=True)
-        (folder / "tmp.txt").write_text("x", encoding="utf-8")
-
-    run_regression_gate.clean_shadow_eval_outputs(tmp_path)
-
-    for rel in dirs:
-        assert not (tmp_path / rel).exists()
 
 
 def test_run_regression_gate_does_not_use_shell_true() -> None:

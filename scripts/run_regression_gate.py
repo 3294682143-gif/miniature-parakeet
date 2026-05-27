@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import argparse
-import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import Iterable, Sequence
+
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from scripts.clean_transient_artifacts import clean_transient_artifacts
 
 
 def build_commands(
@@ -57,7 +61,6 @@ def build_commands(
             ]
         )
 
-    commands.append(["python", "scripts/check_project_safety.py"])
     if not no_cli_smoke:
         commands.append(
             [
@@ -73,57 +76,10 @@ def build_commands(
                 "--no-trace",
             ]
         )
+
+    commands.append(["python", "scripts/check_project_safety.py"])
+    commands.append(["git", "status", "--short"])
     return commands
-
-
-def clean_pycache(root: Path) -> None:
-    for pycache_dir in root.rglob("__pycache__"):
-        if pycache_dir.is_dir():
-            shutil.rmtree(pycache_dir)
-
-
-def clean_pytest_cache(root: Path) -> None:
-    pytest_cache = root / ".pytest_cache"
-    if pytest_cache.exists():
-        shutil.rmtree(pytest_cache)
-
-
-def clean_traces(root: Path) -> None:
-    traces_dir = root / "outputs" / "traces"
-    if not traces_dir.exists():
-        return
-
-    for path in traces_dir.rglob("*"):
-        if path.name == ".gitkeep":
-            continue
-        if path.is_file() or path.is_symlink():
-            path.unlink()
-
-    for path in sorted(traces_dir.rglob("*"), reverse=True):
-        if path.is_dir() and not any(path.iterdir()):
-            path.rmdir()
-
-
-def clean_shadow_eval_outputs(root: Path) -> None:
-    for rel in [
-        "outputs/full_system_audit",
-        "outputs/literature_traceability",
-        "outputs/demo_pack",
-        "outputs/demo_pack_test",
-        "outputs/shadow_eval_gate",
-        "outputs/shadow_eval_test",
-        "outputs/debug_shadow",
-        "outputs/debug_shadow_test",
-        "outputs/hard_mode_ablation",
-        "outputs/hard_mode_ablation_test",
-        "outputs/proof_guardian_demo",
-        "outputs/proof_guardian_demo_test",
-        "outputs/official_dry_run",
-        "outputs/official_dry_run_test",
-    ]:
-        target = root / rel
-        if target.exists():
-            shutil.rmtree(target)
 
 
 def run_command(index: int, total: int, command: Sequence[str]) -> None:
@@ -139,19 +95,13 @@ def run_command(index: int, total: int, command: Sequence[str]) -> None:
 def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run local regression quality gate.")
     parser.add_argument(
-        "--skip-type-checks",
-        action="store_true",
-        help="Skip mypy and pyright checks.",
+        "--skip-type-checks", action="store_true", help="Skip mypy and pyright checks."
     )
     parser.add_argument(
-        "--skip-slow",
-        action="store_true",
-        help="Skip slow checks (pytest -q).",
+        "--skip-slow", action="store_true", help="Skip slow checks (pytest -q)."
     )
     parser.add_argument(
-        "--no-cli-smoke",
-        action="store_true",
-        help="Skip CLI smoke test.",
+        "--no-cli-smoke", action="store_true", help="Skip CLI smoke test."
     )
     parser.add_argument(
         "--include-shadow-eval",
@@ -174,21 +124,11 @@ def main(argv: Iterable[str] | None = None) -> int:
     )
 
     print("=== Local Regression Gate ===")
-    safety_index = commands.index(["python", "scripts/check_project_safety.py"])
-    pre_cleanup_commands = commands[:safety_index]
-    post_safety_commands = commands[safety_index + 1 :]
-
-    for idx, command in enumerate(pre_cleanup_commands, start=1):
-        run_command(idx, len(commands), command)
-
-    print("\n=== Cleanup artifacts ===")
-    clean_pytest_cache(root)
-    clean_pycache(root)
-    clean_traces(root)
-    clean_shadow_eval_outputs(root)
-
-    run_command(safety_index + 1, len(commands), commands[safety_index])
-    for idx, command in enumerate(post_safety_commands, start=safety_index + 2):
+    safety_command = ["python", "scripts/check_project_safety.py"]
+    for idx, command in enumerate(commands, start=1):
+        if command == safety_command:
+            print("\n=== Cleanup artifacts ===")
+            clean_transient_artifacts(root=root, dry_run=False, quiet=False)
         run_command(idx, len(commands), command)
 
     elapsed = time.perf_counter() - start
