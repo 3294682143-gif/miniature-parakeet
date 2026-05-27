@@ -1,0 +1,78 @@
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+
+from scripts.clean_transient_artifacts import clean_transient_artifacts
+
+
+def test_script_exists() -> None:
+    assert Path("scripts/clean_transient_artifacts.py").is_file()
+
+
+def test_help_runs() -> None:
+    result = subprocess.run(
+        [sys.executable, "scripts/clean_transient_artifacts.py", "--help"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--dry-run" in result.stdout
+
+
+def test_dry_run_does_not_delete(tmp_path: Path) -> None:
+    traces = tmp_path / "outputs" / "traces"
+    traces.mkdir(parents=True)
+    fake = traces / "fake.json"
+    fake.write_text("{}", encoding="utf-8")
+    clean_transient_artifacts(tmp_path, dry_run=True, quiet=True)
+    assert fake.exists()
+
+
+def test_cleanup_artifacts_and_safety(tmp_path: Path) -> None:
+    (tmp_path / ".pytest_cache").mkdir()
+    pycache = tmp_path / "src" / "__pycache__"
+    pycache.mkdir(parents=True)
+    (pycache / "x.pyc").write_text("x", encoding="utf-8")
+    traces = tmp_path / "outputs" / "traces"
+    traces.mkdir(parents=True)
+    (traces / "fake.json").write_text("{}", encoding="utf-8")
+    (traces / ".gitkeep").write_text("", encoding="utf-8")
+    audit = tmp_path / "outputs" / "full_system_audit"
+    audit.mkdir(parents=True)
+    (audit / "tmp.txt").write_text("x", encoding="utf-8")
+    source_file = tmp_path / "src" / "keep.py"
+    source_file.parent.mkdir(parents=True, exist_ok=True)
+    source_file.write_text("print('ok')\n", encoding="utf-8")
+    readme = tmp_path / "README.md"
+    readme.write_text("# keep\n", encoding="utf-8")
+    env = tmp_path / ".env"
+    env.write_text("API_KEY=SHOULD_NOT_PRINT\n", encoding="utf-8")
+
+    stats = clean_transient_artifacts(tmp_path, dry_run=False, quiet=True)
+    stats2 = clean_transient_artifacts(tmp_path, dry_run=False, quiet=True)
+
+    assert not (tmp_path / ".pytest_cache").exists()
+    assert not pycache.exists()
+    assert not (traces / "fake.json").exists()
+    assert (traces / ".gitkeep").exists()
+    assert not audit.exists()
+    assert source_file.exists()
+    assert readme.exists()
+    assert stats.cleaned_count >= 4
+    assert stats2.cleaned_count >= 0
+
+
+def test_missing_paths_do_not_crash(tmp_path: Path) -> None:
+    clean_transient_artifacts(tmp_path, dry_run=False, quiet=True)
+
+
+def test_source_has_no_shell_true_or_env_read_or_secret_leak() -> None:
+    source = Path("scripts/clean_transient_artifacts.py").read_text(encoding="utf-8")
+    assert "shell=True" not in source
+    assert ".env" not in source
+    assert "token" not in source.lower()
+    assert "api_key" not in source.lower()
+    assert "secret" not in source.lower()
