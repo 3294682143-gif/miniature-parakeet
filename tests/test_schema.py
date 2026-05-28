@@ -1,9 +1,9 @@
 import json
 
 import pytest
+from pydantic import ValidationError
 
 from math_agent.schemas import SolveResult, make_failure_result, validate_result_dict
-from pydantic import ValidationError
 
 
 def _valid_payload() -> dict:

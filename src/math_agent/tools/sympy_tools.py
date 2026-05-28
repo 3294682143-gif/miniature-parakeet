@@ -3,7 +3,16 @@ from __future__ import annotations
 import re
 from typing import Any, cast
 
-from sympy import Eq, simplify, solve, sympify  # type: ignore[import-untyped]
+from sympy import (  # type: ignore[import-untyped]
+    Eq,
+    binomial,
+    diff,
+    integrate,
+    limit,
+    simplify,
+    solve,
+    sympify,
+)
 from sympy.parsing.sympy_parser import (  # type: ignore[import-untyped]
     implicit_multiplication_application,
     parse_expr,
@@ -22,6 +31,56 @@ def simplify_expression(expr: str) -> str:
         return str(simplify(sympify(expr)))
     except Exception as exc:
         return f"ERROR: unable to simplify expression ({exc})"
+
+
+def _format_result(value: Any) -> str:
+    return re.sub(r"\s+", "", str(simplify(value)))
+
+
+def differentiate_expression(expr: str, variable: str = "x") -> str:
+    try:
+        symbol = _parse_math_expr(variable)
+        return _format_result(diff(_parse_math_expr(expr), symbol))
+    except Exception as exc:
+        return f"ERROR: unable to differentiate expression ({exc})"
+
+
+def limit_expression(expr: str, variable: str = "x", point: str = "0") -> str:
+    try:
+        symbol = _parse_math_expr(variable)
+        return _format_result(
+            limit(_parse_math_expr(expr), symbol, _parse_math_expr(point))
+        )
+    except Exception as exc:
+        return f"ERROR: unable to compute limit ({exc})"
+
+
+def integrate_expression(
+    expr: str,
+    variable: str = "x",
+    lower: str | None = None,
+    upper: str | None = None,
+) -> str:
+    try:
+        symbol = _parse_math_expr(variable)
+        parsed = _parse_math_expr(expr)
+        if lower is not None and upper is not None:
+            return _format_result(
+                integrate(
+                    parsed,
+                    (symbol, _parse_math_expr(lower), _parse_math_expr(upper)),
+                )
+            )
+        return _format_result(integrate(parsed, symbol))
+    except Exception as exc:
+        return f"ERROR: unable to integrate expression ({exc})"
+
+
+def choose(n: str | int, k: str | int) -> str:
+    try:
+        return str(int(binomial(int(n), int(k))))
+    except Exception as exc:
+        return f"ERROR: unable to compute combination ({exc})"
 
 
 def check_equivalent(expr1: str, expr2: str) -> bool:

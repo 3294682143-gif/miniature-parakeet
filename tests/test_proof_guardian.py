@@ -114,6 +114,17 @@ def test_proof_rubric_core():
     assert json.dumps(proof_score_to_metadata(complete))
 
 
+def test_proof_rubric_accepts_theorem_substitution_chain():
+    text = (
+        "Use the binomial theorem: (a+b)^n=sum C(n,k)a^(n-k)b^k. "
+        "Step 1: substitute a=1 and b=1. Step 2: simplify both sides. "
+        "Therefore 2^n=sum C(n,k), so the claim is proved."
+    )
+    score = score_proof_candidate(text)
+    assert score.proof_complete
+    assert score.score >= 0.68
+
+
 def test_decision_and_runtime():
     complete = score_proof_candidate("设a，因为a=2m，所以成立，故命题成立")
     d = build_proof_guardian_decision([complete])

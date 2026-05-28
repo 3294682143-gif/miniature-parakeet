@@ -35,6 +35,14 @@ def test_proof_routes_to_proof_solver() -> None:
     assert result.needs_tool is False
 
 
+def test_proof_intent_overrides_domain_specific_keywords() -> None:
+    router = Router(mode="rule_based")
+    result = router.route("Prove that for any integer n, n^3 - n is divisible by 6.")
+    assert result.problem_type == "proof"
+    assert result.recommended_solver == "proof"
+    assert result.needs_tool is False
+
+
 def test_optimization_routes_to_optimization_solver() -> None:
     router = Router(mode="rule_based")
     result = router.route("在约束条件下最小化该函数")
@@ -56,6 +64,62 @@ def test_equation_question_routes_not_unknown() -> None:
     result = router.route("解方程 2x+5=13")
     assert result.problem_type == "calculation"
     assert result.recommended_solver in {"program", "general"}
+
+
+@pytest.mark.parametrize(
+    ("question", "expected_domain", "expected_type"),
+    [
+        ("Compute gcd(48, 18). Give the final answer only.", "NumberTheory", "gcd"),
+        (
+            "A fair coin is tossed 5 times. What is the probability of exactly 2 heads?",
+            "Probability",
+            "binomial_probability",
+        ),
+        (
+            "An arithmetic sequence has a_1=3 and common difference 4. Compute a_8.",
+            "Recurrence",
+            "arithmetic_sequence",
+        ),
+        (
+            "If f(x)=2*x + 1, compute f(4). Give the final answer only.",
+            "Functions",
+            "function_evaluation",
+        ),
+        (
+            "Find the squared distance between (1,2) and (4,6). Give the final answer only.",
+            "Geometry",
+            "coordinate_geometry",
+        ),
+        (
+            "Find the least nonnegative residue of 7^128 modulo 19. Give the final answer only.",
+            "NumberTheory",
+            "modular_exponent",
+        ),
+        (
+            "Compute Euler phi of 840. Give the final answer only.",
+            "NumberTheory",
+            "totient",
+        ),
+        (
+            "A right triangle has legs 9 and 12. Compute its inradius. Give the final answer only.",
+            "Geometry",
+            "inradius",
+        ),
+        (
+            "A circle has radius 13, and a chord is 6 from the center. Compute the chord length. Give the final answer only.",
+            "Geometry",
+            "chord_length",
+        ),
+    ],
+)
+def test_expanded_domain_and_problem_type_rules(
+    question: str, expected_domain: str, expected_type: str
+) -> None:
+    result = Router(mode="rule_based").route(question)
+    assert result.domain == expected_domain
+    assert result.problem_type == expected_type
+    assert result.recommended_solver == "program"
+    assert result.needs_tool is True
 
 
 def test_confidence_out_of_range_should_fail() -> None:

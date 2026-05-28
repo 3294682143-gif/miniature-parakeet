@@ -7,6 +7,16 @@ from typing import Any, cast
 import requests
 
 
+def _positive_int(value: str | None, default: int) -> int:
+    if value is None or value.strip() == "":
+        return default
+    try:
+        parsed = int(value)
+    except ValueError:
+        return default
+    return parsed if parsed > 0 else default
+
+
 class InternS1Client:
     DEFAULT_MODEL = "intern-s1"
     MOCK_RESPONSE = "[MOCK] Intern-S1 stable response"
@@ -16,15 +26,20 @@ class InternS1Client:
         api_key: str | None = None,
         base_url: str | None = None,
         model: str | None = None,
-        timeout: int = 60,
-        max_retries: int = 2,
+        timeout: int | None = None,
+        max_retries: int | None = None,
         mock: bool = False,
     ) -> None:
         self.api_key = api_key or os.getenv("INTERNS1_API_KEY")
         self.base_url = base_url or os.getenv("INTERNS1_BASE_URL")
         self.model = model or os.getenv("INTERNS1_MODEL") or self.DEFAULT_MODEL
-        self.timeout = timeout
-        self.max_retries = max_retries
+        self.timeout = _positive_int(
+            os.getenv("INTERNS1_TIMEOUT"), timeout if timeout is not None else 60
+        )
+        self.max_retries = _positive_int(
+            os.getenv("INTERNS1_MAX_RETRIES"),
+            max_retries if max_retries is not None else 2,
+        )
         self.mock = mock
 
     def _build_chat_completions_url(self) -> str:

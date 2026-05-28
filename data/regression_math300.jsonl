@@ -1,0 +1,338 @@
+{"question_id": "reg100_linear_001", "question": "solve: 2*x + -2 = -12"}
+{"question_id": "reg100_linear_002", "question": "solve: 3*x + -1 = -13"}
+{"question_id": "reg100_linear_003", "question": "solve: 4*x + 0 = -12"}
+{"question_id": "reg100_linear_004", "question": "solve: 5*x + 1 = -9"}
+{"question_id": "reg100_linear_005", "question": "solve: 1*x + 2 = 1"}
+{"question_id": "reg100_linear_006", "question": "solve: 2*x + 3 = 3"}
+{"question_id": "reg100_linear_007", "question": "solve: 3*x + -3 = 0"}
+{"question_id": "reg100_linear_008", "question": "solve: 4*x + -2 = 6"}
+{"question_id": "reg100_linear_009", "question": "solve: 5*x + -1 = 14"}
+{"question_id": "reg100_linear_010", "question": "solve: 1*x + 0 = 4"}
+{"question_id": "reg100_linear_011", "question": "solve: 2*x + 1 = 11"}
+{"question_id": "reg100_linear_012", "question": "solve: 3*x + 2 = 20"}
+{"question_id": "reg100_linear_013", "question": "solve: 4*x + 3 = 31"}
+{"question_id": "reg100_linear_014", "question": "solve: 5*x + -3 = 37"}
+{"question_id": "reg100_linear_015", "question": "solve: 1*x + -2 = 7"}
+{"question_id": "reg100_linear_016", "question": "solve: 2*x + -1 = 19"}
+{"question_id": "reg100_linear_017", "question": "solve: 3*x + 0 = 33"}
+{"question_id": "reg100_linear_018", "question": "solve: 4*x + 1 = 49"}
+{"question_id": "reg100_linear_019", "question": "solve: 5*x + 2 = 67"}
+{"question_id": "reg100_linear_020", "question": "solve: 1*x + 3 = 17"}
+{"question_id": "reg100_quad_001", "question": "solve: x**2 + 7*x + 6 = 0"}
+{"question_id": "reg100_quad_002", "question": "solve: x**2 + 3*x - 10 = 0"}
+{"question_id": "reg100_quad_003", "question": "solve: x**2 + 1*x - 12 = 0"}
+{"question_id": "reg100_quad_004", "question": "solve: x**2 + 2*x - 3 = 0"}
+{"question_id": "reg100_quad_005", "question": "solve: x**2 - 3*x - 10 = 0"}
+{"question_id": "reg100_quad_006", "question": "solve: x**2 - 3*x - 4 = 0"}
+{"question_id": "reg100_quad_007", "question": "solve: x**2 - 7*x + 0 = 0"}
+{"question_id": "reg100_quad_008", "question": "solve: x**2 - 7*x + 6 = 0"}
+{"question_id": "reg100_quad_009", "question": "solve: x**2 - 10*x + 16 = 0"}
+{"question_id": "reg100_quad_010", "question": "solve: x**2 - 12*x + 27 = 0"}
+{"question_id": "reg100_quad_011", "question": "solve: x**2 + 4*x - 21 = 0"}
+{"question_id": "reg100_quad_012", "question": "solve: x**2 + 6*x - 16 = 0"}
+{"question_id": "reg100_quad_013", "question": "solve: x**2 + 8*x - 9 = 0"}
+{"question_id": "reg100_quad_014", "question": "solve: x**2 - 14*x + 40 = 0"}
+{"question_id": "reg100_quad_015", "question": "solve: x**2 - 16*x + 55 = 0"}
+{"question_id": "reg100_quad_016", "question": "solve: x**2 + 12*x + 20 = 0"}
+{"question_id": "reg100_quad_017", "question": "solve: x**2 + 0*x - 36 = 0"}
+{"question_id": "reg100_quad_018", "question": "solve: x**2 - 4*x - 32 = 0"}
+{"question_id": "reg100_quad_019", "question": "solve: x**2 - 14*x + 24 = 0"}
+{"question_id": "reg100_quad_020", "question": "solve: x**2 - 16*x + 39 = 0"}
+{"question_id": "reg100_arith_001", "question": "(3+4)*(5-2)"}
+{"question_id": "reg100_arith_002", "question": "(4+5)*(6-3)"}
+{"question_id": "reg100_arith_003", "question": "(5+6)*(7-1)"}
+{"question_id": "reg100_arith_004", "question": "(6+7)*(8-2)"}
+{"question_id": "reg100_arith_005", "question": "(7+8)*(4-3)"}
+{"question_id": "reg100_arith_006", "question": "(8+3)*(5-1)"}
+{"question_id": "reg100_arith_007", "question": "(9+4)*(6-2)"}
+{"question_id": "reg100_arith_008", "question": "(10+5)*(7-3)"}
+{"question_id": "reg100_arith_009", "question": "(11+6)*(8-1)"}
+{"question_id": "reg100_arith_010", "question": "(12+7)*(4-2)"}
+{"question_id": "reg100_arith_011", "question": "(13+8)*(5-3)"}
+{"question_id": "reg100_arith_012", "question": "(14+3)*(6-1)"}
+{"question_id": "reg100_arith_013", "question": "(15+4)*(7-2)"}
+{"question_id": "reg100_arith_014", "question": "(16+5)*(8-3)"}
+{"question_id": "reg100_arith_015", "question": "(17+6)*(4-1)"}
+{"question_id": "reg100_arith_016", "question": "(18+7)*(5-2)"}
+{"question_id": "reg100_arith_017", "question": "(19+8)*(6-3)"}
+{"question_id": "reg100_arith_018", "question": "(20+3)*(7-1)"}
+{"question_id": "reg100_arith_019", "question": "(21+4)*(8-2)"}
+{"question_id": "reg100_arith_020", "question": "(22+5)*(4-3)"}
+{"question_id": "reg100_deriv_001", "question": "Compute the derivative of f(x)=2*x**3 + 1*x. Give the final answer only."}
+{"question_id": "reg100_deriv_002", "question": "Compute the derivative of f(x)=3*x**4 + 2*x. Give the final answer only."}
+{"question_id": "reg100_deriv_003", "question": "Compute the derivative of f(x)=4*x**5 + 3*x. Give the final answer only."}
+{"question_id": "reg100_deriv_004", "question": "Compute the derivative of f(x)=5*x**2 + 4*x. Give the final answer only."}
+{"question_id": "reg100_deriv_005", "question": "Compute the derivative of f(x)=1*x**3 + 5*x. Give the final answer only."}
+{"question_id": "reg100_deriv_006", "question": "Compute the derivative of f(x)=2*x**4 + 6*x. Give the final answer only."}
+{"question_id": "reg100_deriv_007", "question": "Compute the derivative of f(x)=3*x**5 + 0*x. Give the final answer only."}
+{"question_id": "reg100_deriv_008", "question": "Compute the derivative of f(x)=4*x**2 + 1*x. Give the final answer only."}
+{"question_id": "reg100_deriv_009", "question": "Compute the derivative of f(x)=5*x**3 + 2*x. Give the final answer only."}
+{"question_id": "reg100_deriv_010", "question": "Compute the derivative of f(x)=1*x**4 + 3*x. Give the final answer only."}
+{"question_id": "reg100_deriv_011", "question": "Compute the derivative of f(x)=2*x**5 + 4*x. Give the final answer only."}
+{"question_id": "reg100_deriv_012", "question": "Compute the derivative of f(x)=3*x**2 + 5*x. Give the final answer only."}
+{"question_id": "reg100_limit_001", "question": "Evaluate the limit as x approaches -2 of x**2 + 2*x. Give the final answer only."}
+{"question_id": "reg100_limit_002", "question": "Evaluate the limit as x approaches -1 of x**2 + 3*x. Give the final answer only."}
+{"question_id": "reg100_limit_003", "question": "Evaluate the limit as x approaches 0 of x**2 + 4*x. Give the final answer only."}
+{"question_id": "reg100_limit_004", "question": "Evaluate the limit as x approaches 1 of x**2 + 5*x. Give the final answer only."}
+{"question_id": "reg100_limit_005", "question": "Evaluate the limit as x approaches 2 of x**2 + 1*x. Give the final answer only."}
+{"question_id": "reg100_limit_006", "question": "Evaluate the limit as x approaches 3 of x**2 + 2*x. Give the final answer only."}
+{"question_id": "reg100_limit_007", "question": "Evaluate the limit as x approaches 4 of x**2 + 3*x. Give the final answer only."}
+{"question_id": "reg100_limit_008", "question": "Evaluate the limit as x approaches 5 of x**2 + 4*x. Give the final answer only."}
+{"question_id": "reg100_integral_001", "question": "Compute the definite integral of 2*x from x=0 to x=3. Give the final answer only."}
+{"question_id": "reg100_integral_002", "question": "Compute the definite integral of 3*x from x=0 to x=4. Give the final answer only."}
+{"question_id": "reg100_integral_003", "question": "Compute the definite integral of 4*x from x=0 to x=5. Give the final answer only."}
+{"question_id": "reg100_integral_004", "question": "Compute the definite integral of 5*x from x=0 to x=6. Give the final answer only."}
+{"question_id": "reg100_integral_005", "question": "Compute the definite integral of 6*x from x=0 to x=2. Give the final answer only."}
+{"question_id": "reg100_integral_006", "question": "Compute the definite integral of 1*x from x=0 to x=3. Give the final answer only."}
+{"question_id": "reg100_integral_007", "question": "Compute the definite integral of 2*x from x=0 to x=4. Give the final answer only."}
+{"question_id": "reg100_integral_008", "question": "Compute the definite integral of 3*x from x=0 to x=5. Give the final answer only."}
+{"question_id": "reg100_log_001", "question": "Compute log base 2 of 8. Give the final answer only."}
+{"question_id": "reg100_exp_001", "question": "Solve the exponential equation 2**x = 8. Give the final answer only."}
+{"question_id": "reg100_log_002", "question": "Compute log base 3 of 81. Give the final answer only."}
+{"question_id": "reg100_exp_002", "question": "Solve the exponential equation 3**x = 81. Give the final answer only."}
+{"question_id": "reg100_log_003", "question": "Compute log base 4 of 1024. Give the final answer only."}
+{"question_id": "reg100_exp_003", "question": "Solve the exponential equation 4**x = 1024. Give the final answer only."}
+{"question_id": "reg100_log_004", "question": "Compute log base 5 of 15625. Give the final answer only."}
+{"question_id": "reg100_exp_004", "question": "Solve the exponential equation 5**x = 15625. Give the final answer only."}
+{"question_id": "reg100_log_005", "question": "Compute log base 2 of 4. Give the final answer only."}
+{"question_id": "reg100_exp_005", "question": "Solve the exponential equation 2**x = 4. Give the final answer only."}
+{"question_id": "reg100_log_006", "question": "Compute log base 3 of 27. Give the final answer only."}
+{"question_id": "reg100_exp_006", "question": "Solve the exponential equation 3**x = 27. Give the final answer only."}
+{"question_id": "reg100_log_007", "question": "Compute log base 4 of 256. Give the final answer only."}
+{"question_id": "reg100_exp_007", "question": "Solve the exponential equation 4**x = 256. Give the final answer only."}
+{"question_id": "reg100_log_008", "question": "Compute log base 5 of 3125. Give the final answer only."}
+{"question_id": "reg100_exp_008", "question": "Solve the exponential equation 5**x = 3125. Give the final answer only."}
+{"question_id": "reg100_log_009", "question": "Compute log base 2 of 64. Give the final answer only."}
+{"question_id": "reg100_exp_009", "question": "Solve the exponential equation 2**x = 64. Give the final answer only."}
+{"question_id": "reg100_log_010", "question": "Compute log base 3 of 9. Give the final answer only."}
+{"question_id": "reg100_exp_010", "question": "Solve the exponential equation 3**x = 9. Give the final answer only."}
+{"question_id": "reg100_rect_001", "question": "A rectangle has length 4 and width 3. Compute its area. Give the final answer only."}
+{"question_id": "reg100_circle_001", "question": "A circle has radius 2. Compute its area in terms of pi. Give the final answer only."}
+{"question_id": "reg100_rect_002", "question": "A rectangle has length 5 and width 4. Compute its area. Give the final answer only."}
+{"question_id": "reg100_circle_002", "question": "A circle has radius 3. Compute its area in terms of pi. Give the final answer only."}
+{"question_id": "reg100_rect_003", "question": "A rectangle has length 6 and width 5. Compute its area. Give the final answer only."}
+{"question_id": "reg100_circle_003", "question": "A circle has radius 4. Compute its area in terms of pi. Give the final answer only."}
+{"question_id": "reg100_rect_004", "question": "A rectangle has length 7 and width 6. Compute its area. Give the final answer only."}
+{"question_id": "reg100_circle_004", "question": "A circle has radius 5. Compute its area in terms of pi. Give the final answer only."}
+{"question_id": "reg100_rect_005", "question": "A rectangle has length 8 and width 7. Compute its area. Give the final answer only."}
+{"question_id": "reg100_circle_005", "question": "A circle has radius 1. Compute its area in terms of pi. Give the final answer only."}
+{"question_id": "reg100_rect_006", "question": "A rectangle has length 9 and width 2. Compute its area. Give the final answer only."}
+{"question_id": "reg100_circle_006", "question": "A circle has radius 2. Compute its area in terms of pi. Give the final answer only."}
+{"question_id": "reg100_rect_007", "question": "A rectangle has length 10 and width 3. Compute its area. Give the final answer only."}
+{"question_id": "reg100_circle_007", "question": "A circle has radius 3. Compute its area in terms of pi. Give the final answer only."}
+{"question_id": "reg100_rect_008", "question": "A rectangle has length 11 and width 4. Compute its area. Give the final answer only."}
+{"question_id": "reg100_circle_008", "question": "A circle has radius 4. Compute its area in terms of pi. Give the final answer only."}
+{"question_id": "reg100_rect_009", "question": "A rectangle has length 12 and width 5. Compute its area. Give the final answer only."}
+{"question_id": "reg100_circle_009", "question": "A circle has radius 5. Compute its area in terms of pi. Give the final answer only."}
+{"question_id": "reg100_rect_010", "question": "A rectangle has length 13 and width 6. Compute its area. Give the final answer only."}
+{"question_id": "reg100_circle_010", "question": "A circle has radius 1. Compute its area in terms of pi. Give the final answer only."}
+{"question_id": "reg100_prob_001", "question": "A fair coin is tossed 4 times. What is the probability of exactly 2 heads? Give the final answer only."}
+{"question_id": "reg100_choose_001", "question": "Compute 6 choose 3. Give the final answer only."}
+{"question_id": "reg100_prob_002", "question": "A fair coin is tossed 5 times. What is the probability of exactly 3 heads? Give the final answer only."}
+{"question_id": "reg100_choose_002", "question": "Compute 7 choose 4. Give the final answer only."}
+{"question_id": "reg100_prob_003", "question": "A fair coin is tossed 6 times. What is the probability of exactly 4 heads? Give the final answer only."}
+{"question_id": "reg100_choose_003", "question": "Compute 8 choose 2. Give the final answer only."}
+{"question_id": "reg100_prob_004", "question": "A fair coin is tossed 7 times. What is the probability of exactly 1 heads? Give the final answer only."}
+{"question_id": "reg100_choose_004", "question": "Compute 9 choose 3. Give the final answer only."}
+{"question_id": "reg100_prob_005", "question": "A fair coin is tossed 3 times. What is the probability of exactly 2 heads? Give the final answer only."}
+{"question_id": "reg100_choose_005", "question": "Compute 10 choose 4. Give the final answer only."}
+{"question_id": "reg100_prob_006", "question": "A fair coin is tossed 4 times. What is the probability of exactly 3 heads? Give the final answer only."}
+{"question_id": "reg100_choose_006", "question": "Compute 11 choose 2. Give the final answer only."}
+{"question_id": "reg100_prob_007", "question": "A fair coin is tossed 5 times. What is the probability of exactly 4 heads? Give the final answer only."}
+{"question_id": "reg100_choose_007", "question": "Compute 12 choose 3. Give the final answer only."}
+{"question_id": "reg100_prob_008", "question": "A fair coin is tossed 6 times. What is the probability of exactly 1 heads? Give the final answer only."}
+{"question_id": "reg100_choose_008", "question": "Compute 13 choose 4. Give the final answer only."}
+{"question_id": "reg100_prob_009", "question": "A fair coin is tossed 7 times. What is the probability of exactly 2 heads? Give the final answer only."}
+{"question_id": "reg100_choose_009", "question": "Compute 14 choose 2. Give the final answer only."}
+{"question_id": "reg100_prob_010", "question": "A fair coin is tossed 3 times. What is the probability of exactly 3 heads? Give the final answer only."}
+{"question_id": "reg100_choose_010", "question": "Compute 15 choose 3. Give the final answer only."}
+{"question_id": "reg300_gcd_001", "question": "Compute gcd(18, 12). Give the final answer only."}
+{"question_id": "reg300_mod_001", "question": "Compute the remainder when 49 is divided by 6. Give the final answer only."}
+{"question_id": "reg300_gcd_002", "question": "Compute gcd(24, 16). Give the final answer only."}
+{"question_id": "reg300_mod_002", "question": "Compute the remainder when 65 is divided by 7. Give the final answer only."}
+{"question_id": "reg300_gcd_003", "question": "Compute gcd(30, 20). Give the final answer only."}
+{"question_id": "reg300_mod_003", "question": "Compute the remainder when 83 is divided by 8. Give the final answer only."}
+{"question_id": "reg300_gcd_004", "question": "Compute gcd(36, 24). Give the final answer only."}
+{"question_id": "reg300_mod_004", "question": "Compute the remainder when 103 is divided by 9. Give the final answer only."}
+{"question_id": "reg300_gcd_005", "question": "Compute gcd(42, 28). Give the final answer only."}
+{"question_id": "reg300_mod_005", "question": "Compute the remainder when 125 is divided by 10. Give the final answer only."}
+{"question_id": "reg300_gcd_006", "question": "Compute gcd(48, 32). Give the final answer only."}
+{"question_id": "reg300_mod_006", "question": "Compute the remainder when 149 is divided by 11. Give the final answer only."}
+{"question_id": "reg300_gcd_007", "question": "Compute gcd(54, 36). Give the final answer only."}
+{"question_id": "reg300_mod_007", "question": "Compute the remainder when 77 is divided by 5. Give the final answer only."}
+{"question_id": "reg300_gcd_008", "question": "Compute gcd(60, 40). Give the final answer only."}
+{"question_id": "reg300_mod_008", "question": "Compute the remainder when 98 is divided by 6. Give the final answer only."}
+{"question_id": "reg300_gcd_009", "question": "Compute gcd(66, 44). Give the final answer only."}
+{"question_id": "reg300_mod_009", "question": "Compute the remainder when 121 is divided by 7. Give the final answer only."}
+{"question_id": "reg300_gcd_010", "question": "Compute gcd(72, 48). Give the final answer only."}
+{"question_id": "reg300_mod_010", "question": "Compute the remainder when 146 is divided by 8. Give the final answer only."}
+{"question_id": "reg300_gcd_011", "question": "Compute gcd(78, 52). Give the final answer only."}
+{"question_id": "reg300_mod_011", "question": "Compute the remainder when 173 is divided by 9. Give the final answer only."}
+{"question_id": "reg300_gcd_012", "question": "Compute gcd(84, 56). Give the final answer only."}
+{"question_id": "reg300_mod_012", "question": "Compute the remainder when 202 is divided by 10. Give the final answer only."}
+{"question_id": "reg300_gcd_013", "question": "Compute gcd(90, 60). Give the final answer only."}
+{"question_id": "reg300_mod_013", "question": "Compute the remainder when 233 is divided by 11. Give the final answer only."}
+{"question_id": "reg300_gcd_014", "question": "Compute gcd(96, 64). Give the final answer only."}
+{"question_id": "reg300_mod_014", "question": "Compute the remainder when 119 is divided by 5. Give the final answer only."}
+{"question_id": "reg300_gcd_015", "question": "Compute gcd(102, 68). Give the final answer only."}
+{"question_id": "reg300_mod_015", "question": "Compute the remainder when 147 is divided by 6. Give the final answer only."}
+{"question_id": "reg300_gcd_016", "question": "Compute gcd(108, 72). Give the final answer only."}
+{"question_id": "reg300_mod_016", "question": "Compute the remainder when 177 is divided by 7. Give the final answer only."}
+{"question_id": "reg300_gcd_017", "question": "Compute gcd(114, 76). Give the final answer only."}
+{"question_id": "reg300_mod_017", "question": "Compute the remainder when 209 is divided by 8. Give the final answer only."}
+{"question_id": "reg300_gcd_018", "question": "Compute gcd(120, 80). Give the final answer only."}
+{"question_id": "reg300_mod_018", "question": "Compute the remainder when 243 is divided by 9. Give the final answer only."}
+{"question_id": "reg300_gcd_019", "question": "Compute gcd(126, 84). Give the final answer only."}
+{"question_id": "reg300_mod_019", "question": "Compute the remainder when 279 is divided by 10. Give the final answer only."}
+{"question_id": "reg300_gcd_020", "question": "Compute gcd(132, 88). Give the final answer only."}
+{"question_id": "reg300_mod_020", "question": "Compute the remainder when 317 is divided by 11. Give the final answer only."}
+{"question_id": "reg300_dist2_001", "question": "Find the squared distance between (1,-1) and (4,2). Give the final answer only."}
+{"question_id": "reg300_tri_area_001", "question": "A triangle has base 5 and height 4. Compute its area. Give the final answer only."}
+{"question_id": "reg300_dist2_002", "question": "Find the squared distance between (2,0) and (5,3). Give the final answer only."}
+{"question_id": "reg300_tri_area_002", "question": "A triangle has base 6 and height 5. Compute its area. Give the final answer only."}
+{"question_id": "reg300_dist2_003", "question": "Find the squared distance between (3,1) and (6,4). Give the final answer only."}
+{"question_id": "reg300_tri_area_003", "question": "A triangle has base 7 and height 6. Compute its area. Give the final answer only."}
+{"question_id": "reg300_dist2_004", "question": "Find the squared distance between (4,2) and (7,5). Give the final answer only."}
+{"question_id": "reg300_tri_area_004", "question": "A triangle has base 8 and height 7. Compute its area. Give the final answer only."}
+{"question_id": "reg300_dist2_005", "question": "Find the squared distance between (5,-2) and (8,6). Give the final answer only."}
+{"question_id": "reg300_tri_area_005", "question": "A triangle has base 9 and height 8. Compute its area. Give the final answer only."}
+{"question_id": "reg300_dist2_006", "question": "Find the squared distance between (6,-1) and (9,7). Give the final answer only."}
+{"question_id": "reg300_tri_area_006", "question": "A triangle has base 10 and height 3. Compute its area. Give the final answer only."}
+{"question_id": "reg300_dist2_007", "question": "Find the squared distance between (7,0) and (10,1). Give the final answer only."}
+{"question_id": "reg300_tri_area_007", "question": "A triangle has base 11 and height 4. Compute its area. Give the final answer only."}
+{"question_id": "reg300_dist2_008", "question": "Find the squared distance between (8,1) and (11,2). Give the final answer only."}
+{"question_id": "reg300_tri_area_008", "question": "A triangle has base 12 and height 5. Compute its area. Give the final answer only."}
+{"question_id": "reg300_dist2_009", "question": "Find the squared distance between (9,2) and (12,3). Give the final answer only."}
+{"question_id": "reg300_tri_area_009", "question": "A triangle has base 13 and height 6. Compute its area. Give the final answer only."}
+{"question_id": "reg300_dist2_010", "question": "Find the squared distance between (10,-2) and (13,4). Give the final answer only."}
+{"question_id": "reg300_tri_area_010", "question": "A triangle has base 14 and height 7. Compute its area. Give the final answer only."}
+{"question_id": "reg300_dist2_011", "question": "Find the squared distance between (11,-1) and (14,5). Give the final answer only."}
+{"question_id": "reg300_tri_area_011", "question": "A triangle has base 15 and height 8. Compute its area. Give the final answer only."}
+{"question_id": "reg300_dist2_012", "question": "Find the squared distance between (12,0) and (15,6). Give the final answer only."}
+{"question_id": "reg300_tri_area_012", "question": "A triangle has base 16 and height 3. Compute its area. Give the final answer only."}
+{"question_id": "reg300_dist2_013", "question": "Find the squared distance between (13,1) and (16,7). Give the final answer only."}
+{"question_id": "reg300_tri_area_013", "question": "A triangle has base 17 and height 4. Compute its area. Give the final answer only."}
+{"question_id": "reg300_dist2_014", "question": "Find the squared distance between (14,2) and (17,1). Give the final answer only."}
+{"question_id": "reg300_tri_area_014", "question": "A triangle has base 18 and height 5. Compute its area. Give the final answer only."}
+{"question_id": "reg300_dist2_015", "question": "Find the squared distance between (15,-2) and (18,2). Give the final answer only."}
+{"question_id": "reg300_tri_area_015", "question": "A triangle has base 19 and height 6. Compute its area. Give the final answer only."}
+{"question_id": "reg300_dist2_016", "question": "Find the squared distance between (16,-1) and (19,3). Give the final answer only."}
+{"question_id": "reg300_tri_area_016", "question": "A triangle has base 20 and height 7. Compute its area. Give the final answer only."}
+{"question_id": "reg300_dist2_017", "question": "Find the squared distance between (17,0) and (20,4). Give the final answer only."}
+{"question_id": "reg300_tri_area_017", "question": "A triangle has base 21 and height 8. Compute its area. Give the final answer only."}
+{"question_id": "reg300_dist2_018", "question": "Find the squared distance between (18,1) and (21,5). Give the final answer only."}
+{"question_id": "reg300_tri_area_018", "question": "A triangle has base 22 and height 3. Compute its area. Give the final answer only."}
+{"question_id": "reg300_dist2_019", "question": "Find the squared distance between (19,2) and (22,6). Give the final answer only."}
+{"question_id": "reg300_tri_area_019", "question": "A triangle has base 23 and height 4. Compute its area. Give the final answer only."}
+{"question_id": "reg300_dist2_020", "question": "Find the squared distance between (20,-2) and (23,7). Give the final answer only."}
+{"question_id": "reg300_tri_area_020", "question": "A triangle has base 24 and height 5. Compute its area. Give the final answer only."}
+{"question_id": "reg300_arith_seq_001", "question": "An arithmetic sequence has a_1=2 and common difference 3. Compute a_6. Give the final answer only."}
+{"question_id": "reg300_geo_seq_001", "question": "A geometric sequence has a_1=2 and ratio 3. Compute a_6. Give the final answer only."}
+{"question_id": "reg300_arith_seq_002", "question": "An arithmetic sequence has a_1=3 and common difference 4. Compute a_7. Give the final answer only."}
+{"question_id": "reg300_geo_seq_002", "question": "A geometric sequence has a_1=3 and ratio 4. Compute a_7. Give the final answer only."}
+{"question_id": "reg300_arith_seq_003", "question": "An arithmetic sequence has a_1=4 and common difference 5. Compute a_8. Give the final answer only."}
+{"question_id": "reg300_geo_seq_003", "question": "A geometric sequence has a_1=4 and ratio 2. Compute a_8. Give the final answer only."}
+{"question_id": "reg300_arith_seq_004", "question": "An arithmetic sequence has a_1=5 and common difference 6. Compute a_9. Give the final answer only."}
+{"question_id": "reg300_geo_seq_004", "question": "A geometric sequence has a_1=5 and ratio 3. Compute a_9. Give the final answer only."}
+{"question_id": "reg300_arith_seq_005", "question": "An arithmetic sequence has a_1=6 and common difference 2. Compute a_10. Give the final answer only."}
+{"question_id": "reg300_geo_seq_005", "question": "A geometric sequence has a_1=6 and ratio 4. Compute a_10. Give the final answer only."}
+{"question_id": "reg300_arith_seq_006", "question": "An arithmetic sequence has a_1=1 and common difference 3. Compute a_11. Give the final answer only."}
+{"question_id": "reg300_geo_seq_006", "question": "A geometric sequence has a_1=1 and ratio 2. Compute a_11. Give the final answer only."}
+{"question_id": "reg300_arith_seq_007", "question": "An arithmetic sequence has a_1=2 and common difference 4. Compute a_12. Give the final answer only."}
+{"question_id": "reg300_geo_seq_007", "question": "A geometric sequence has a_1=2 and ratio 3. Compute a_12. Give the final answer only."}
+{"question_id": "reg300_arith_seq_008", "question": "An arithmetic sequence has a_1=3 and common difference 5. Compute a_5. Give the final answer only."}
+{"question_id": "reg300_geo_seq_008", "question": "A geometric sequence has a_1=3 and ratio 4. Compute a_5. Give the final answer only."}
+{"question_id": "reg300_arith_seq_009", "question": "An arithmetic sequence has a_1=4 and common difference 6. Compute a_6. Give the final answer only."}
+{"question_id": "reg300_geo_seq_009", "question": "A geometric sequence has a_1=4 and ratio 2. Compute a_6. Give the final answer only."}
+{"question_id": "reg300_arith_seq_010", "question": "An arithmetic sequence has a_1=5 and common difference 2. Compute a_7. Give the final answer only."}
+{"question_id": "reg300_geo_seq_010", "question": "A geometric sequence has a_1=5 and ratio 3. Compute a_7. Give the final answer only."}
+{"question_id": "reg300_arith_seq_011", "question": "An arithmetic sequence has a_1=6 and common difference 3. Compute a_8. Give the final answer only."}
+{"question_id": "reg300_geo_seq_011", "question": "A geometric sequence has a_1=6 and ratio 4. Compute a_8. Give the final answer only."}
+{"question_id": "reg300_arith_seq_012", "question": "An arithmetic sequence has a_1=1 and common difference 4. Compute a_9. Give the final answer only."}
+{"question_id": "reg300_geo_seq_012", "question": "A geometric sequence has a_1=1 and ratio 2. Compute a_9. Give the final answer only."}
+{"question_id": "reg300_arith_seq_013", "question": "An arithmetic sequence has a_1=2 and common difference 5. Compute a_10. Give the final answer only."}
+{"question_id": "reg300_geo_seq_013", "question": "A geometric sequence has a_1=2 and ratio 3. Compute a_10. Give the final answer only."}
+{"question_id": "reg300_arith_seq_014", "question": "An arithmetic sequence has a_1=3 and common difference 6. Compute a_11. Give the final answer only."}
+{"question_id": "reg300_geo_seq_014", "question": "A geometric sequence has a_1=3 and ratio 4. Compute a_11. Give the final answer only."}
+{"question_id": "reg300_arith_seq_015", "question": "An arithmetic sequence has a_1=4 and common difference 2. Compute a_12. Give the final answer only."}
+{"question_id": "reg300_geo_seq_015", "question": "A geometric sequence has a_1=4 and ratio 2. Compute a_12. Give the final answer only."}
+{"question_id": "reg300_arith_seq_016", "question": "An arithmetic sequence has a_1=5 and common difference 3. Compute a_5. Give the final answer only."}
+{"question_id": "reg300_geo_seq_016", "question": "A geometric sequence has a_1=5 and ratio 3. Compute a_5. Give the final answer only."}
+{"question_id": "reg300_arith_seq_017", "question": "An arithmetic sequence has a_1=6 and common difference 4. Compute a_6. Give the final answer only."}
+{"question_id": "reg300_geo_seq_017", "question": "A geometric sequence has a_1=6 and ratio 4. Compute a_6. Give the final answer only."}
+{"question_id": "reg300_arith_seq_018", "question": "An arithmetic sequence has a_1=1 and common difference 5. Compute a_7. Give the final answer only."}
+{"question_id": "reg300_geo_seq_018", "question": "A geometric sequence has a_1=1 and ratio 2. Compute a_7. Give the final answer only."}
+{"question_id": "reg300_arith_seq_019", "question": "An arithmetic sequence has a_1=2 and common difference 6. Compute a_8. Give the final answer only."}
+{"question_id": "reg300_geo_seq_019", "question": "A geometric sequence has a_1=2 and ratio 3. Compute a_8. Give the final answer only."}
+{"question_id": "reg300_arith_seq_020", "question": "An arithmetic sequence has a_1=3 and common difference 2. Compute a_9. Give the final answer only."}
+{"question_id": "reg300_geo_seq_020", "question": "A geometric sequence has a_1=3 and ratio 4. Compute a_9. Give the final answer only."}
+{"question_id": "reg300_func_eval_001", "question": "If f(x)=2*x + -2, compute f(-3). Give the final answer only."}
+{"question_id": "reg300_func_comp_001", "question": "If f(x)=2*x + -2 and g(x)=3*x + -1, compute f(g(-3)). Give the final answer only."}
+{"question_id": "reg300_func_eval_002", "question": "If f(x)=3*x + -1, compute f(-2). Give the final answer only."}
+{"question_id": "reg300_func_comp_002", "question": "If f(x)=3*x + -1 and g(x)=4*x + 0, compute f(g(-2)). Give the final answer only."}
+{"question_id": "reg300_func_eval_003", "question": "If f(x)=4*x + 0, compute f(-1). Give the final answer only."}
+{"question_id": "reg300_func_comp_003", "question": "If f(x)=4*x + 0 and g(x)=5*x + 1, compute f(g(-1)). Give the final answer only."}
+{"question_id": "reg300_func_eval_004", "question": "If f(x)=5*x + 1, compute f(0). Give the final answer only."}
+{"question_id": "reg300_func_comp_004", "question": "If f(x)=5*x + 1 and g(x)=2*x + 2, compute f(g(0)). Give the final answer only."}
+{"question_id": "reg300_func_eval_005", "question": "If f(x)=1*x + 2, compute f(1). Give the final answer only."}
+{"question_id": "reg300_func_comp_005", "question": "If f(x)=1*x + 2 and g(x)=3*x + 3, compute f(g(1)). Give the final answer only."}
+{"question_id": "reg300_func_eval_006", "question": "If f(x)=2*x + 3, compute f(2). Give the final answer only."}
+{"question_id": "reg300_func_comp_006", "question": "If f(x)=2*x + 3 and g(x)=4*x + -2, compute f(g(2)). Give the final answer only."}
+{"question_id": "reg300_func_eval_007", "question": "If f(x)=3*x + -3, compute f(3). Give the final answer only."}
+{"question_id": "reg300_func_comp_007", "question": "If f(x)=3*x + -3 and g(x)=5*x + -1, compute f(g(3)). Give the final answer only."}
+{"question_id": "reg300_func_eval_008", "question": "If f(x)=4*x + -2, compute f(4). Give the final answer only."}
+{"question_id": "reg300_func_comp_008", "question": "If f(x)=4*x + -2 and g(x)=2*x + 0, compute f(g(4)). Give the final answer only."}
+{"question_id": "reg300_func_eval_009", "question": "If f(x)=5*x + -1, compute f(-4). Give the final answer only."}
+{"question_id": "reg300_func_comp_009", "question": "If f(x)=5*x + -1 and g(x)=3*x + 1, compute f(g(-4)). Give the final answer only."}
+{"question_id": "reg300_func_eval_010", "question": "If f(x)=1*x + 0, compute f(-3). Give the final answer only."}
+{"question_id": "reg300_func_comp_010", "question": "If f(x)=1*x + 0 and g(x)=4*x + 2, compute f(g(-3)). Give the final answer only."}
+{"question_id": "reg300_func_eval_011", "question": "If f(x)=2*x + 1, compute f(-2). Give the final answer only."}
+{"question_id": "reg300_func_comp_011", "question": "If f(x)=2*x + 1 and g(x)=5*x + 3, compute f(g(-2)). Give the final answer only."}
+{"question_id": "reg300_func_eval_012", "question": "If f(x)=3*x + 2, compute f(-1). Give the final answer only."}
+{"question_id": "reg300_func_comp_012", "question": "If f(x)=3*x + 2 and g(x)=2*x + -2, compute f(g(-1)). Give the final answer only."}
+{"question_id": "reg300_func_eval_013", "question": "If f(x)=4*x + 3, compute f(0). Give the final answer only."}
+{"question_id": "reg300_func_comp_013", "question": "If f(x)=4*x + 3 and g(x)=3*x + -1, compute f(g(0)). Give the final answer only."}
+{"question_id": "reg300_func_eval_014", "question": "If f(x)=5*x + -3, compute f(1). Give the final answer only."}
+{"question_id": "reg300_func_comp_014", "question": "If f(x)=5*x + -3 and g(x)=4*x + 0, compute f(g(1)). Give the final answer only."}
+{"question_id": "reg300_func_eval_015", "question": "If f(x)=1*x + -2, compute f(2). Give the final answer only."}
+{"question_id": "reg300_func_comp_015", "question": "If f(x)=1*x + -2 and g(x)=5*x + 1, compute f(g(2)). Give the final answer only."}
+{"question_id": "reg300_func_eval_016", "question": "If f(x)=2*x + -1, compute f(3). Give the final answer only."}
+{"question_id": "reg300_func_comp_016", "question": "If f(x)=2*x + -1 and g(x)=2*x + 2, compute f(g(3)). Give the final answer only."}
+{"question_id": "reg300_func_eval_017", "question": "If f(x)=3*x + 0, compute f(4). Give the final answer only."}
+{"question_id": "reg300_func_comp_017", "question": "If f(x)=3*x + 0 and g(x)=3*x + 3, compute f(g(4)). Give the final answer only."}
+{"question_id": "reg300_func_eval_018", "question": "If f(x)=4*x + 1, compute f(-4). Give the final answer only."}
+{"question_id": "reg300_func_comp_018", "question": "If f(x)=4*x + 1 and g(x)=4*x + -2, compute f(g(-4)). Give the final answer only."}
+{"question_id": "reg300_func_eval_019", "question": "If f(x)=5*x + 2, compute f(-3). Give the final answer only."}
+{"question_id": "reg300_func_comp_019", "question": "If f(x)=5*x + 2 and g(x)=5*x + -1, compute f(g(-3)). Give the final answer only."}
+{"question_id": "reg300_func_eval_020", "question": "If f(x)=1*x + 3, compute f(-2). Give the final answer only."}
+{"question_id": "reg300_func_comp_020", "question": "If f(x)=1*x + 3 and g(x)=2*x + 0, compute f(g(-2)). Give the final answer only."}
+{"question_id": "reg300_proof_001_even_sum", "question": "Prove that the sum of two even integers is even. Give a concise proof."}
+{"question_id": "reg300_proof_002_odd_square", "question": "Prove that the square of an odd integer is odd. Give a concise proof."}
+{"question_id": "reg300_proof_003_divisible_by_3", "question": "Prove that if n is divisible by 3, then n^2 is divisible by 3. Give a concise proof."}
+{"question_id": "reg300_proof_004_commutative_add", "question": "Prove that addition of integers is commutative. Give a concise proof."}
+{"question_id": "reg300_proof_005_positive_square", "question": "Prove that the square of any real number is nonnegative. Give a concise proof."}
+{"question_id": "reg300_proof_006_even_sum", "question": "Prove that the sum of two even integers is even. Give a concise proof."}
+{"question_id": "reg300_proof_007_odd_square", "question": "Prove that the square of an odd integer is odd. Give a concise proof."}
+{"question_id": "reg300_proof_008_divisible_by_3", "question": "Prove that if n is divisible by 3, then n^2 is divisible by 3. Give a concise proof."}
+{"question_id": "reg300_proof_009_commutative_add", "question": "Prove that addition of integers is commutative. Give a concise proof."}
+{"question_id": "reg300_proof_010_positive_square", "question": "Prove that the square of any real number is nonnegative. Give a concise proof."}
+{"question_id": "reg300_proof_011_even_sum", "question": "Prove that the sum of two even integers is even. Give a concise proof."}
+{"question_id": "reg300_proof_012_odd_square", "question": "Prove that the square of an odd integer is odd. Give a concise proof."}
+{"question_id": "reg300_proof_013_divisible_by_3", "question": "Prove that if n is divisible by 3, then n^2 is divisible by 3. Give a concise proof."}
+{"question_id": "reg300_proof_014_commutative_add", "question": "Prove that addition of integers is commutative. Give a concise proof."}
+{"question_id": "reg300_proof_015_positive_square", "question": "Prove that the square of any real number is nonnegative. Give a concise proof."}
+{"question_id": "reg300_proof_016_even_sum", "question": "Prove that the sum of two even integers is even. Give a concise proof."}
+{"question_id": "reg300_proof_017_odd_square", "question": "Prove that the square of an odd integer is odd. Give a concise proof."}
+{"question_id": "reg300_proof_018_divisible_by_3", "question": "Prove that if n is divisible by 3, then n^2 is divisible by 3. Give a concise proof."}
+{"question_id": "reg300_proof_019_commutative_add", "question": "Prove that addition of integers is commutative. Give a concise proof."}
+{"question_id": "reg300_proof_020_positive_square", "question": "Prove that the square of any real number is nonnegative. Give a concise proof."}
+{"question_id": "reg300_proof_021_even_sum", "question": "Prove that the sum of two even integers is even. Give a concise proof."}
+{"question_id": "reg300_proof_022_odd_square", "question": "Prove that the square of an odd integer is odd. Give a concise proof."}
+{"question_id": "reg300_proof_023_divisible_by_3", "question": "Prove that if n is divisible by 3, then n^2 is divisible by 3. Give a concise proof."}
+{"question_id": "reg300_proof_024_commutative_add", "question": "Prove that addition of integers is commutative. Give a concise proof."}
+{"question_id": "reg300_proof_025_positive_square", "question": "Prove that the square of any real number is nonnegative. Give a concise proof."}
+{"question_id": "reg300_proof_026_even_sum", "question": "Prove that the sum of two even integers is even. Give a concise proof."}
+{"question_id": "reg300_proof_027_odd_square", "question": "Prove that the square of an odd integer is odd. Give a concise proof."}
+{"question_id": "reg300_proof_028_divisible_by_3", "question": "Prove that if n is divisible by 3, then n^2 is divisible by 3. Give a concise proof."}
+{"question_id": "reg300_proof_029_commutative_add", "question": "Prove that addition of integers is commutative. Give a concise proof."}
+{"question_id": "reg300_proof_030_positive_square", "question": "Prove that the square of any real number is nonnegative. Give a concise proof."}

@@ -1,0 +1,360 @@
+{"question_id": "hard300_proof_001", "question": "Prove that sqrt(2) is irrational. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_001", "question": "Find the least nonnegative residue of 7^73 modulo 19. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_001", "question": "A right triangle has legs 3 and 4. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_002", "question": "Prove that there are infinitely many prime numbers. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_002", "question": "Find the least nonnegative residue of 9^84 modulo 31. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_002", "question": "A right triangle has legs 6 and 8. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_003", "question": "Prove that the sum of the first n positive odd integers is n^2. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_003", "question": "Find the least nonnegative residue of 11^95 modulo 37. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_003", "question": "A right triangle has legs 9 and 12. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_004", "question": "Prove that if n is odd, then n^2 is odd. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_004", "question": "Find the least nonnegative residue of 13^106 modulo 43. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_004", "question": "A right triangle has legs 6 and 8. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_005", "question": "Prove that if n^2 is even, then n is even. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_005", "question": "Find the least nonnegative residue of 15^117 modulo 55. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_005", "question": "A right triangle has legs 12 and 16. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_006", "question": "Prove that every integer congruent to 1 modulo 4 has an odd square congruent to 1 modulo 8. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_006", "question": "Find the least nonnegative residue of 17^128 modulo 61. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_006", "question": "A right triangle has legs 18 and 24. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_007", "question": "Prove that if a and b are coprime integers and a divides bc, then a divides c. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_007", "question": "Find the least nonnegative residue of 19^139 modulo 71. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_007", "question": "A right triangle has legs 5 and 12. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_008", "question": "Prove that for any integer n, n^3 - n is divisible by 6. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_008", "question": "Find the least nonnegative residue of 21^150 modulo 97. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_008", "question": "A right triangle has legs 10 and 24. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_009", "question": "Prove that the arithmetic mean of two positive real numbers is at least their geometric mean. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_009", "question": "Find the least nonnegative residue of 23^161 modulo 101. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_009", "question": "A right triangle has legs 15 and 36. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_010", "question": "Prove that the product of two consecutive integers is even. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_010", "question": "Find the least nonnegative residue of 25^172 modulo 109. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_010", "question": "A right triangle has legs 8 and 15. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_011", "question": "Prove that a rational root of a monic integer polynomial is an integer. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_011", "question": "Find the least nonnegative residue of 27^183 modulo 127. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_011", "question": "A right triangle has legs 16 and 30. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_012", "question": "Prove that if p is prime and p divides ab, then p divides a or p divides b. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_012", "question": "Find the least nonnegative residue of 29^194 modulo 131. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_012", "question": "A right triangle has legs 24 and 45. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_013", "question": "Prove that the square of any integer is congruent to 0 or 1 modulo 4. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_013", "question": "Find the least nonnegative residue of 31^205 modulo 21. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_013", "question": "A right triangle has legs 12 and 16. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_014", "question": "Prove that if gcd(a,b)=1, then gcd(a+b,a-b) divides 2. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_014", "question": "Find the least nonnegative residue of 33^216 modulo 33. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_014", "question": "A right triangle has legs 24 and 32. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_015", "question": "Prove that the sequence defined by a_1=1 and a_{n+1}=a_n+2n+1 equals n^2. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_015", "question": "Find the least nonnegative residue of 35^227 modulo 39. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_015", "question": "A right triangle has legs 36 and 48. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_016", "question": "Prove that a finite set with n elements has exactly 2^n subsets. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_016", "question": "Find the least nonnegative residue of 37^238 modulo 45. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_016", "question": "A right triangle has legs 7 and 24. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_017", "question": "Prove that the sum of the interior angles of a triangle is 180 degrees. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_017", "question": "Find the least nonnegative residue of 39^249 modulo 57. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_017", "question": "A right triangle has legs 14 and 48. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_018", "question": "Prove that the base angles of an isosceles triangle are equal. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_018", "question": "Find the least nonnegative residue of 41^260 modulo 63. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_018", "question": "A right triangle has legs 21 and 72. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_019", "question": "Prove that the medians of a triangle divide it into six equal-area triangles. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_019", "question": "Find the least nonnegative residue of 43^271 modulo 73. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_019", "question": "A right triangle has legs 10 and 24. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_020", "question": "Prove that if two chords of a circle are equal, then they are equidistant from the center. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_020", "question": "Find the least nonnegative residue of 45^282 modulo 99. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_020", "question": "A right triangle has legs 20 and 48. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_021", "question": "Prove that the perpendicular bisector of a chord passes through the center of the circle. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_021", "question": "Find the least nonnegative residue of 47^293 modulo 103. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_021", "question": "A right triangle has legs 30 and 72. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_022", "question": "Prove that a cyclic quadrilateral has opposite angles summing to 180 degrees. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_022", "question": "Find the least nonnegative residue of 49^304 modulo 111. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_022", "question": "A right triangle has legs 20 and 21. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_023", "question": "Prove that if two triangles are similar, then their areas are in the square ratio of corresponding sides. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_023", "question": "Find the least nonnegative residue of 51^315 modulo 129. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_023", "question": "A right triangle has legs 40 and 42. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_024", "question": "Prove that the altitude to the hypotenuse in a right triangle creates two triangles similar to the original. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_modpow_024", "question": "Find the least nonnegative residue of 53^326 modulo 133. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_024", "question": "A right triangle has legs 60 and 63. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_025", "question": "Prove that the binomial coefficient C(n,k) equals C(n,n-k). Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_001", "question": "Compute Euler phi of 1680. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_025", "question": "A right triangle has legs 16 and 30. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_026", "question": "Prove Pascal's identity C(n,k)=C(n-1,k)+C(n-1,k-1). Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_002", "question": "Compute Euler phi of 4320. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_026", "question": "A right triangle has legs 32 and 60. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_027", "question": "Prove by induction that 1+2+...+n=n(n+1)/2. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_003", "question": "Compute Euler phi of 3780. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_027", "question": "A right triangle has legs 48 and 90. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_028", "question": "Prove by induction that 2^n >= n+1 for all nonnegative integers n. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_004", "question": "Compute Euler phi of 8800. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_028", "question": "A right triangle has legs 9 and 40. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_029", "question": "Prove that the harmonic mean of two positive real numbers is at most their arithmetic mean. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_005", "question": "Compute Euler phi of 7128. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_029", "question": "A right triangle has legs 18 and 80. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_030", "question": "Prove that if a positive integer is divisible by 9, then the sum of its decimal digits is divisible by 9. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_006", "question": "Compute Euler phi of 15600. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_030", "question": "A right triangle has legs 27 and 120. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_031", "question": "Prove that among any n+1 integers, two have the same remainder modulo n. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_007", "question": "Compute Euler phi of 12012. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_031", "question": "A right triangle has legs 12 and 35. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_032", "question": "Prove that if p is an odd prime, then p has an inverse modulo 2p+1 whenever gcd(p,2p+1)=1. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_008", "question": "Compute Euler phi of 25200. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_032", "question": "A right triangle has legs 24 and 70. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_033", "question": "Prove that a graph with all vertex degrees at least 2 contains a cycle. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_009", "question": "Compute Euler phi of 18720. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_033", "question": "A right triangle has legs 36 and 105. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_034", "question": "Prove that if x+y and xy are integers, then x^2+y^2 is an integer. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_010", "question": "Compute Euler phi of 17920. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_034", "question": "A right triangle has legs 24 and 32. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_035", "question": "Prove that if real numbers x and y satisfy x^2+y^2=0, then x=0 and y=0. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_011", "question": "Compute Euler phi of 13770. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_035", "question": "A right triangle has legs 48 and 64. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_036", "question": "Prove that for positive real numbers x,y,z, (x+y+z)^2 >= 3(xy+yz+zx). Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_012", "question": "Compute Euler phi of 28800. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_036", "question": "A right triangle has legs 72 and 96. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_037", "question": "Prove that if a sequence is increasing and bounded above, then it has at most one limit. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_013", "question": "Compute Euler phi of 21318. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_037", "question": "A right triangle has legs 27 and 36. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_038", "question": "Prove that the composition of two injective functions is injective. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_014", "question": "Compute Euler phi of 43200. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_038", "question": "A right triangle has legs 54 and 72. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_039", "question": "Prove that the inverse image of a union is the union of inverse images. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_015", "question": "Compute Euler phi of 31122. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_039", "question": "A right triangle has legs 81 and 108. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_040", "question": "Prove that if a divides b and b divides c, then a divides c. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_016", "question": "Compute Euler phi of 61600. Give the final answer only."}
+{"question_id": "hard300_geo_inradius_040", "question": "A right triangle has legs 20 and 48. Compute its inradius. Give the final answer only."}
+{"question_id": "hard300_proof_041", "question": "Prove that if a number is divisible by both 4 and 9, then it is divisible by 36. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_017", "question": "Compute Euler phi of 43470. Give the final answer only."}
+{"question_id": "hard300_geo_heron_001", "question": "A triangle has side lengths 40, 96, 104. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_042", "question": "Prove that if gcd(a,b)=1 and gcd(a,c)=1, then gcd(a,bc)=1. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_018", "question": "Compute Euler phi of 84480. Give the final answer only."}
+{"question_id": "hard300_geo_heron_002", "question": "A triangle has side lengths 60, 144, 156. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_043", "question": "Prove that the product of three consecutive integers is divisible by 6. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_019", "question": "Compute Euler phi of 27600. Give the final answer only."}
+{"question_id": "hard300_geo_heron_003", "question": "A triangle has side lengths 11, 60, 61. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_044", "question": "Prove that if a prime p divides a^2, then p divides a. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_020", "question": "Compute Euler phi of 56160. Give the final answer only."}
+{"question_id": "hard300_geo_heron_004", "question": "A triangle has side lengths 22, 120, 122. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_045", "question": "Prove that every integer square is congruent to 0, 1, or 4 modulo 8. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_021", "question": "Compute Euler phi of 40500. Give the final answer only."}
+{"question_id": "hard300_geo_heron_005", "question": "A triangle has side lengths 33, 180, 183. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_046", "question": "Prove that if n is even, then n^3 is even. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_022", "question": "Compute Euler phi of 80080. Give the final answer only."}
+{"question_id": "hard300_geo_heron_006", "question": "A triangle has side lengths 14, 48, 50. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_047", "question": "Prove that if n is odd, then n^3 is odd. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_023", "question": "Compute Euler phi of 56376. Give the final answer only."}
+{"question_id": "hard300_geo_heron_007", "question": "A triangle has side lengths 28, 96, 100. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_048", "question": "Prove that there is no largest even integer. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_phi_024", "question": "Compute Euler phi of 109200. Give the final answer only."}
+{"question_id": "hard300_geo_heron_008", "question": "A triangle has side lengths 42, 144, 150. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_049", "question": "Prove that sqrt(3) is irrational. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_001", "question": "How many positive divisors does 1728 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_009", "question": "A triangle has side lengths 28, 45, 53. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_050", "question": "Prove that log_2(3) is irrational. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_002", "question": "How many positive divisors does 2520 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_010", "question": "A triangle has side lengths 56, 90, 106. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_051", "question": "Prove that if a divides b, then a divides kb for every integer k. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_003", "question": "How many positive divisors does 3520 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_011", "question": "A triangle has side lengths 84, 135, 159. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_052", "question": "Prove that if a divides b and a divides c, then a divides b+c. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_004", "question": "How many positive divisors does 4752 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_012", "question": "A triangle has side lengths 40, 42, 58. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_053", "question": "Prove that if a divides b and a divides c, then a divides b-c. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_005", "question": "How many positive divisors does 6240 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_013", "question": "A triangle has side lengths 80, 84, 116. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_054", "question": "Prove that every prime greater than 3 is congruent to 1 or 5 modulo 6. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_006", "question": "How many positive divisors does 8008 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_014", "question": "A triangle has side lengths 120, 126, 174. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_055", "question": "Prove that if p is prime and p>2, then p is odd. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_007", "question": "How many positive divisors does 10080 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_015", "question": "A triangle has side lengths 33, 56, 65. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_056", "question": "Prove that a polynomial of odd degree with real coefficients has a real root. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_008", "question": "How many positive divisors does 12480 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_016", "question": "A triangle has side lengths 66, 112, 130. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_057", "question": "Prove that the composition of two surjective functions is surjective. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_009", "question": "How many positive divisors does 15232 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_017", "question": "A triangle has side lengths 99, 168, 195. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_058", "question": "Prove that the inverse image of an intersection is the intersection of inverse images. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_010", "question": "How many positive divisors does 18360 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_018", "question": "A triangle has side lengths 24, 70, 74. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_059", "question": "Prove that if A is a subset of B, then A union B equals B. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_011", "question": "How many positive divisors does 21888 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_019", "question": "A triangle has side lengths 48, 140, 148. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_060", "question": "Prove that if A is a subset of B, then A intersection B equals A. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_012", "question": "How many positive divisors does 11628 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_020", "question": "A triangle has side lengths 72, 210, 222. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_061", "question": "Prove that if two lines are parallel, alternate interior angles are equal. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_013", "question": "How many positive divisors does 14400 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_021", "question": "A triangle has side lengths 13, 84, 85. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_062", "question": "Prove that vertical angles are equal. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_014", "question": "How many positive divisors does 17556 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_022", "question": "A triangle has side lengths 26, 168, 170. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_063", "question": "Prove that the diagonals of a parallelogram bisect each other. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_015", "question": "How many positive divisors does 21120 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_023", "question": "A triangle has side lengths 39, 252, 255. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_064", "question": "Prove that the diagonals of a rectangle are equal. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_016", "question": "How many positive divisors does 25116 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_024", "question": "A triangle has side lengths 16, 63, 65. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_065", "question": "Prove that the area of a triangle is half base times height. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_017", "question": "How many positive divisors does 29568 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_025", "question": "A triangle has side lengths 32, 126, 130. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_066", "question": "Prove that the perpendicular from the center of a circle to a chord bisects the chord. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_018", "question": "How many positive divisors does 34500 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_026", "question": "A triangle has side lengths 48, 189, 195. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_067", "question": "Prove that equal arcs in a circle subtend equal chords. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_019", "question": "How many positive divisors does 39936 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_027", "question": "A triangle has side lengths 32, 60, 68. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_068", "question": "Prove that the angle in a semicircle is a right angle. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_020", "question": "How many positive divisors does 45900 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_028", "question": "A triangle has side lengths 64, 120, 136. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_069", "question": "Prove that similar triangles have proportional medians. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_021", "question": "How many positive divisors does 52416 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_029", "question": "A triangle has side lengths 96, 180, 204. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_070", "question": "Prove that the centroid divides each median in a 2:1 ratio. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_022", "question": "How many positive divisors does 59508 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_030", "question": "A triangle has side lengths 48, 55, 73. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_071", "question": "Prove that the binomial theorem holds for nonnegative integer exponents. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_023", "question": "How many positive divisors does 30240 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_031", "question": "A triangle has side lengths 96, 110, 146. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_072", "question": "Prove that C(n,0)=C(n,n)=1. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_divisors_024", "question": "How many positive divisors does 35960 have? Give the final answer only."}
+{"question_id": "hard300_geo_heron_032", "question": "A triangle has side lengths 144, 165, 219. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_073", "question": "Prove that the sum of binomial coefficients in row n is 2^n. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_001", "question": "Find the least positive inverse of 17 modulo 43. Give the final answer only."}
+{"question_id": "hard300_geo_heron_033", "question": "A triangle has side lengths 48, 64, 80. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_074", "question": "Prove that the alternating sum of binomial coefficients in row n is 0 for n>0. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_002", "question": "Find the least positive inverse of 20 modulo 47. Give the final answer only."}
+{"question_id": "hard300_geo_heron_034", "question": "A triangle has side lengths 96, 128, 160. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_075", "question": "Prove that if a sequence has two limits, then the two limits are equal. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_003", "question": "Find the least positive inverse of 23 modulo 51. Give the final answer only."}
+{"question_id": "hard300_geo_heron_035", "question": "A triangle has side lengths 144, 192, 240. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_076", "question": "Prove that every convergent sequence is bounded. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_004", "question": "Find the least positive inverse of 26 modulo 55. Give the final answer only."}
+{"question_id": "hard300_geo_heron_036", "question": "A triangle has side lengths 39, 80, 89. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_077", "question": "Prove that the sum of two convergent sequences is convergent. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_005", "question": "Find the least positive inverse of 29 modulo 59. Give the final answer only."}
+{"question_id": "hard300_geo_heron_037", "question": "A triangle has side lengths 78, 160, 178. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_078", "question": "Prove that if 0 <= a_n <= b_n and b_n tends to 0, then a_n tends to 0. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_006", "question": "Find the least positive inverse of 32 modulo 63. Give the final answer only."}
+{"question_id": "hard300_geo_heron_038", "question": "A triangle has side lengths 117, 240, 267. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_079", "question": "Prove that the intersection of two open sets is open. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_007", "question": "Find the least positive inverse of 35 modulo 67. Give the final answer only."}
+{"question_id": "hard300_geo_heron_039", "question": "A triangle has side lengths 28, 96, 100. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_080", "question": "Prove that the union of any collection of open sets is open. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_008", "question": "Find the least positive inverse of 38 modulo 71. Give the final answer only."}
+{"question_id": "hard300_geo_heron_040", "question": "A triangle has side lengths 56, 192, 200. Compute its area. Give the final answer only."}
+{"question_id": "hard300_proof_081", "question": "Prove that a finite union of closed sets is closed. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_009", "question": "Find the least positive inverse of 41 modulo 75. Give the final answer only."}
+{"question_id": "hard300_geo_chord_001", "question": "A circle has radius 17, and a chord is 3 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_082", "question": "Prove that the empty set is a subset of every set. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_010", "question": "Find the least positive inverse of 44 modulo 79. Give the final answer only."}
+{"question_id": "hard300_geo_chord_002", "question": "A circle has radius 19, and a chord is 8 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_083", "question": "Prove that set inclusion is transitive. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_011", "question": "Find the least positive inverse of 47 modulo 83. Give the final answer only."}
+{"question_id": "hard300_geo_chord_003", "question": "A circle has radius 21, and a chord is 13 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_084", "question": "Prove that equality of sets is equivalent to mutual inclusion. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_012", "question": "Find the least positive inverse of 50 modulo 87. Give the final answer only."}
+{"question_id": "hard300_geo_chord_004", "question": "A circle has radius 23, and a chord is 18 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_085", "question": "Prove that if x is rational and y is rational, then x+y is rational. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_013", "question": "Find the least positive inverse of 53 modulo 91. Give the final answer only."}
+{"question_id": "hard300_geo_chord_005", "question": "A circle has radius 25, and a chord is 23 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_086", "question": "Prove that if x is rational and y is rational, then xy is rational. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_014", "question": "Find the least positive inverse of 56 modulo 95. Give the final answer only."}
+{"question_id": "hard300_geo_chord_006", "question": "A circle has radius 27, and a chord is 3 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_087", "question": "Prove that if x is irrational and r is nonzero rational, then rx is irrational. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_015", "question": "Find the least positive inverse of 59 modulo 99. Give the final answer only."}
+{"question_id": "hard300_geo_chord_007", "question": "A circle has radius 29, and a chord is 6 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_088", "question": "Prove that between any two distinct rational numbers there is another rational number. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_016", "question": "Find the least positive inverse of 62 modulo 103. Give the final answer only."}
+{"question_id": "hard300_geo_chord_008", "question": "A circle has radius 31, and a chord is 9 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_089", "question": "Prove that if a and b are positive, then a/b is positive. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_017", "question": "Find the least positive inverse of 65 modulo 107. Give the final answer only."}
+{"question_id": "hard300_geo_chord_009", "question": "A circle has radius 33, and a chord is 12 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_090", "question": "Prove that if 0<a<b, then 1/b<1/a. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_018", "question": "Find the least positive inverse of 68 modulo 111. Give the final answer only."}
+{"question_id": "hard300_geo_chord_010", "question": "A circle has radius 35, and a chord is 15 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_091", "question": "Prove that the maximum of two real numbers is unique. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_019", "question": "Find the least positive inverse of 71 modulo 115. Give the final answer only."}
+{"question_id": "hard300_geo_chord_011", "question": "A circle has radius 37, and a chord is 18 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_092", "question": "Prove that absolute value satisfies |xy|=|x||y|. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_020", "question": "Find the least positive inverse of 74 modulo 119. Give the final answer only."}
+{"question_id": "hard300_geo_chord_012", "question": "A circle has radius 39, and a chord is 21 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_093", "question": "Prove the triangle inequality for real numbers. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_021", "question": "Find the least positive inverse of 77 modulo 123. Give the final answer only."}
+{"question_id": "hard300_geo_chord_013", "question": "A circle has radius 41, and a chord is 24 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_094", "question": "Prove that if |x|<epsilon for every epsilon>0, then x=0. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_022", "question": "Find the least positive inverse of 80 modulo 127. Give the final answer only."}
+{"question_id": "hard300_geo_chord_014", "question": "A circle has radius 43, and a chord is 27 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_095", "question": "Prove that the sum of two multiples of 5 is a multiple of 5. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_023", "question": "Find the least positive inverse of 83 modulo 131. Give the final answer only."}
+{"question_id": "hard300_geo_chord_015", "question": "A circle has radius 45, and a chord is 30 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_096", "question": "Prove that a decimal integer is divisible by 3 if and only if its digit sum is divisible by 3. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_inverse_024", "question": "Find the least positive inverse of 86 modulo 135. Give the final answer only."}
+{"question_id": "hard300_geo_chord_016", "question": "A circle has radius 47, and a chord is 33 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_097", "question": "Prove that if a number ends in 0 or 5, then it is divisible by 5. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_001", "question": "Find the least nonnegative solution x to x = 2 mod 5 and x = 4 mod 7. Give the final answer only."}
+{"question_id": "hard300_geo_chord_017", "question": "A circle has radius 49, and a chord is 36 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_098", "question": "Prove that if an integer is congruent to 2 modulo 4, then it is not a square. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_002", "question": "Find the least nonnegative solution x to x = 5 mod 7 and x = 7 mod 11. Give the final answer only."}
+{"question_id": "hard300_geo_chord_018", "question": "A circle has radius 51, and a chord is 39 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_099", "question": "Prove that if n is composite, then n has a prime divisor at most sqrt(n). Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_003", "question": "Find the least nonnegative solution x to x = 9 mod 11 and x = 10 mod 19. Give the final answer only."}
+{"question_id": "hard300_geo_chord_019", "question": "A circle has radius 53, and a chord is 42 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_100", "question": "Prove that every integer n>1 has a prime divisor. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_004", "question": "Find the least nonnegative solution x to x = 12 mod 13 and x = 13 mod 23. Give the final answer only."}
+{"question_id": "hard300_geo_chord_020", "question": "A circle has radius 55, and a chord is 45 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_101", "question": "Prove that the least positive element of a nonempty set of positive integers exists. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_005", "question": "Find the least nonnegative solution x to x = 16 mod 17 and x = 16 mod 31. Give the final answer only."}
+{"question_id": "hard300_geo_chord_021", "question": "A circle has radius 57, and a chord is 48 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_102", "question": "Prove Euclid's lemma using Bezout's identity. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_006", "question": "Find the least nonnegative solution x to x = 0 mod 19 and x = 19 mod 35. Give the final answer only."}
+{"question_id": "hard300_geo_chord_022", "question": "A circle has radius 59, and a chord is 51 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_103", "question": "Prove that if ac is congruent to bc modulo m and gcd(a,m)=1, then c is congruent to b modulo m. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_007", "question": "Find the least nonnegative solution x to x = 0 mod 23 and x = 22 mod 43. Give the final answer only."}
+{"question_id": "hard300_geo_chord_023", "question": "A circle has radius 61, and a chord is 54 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_104", "question": "Prove that modular congruence is an equivalence relation. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_008", "question": "Find the least nonnegative solution x to x = 1 mod 25 and x = 25 mod 47. Give the final answer only."}
+{"question_id": "hard300_geo_chord_024", "question": "A circle has radius 63, and a chord is 57 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_105", "question": "Prove that if a is congruent to b modulo m, then a^k is congruent to b^k modulo m. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_009", "question": "Find the least nonnegative solution x to x = 1 mod 29 and x = 28 mod 55. Give the final answer only."}
+{"question_id": "hard300_geo_chord_025", "question": "A circle has radius 65, and a chord is 60 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_106", "question": "Prove that if x is congruent to y modulo m, then x+z is congruent to y+z modulo m. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_010", "question": "Find the least nonnegative solution x to x = 2 mod 31 and x = 31 mod 59. Give the final answer only."}
+{"question_id": "hard300_geo_chord_026", "question": "A circle has radius 67, and a chord is 63 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_107", "question": "Prove that if x is congruent to y modulo m, then xz is congruent to yz modulo m. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_011", "question": "Find the least nonnegative solution x to x = 2 mod 35 and x = 34 mod 67. Give the final answer only."}
+{"question_id": "hard300_geo_chord_027", "question": "A circle has radius 69, and a chord is 66 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_108", "question": "Prove that the sum of degrees in a finite graph is twice the number of edges. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_012", "question": "Find the least nonnegative solution x to x = 3 mod 37 and x = 37 mod 71. Give the final answer only."}
+{"question_id": "hard300_geo_chord_028", "question": "A circle has radius 71, and a chord is 69 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_109", "question": "Prove that a finite tree with n vertices has n-1 edges. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_013", "question": "Find the least nonnegative solution x to x = 3 mod 41 and x = 40 mod 79. Give the final answer only."}
+{"question_id": "hard300_geo_chord_029", "question": "A circle has radius 73, and a chord is 72 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_110", "question": "Prove that every finite tree has at least two leaves. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_014", "question": "Find the least nonnegative solution x to x = 4 mod 43 and x = 43 mod 83. Give the final answer only."}
+{"question_id": "hard300_geo_chord_030", "question": "A circle has radius 78, and a chord is 72 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_111", "question": "Prove that a connected graph with n vertices and n-1 edges is a tree. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_015", "question": "Find the least nonnegative solution x to x = 4 mod 47 and x = 46 mod 91. Give the final answer only."}
+{"question_id": "hard300_geo_chord_031", "question": "A circle has radius 80, and a chord is 75 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_112", "question": "Prove that in any group, the identity element is unique. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_016", "question": "Find the least nonnegative solution x to x = 5 mod 49 and x = 49 mod 95. Give the final answer only."}
+{"question_id": "hard300_geo_chord_032", "question": "A circle has radius 82, and a chord is 78 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_113", "question": "Prove that in any group, inverses are unique. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_017", "question": "Find the least nonnegative solution x to x = 5 mod 53 and x = 52 mod 103. Give the final answer only."}
+{"question_id": "hard300_geo_chord_033", "question": "A circle has radius 84, and a chord is 81 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_114", "question": "Prove that cancellation holds in a group. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_018", "question": "Find the least nonnegative solution x to x = 6 mod 55 and x = 55 mod 107. Give the final answer only."}
+{"question_id": "hard300_geo_chord_034", "question": "A circle has radius 86, and a chord is 84 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_115", "question": "Prove that the inverse of a product in a group is the product of inverses in reverse order. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_019", "question": "Find the least nonnegative solution x to x = 6 mod 59 and x = 58 mod 115. Give the final answer only."}
+{"question_id": "hard300_geo_chord_035", "question": "A circle has radius 88, and a chord is 87 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_116", "question": "Prove that the kernel of a homomorphism is a subgroup. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_020", "question": "Find the least nonnegative solution x to x = 7 mod 61 and x = 61 mod 119. Give the final answer only."}
+{"question_id": "hard300_geo_chord_036", "question": "A circle has radius 93, and a chord is 87 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_117", "question": "Prove that the image of a subgroup under a homomorphism is a subgroup. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_021", "question": "Find the least nonnegative solution x to x = 7 mod 65 and x = 64 mod 127. Give the final answer only."}
+{"question_id": "hard300_geo_chord_037", "question": "A circle has radius 95, and a chord is 90 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_118", "question": "Prove that the intersection of two subgroups is a subgroup. Use a direct proof. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_022", "question": "Find the least nonnegative solution x to x = 8 mod 67 and x = 67 mod 131. Give the final answer only."}
+{"question_id": "hard300_geo_chord_038", "question": "A circle has radius 97, and a chord is 93 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_119", "question": "Prove that the center of a group is a subgroup. Use proof by contradiction where appropriate. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_023", "question": "Find the least nonnegative solution x to x = 8 mod 71 and x = 70 mod 139. Give the final answer only."}
+{"question_id": "hard300_geo_chord_039", "question": "A circle has radius 99, and a chord is 96 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard300_proof_120", "question": "Prove that if H is a subgroup of G, then the identity of H is the identity of G. Use induction if it is natural. Give a rigorous but concise proof."}
+{"question_id": "hard300_nt_crt_024", "question": "Find the least nonnegative solution x to x = 9 mod 73 and x = 73 mod 143. Give the final answer only."}
+{"question_id": "hard300_geo_chord_040", "question": "A circle has radius 101, and a chord is 99 from the center. Compute the chord length. Give the final answer only."}

@@ -1,5 +1,9 @@
 from math_agent.tools.sympy_tools import (
     check_equivalent,
+    choose,
+    differentiate_expression,
+    integrate_expression,
+    limit_expression,
     numeric_compare,
     simplify_expression,
     solve_equation,
@@ -27,3 +31,10 @@ def test_solve_equation() -> None:
 
 def test_parse_error_does_not_crash() -> None:
     assert check_equivalent("x+", "2*x") is False
+
+
+def test_deterministic_calculus_and_combinatorics_tools() -> None:
+    assert differentiate_expression("sin(x)") == "cos(x)"
+    assert limit_expression("x**2 + 3*x", "x", "2") == "10"
+    assert integrate_expression("2*x", "x", "0", "3") == "9"
+    assert choose(12, 2) == "66"

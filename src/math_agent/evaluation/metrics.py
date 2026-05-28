@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
-import re
 from collections import Counter
 from pathlib import Path
 from typing import Any
+
+from pydantic import ValidationError
 
 from math_agent.evaluation.judge import exact_match as judge_exact_match
 from math_agent.evaluation.judge import (
@@ -12,8 +13,10 @@ from math_agent.evaluation.judge import (
     numeric_match,
     symbolic_match,
 )
+from math_agent.harness.trace_reader import read_trace_dir
+from math_agent.proof import ProofRubricScore, score_proof_candidate
 from math_agent.schemas import SolveResult
-from pydantic import ValidationError
+from math_agent.tools.answer_normalizer import normalize_answer as normalize_answer_core
 
 
 def accuracy(correct: int, total: int) -> float:
@@ -56,11 +59,213 @@ def load_answers(path: str | Path | None) -> dict[str, str]:
     return answers
 
 
+def load_answer_records(path: str | Path | None) -> dict[str, dict[str, Any]]:
+    if not path:
+        return {}
+    rows, _ = load_jsonl(path)
+    records: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        qid = str(row.get("question_id", "")).strip()
+        if qid:
+            records[qid] = row
+    return records
+
+
+def _match_bucket() -> dict[str, Any]:
+    return {
+        "total": 0,
+        "short_answer_count": 0,
+        "exact_match_count": 0,
+        "normalized_match_count": 0,
+        "numeric_match_count": 0,
+        "symbolic_match_count": 0,
+        "proof_validity_count": 0,
+        "proof_validity_pass_count": 0,
+        "proof_quality_score_sum": 0.0,
+        "proof_complete_count": 0,
+        "proof_partial_count": 0,
+        "proof_invalid_count": 0,
+        "evaluation_pass_count": 0,
+    }
+
+
+def _finalize_match_buckets(
+    buckets: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, float | int]]:
+    out: dict[str, dict[str, float | int]] = {}
+    for key, bucket in sorted(buckets.items()):
+        total = int(bucket["total"])
+        proof_count = int(bucket["proof_validity_count"])
+        out[key] = {
+            **bucket,
+            "exact_match_rate": _safe_rate(
+                bucket["exact_match_count"], bucket["short_answer_count"]
+            ),
+            "normalized_match_rate": _safe_rate(
+                bucket["normalized_match_count"], bucket["short_answer_count"]
+            ),
+            "numeric_match_rate": _safe_rate(
+                bucket["numeric_match_count"], bucket["short_answer_count"]
+            ),
+            "symbolic_match_rate": _safe_rate(
+                bucket["symbolic_match_count"], bucket["short_answer_count"]
+            ),
+            "proof_validity_rate": _safe_rate(
+                bucket["proof_validity_pass_count"], bucket["proof_validity_count"]
+            ),
+            "proof_quality_average": (
+                float(bucket["proof_quality_score_sum"]) / proof_count
+                if proof_count
+                else 0.0
+            ),
+            "proof_complete_rate": _safe_rate(
+                bucket["proof_complete_count"], proof_count
+            ),
+            "evaluation_pass_rate": _safe_rate(bucket["evaluation_pass_count"], total),
+        }
+    return out
+
+
+def _is_proof_eval_mode(eval_mode: str) -> bool:
+    return eval_mode in {"proof_validity", "proof_quality"}
+
+
+def _proof_text_for_result(result: SolveResult) -> str:
+    steps = "\n".join(str(step) for step in result.visible_solution_steps)
+    final_value = result.final_answer.value.strip()
+    if steps.strip() and final_value:
+        return f"{steps}\n{final_value}"
+    return steps.strip() or final_value
+
+
+def proof_quality_score(result: SolveResult) -> ProofRubricScore:
+    return score_proof_candidate(
+        {
+            "candidate_id": result.question_id,
+            "proof_text": _proof_text_for_result(result),
+        },
+        answer_type="proof",
+        candidate_id=result.question_id,
+    )
+
+
+def _proof_min_score(answer_row: dict[str, Any] | None, eval_mode: str) -> float:
+    default = 0.68 if eval_mode == "proof_quality" else 0.35
+    if not answer_row:
+        return default
+    try:
+        value = float(answer_row.get("min_proof_score", default))
+    except (TypeError, ValueError):
+        return default
+    return max(0.0, min(1.0, value))
+
+
+def proof_evaluation_hit(
+    result: SolveResult,
+    answer_row: dict[str, Any] | None = None,
+    evaluation_mode: str = "proof_validity",
+) -> bool:
+    if (
+        result.status != "success"
+        or result.final_answer.type != "proof"
+        or not result.verification.passed
+        or not result.final_answer.value.strip()
+    ):
+        return False
+    score = proof_quality_score(result)
+    return (not score.proof_invalid) and score.score >= _proof_min_score(
+        answer_row, evaluation_mode
+    )
+
+
+def _proof_validity_hit(result: SolveResult) -> bool:
+    return proof_evaluation_hit(result)
+
+
+def proof_failure_category(
+    result: SolveResult,
+    answer_row: dict[str, Any] | None = None,
+    evaluation_mode: str = "proof_validity",
+) -> str:
+    if result.final_answer.type != "proof":
+        return "proof_wrong_answer_type"
+    if not result.verification.passed:
+        return "proof_verifier_failed"
+    score = proof_quality_score(result)
+    if score.proof_invalid:
+        return "proof_quality_invalid"
+    if score.score < _proof_min_score(answer_row, evaluation_mode):
+        return "proof_quality_below_threshold"
+    if score.proof_partial:
+        return "proof_partial"
+    return "proof_validity_failed"
+
+
+def _trace_budget_metrics(trace_dir: str | Path | None) -> dict[str, object]:
+    if not trace_dir:
+        return {}
+    trace_result = read_trace_dir(trace_dir)
+    if not trace_result.get("ok"):
+        return {
+            "trace_dir": str(trace_dir),
+            "trace_read_ok": False,
+            "trace_error": trace_result.get("error", {}),
+        }
+
+    total_model_calls = 0
+    total_tool_calls = 0
+    total_latency = 0.0
+    latency_count = 0
+    stage_counter: Counter[str] = Counter()
+    trace_count = 0
+    for item in trace_result.get("items", []):
+        if not item.get("ok"):
+            continue
+        trace = item.get("trace") or {}
+        if not isinstance(trace, dict):
+            continue
+        trace_count += 1
+        model_calls = trace.get("model_calls")
+        tool_calls = trace.get("tool_calls")
+        if isinstance(model_calls, list):
+            total_model_calls += len(model_calls)
+            stage_counter.update(
+                str(call.get("stage", "unknown"))
+                for call in model_calls
+                if isinstance(call, dict)
+            )
+        elif isinstance(trace.get("model_calls_count"), int):
+            total_model_calls += int(trace["model_calls_count"])
+        if isinstance(tool_calls, list):
+            total_tool_calls += len(tool_calls)
+        latency = trace.get("latency_seconds")
+        if isinstance(latency, (int, float)) and latency >= 0:
+            total_latency += float(latency)
+            latency_count += 1
+
+    return {
+        "trace_dir": str(trace_dir),
+        "trace_read_ok": True,
+        "trace_count": trace_count,
+        "trace_error_count": trace_result.get("error_count", 0),
+        "total_model_calls": total_model_calls,
+        "total_tool_calls": total_tool_calls,
+        "average_model_calls_per_trace": _safe_rate(total_model_calls, trace_count),
+        "average_tool_calls_per_trace": _safe_rate(total_tool_calls, trace_count),
+        "average_latency_seconds": _safe_rate(int(total_latency * 1000), latency_count)
+        / 1000,
+        "model_calls_by_stage": dict(sorted(stage_counter.items())),
+    }
+
+
 def evaluate_results(
-    results_path: str | Path, answers_path: str | Path | None = None
+    results_path: str | Path,
+    answers_path: str | Path | None = None,
+    trace_dir: str | Path | None = None,
 ) -> dict:
     raw_rows, json_invalid = load_jsonl(results_path)
     answers = load_answers(answers_path)
+    answer_records = load_answer_records(answers_path)
 
     valid_results: list[SolveResult] = []
     schema_invalid = 0
@@ -101,28 +306,157 @@ def evaluate_results(
 
     if answers:
         exact = normalized = numeric = symbolic = matched_items = 0
+        short_answer_items = 0
+        proof_validity_items = 0
+        proof_validity_pass = 0
+        proof_quality_sum = 0.0
+        proof_complete = 0
+        proof_partial = 0
+        proof_invalid = 0
+        proof_risk_counter: Counter[str] = Counter()
+        evaluation_pass = 0
+        by_domain: dict[str, dict[str, Any]] = {}
+        by_problem_type: dict[str, dict[str, Any]] = {}
         for r in valid_results:
             gold = answers.get(r.question_id)
             if gold is None:
                 continue
             matched_items += 1
             pred = r.final_answer.value
-            exact += int(judge_exact_match(pred, gold))
-            normalized += int(normalized_match(pred, gold))
-            numeric += int(numeric_match(pred, gold))
-            symbolic += int(symbolic_match(pred, gold))
+            answer_row = answer_records.get(r.question_id, {})
+            eval_mode = str(answer_row.get("evaluation_mode") or "short_answer")
+            exact_hit = normalized_hit = numeric_hit = symbolic_hit = 0
+            proof_hit = 0
+            proof_score: ProofRubricScore | None = None
+            if _is_proof_eval_mode(eval_mode):
+                proof_validity_items += 1
+                proof_score = proof_quality_score(r)
+                proof_quality_sum += proof_score.score
+                proof_complete += int(proof_score.proof_complete)
+                proof_partial += int(proof_score.proof_partial)
+                proof_invalid += int(proof_score.proof_invalid)
+                proof_risk_counter.update(proof_score.risk_flags)
+                proof_hit = int(proof_evaluation_hit(r, answer_row, eval_mode))
+                proof_validity_pass += proof_hit
+                evaluation_pass += proof_hit
+            else:
+                short_answer_items += 1
+                exact_hit = int(judge_exact_match(pred, gold))
+                normalized_hit = int(normalized_match(pred, gold))
+                numeric_hit = int(numeric_match(pred, gold))
+                symbolic_hit = int(symbolic_match(pred, gold))
+                exact += exact_hit
+                normalized += normalized_hit
+                numeric += numeric_hit
+                symbolic += symbolic_hit
+                evaluation_pass += normalized_hit
+
+            groups = [
+                (str(answer_row.get("domain") or r.domain or "unknown"), by_domain),
+                (
+                    str(answer_row.get("problem_type") or r.problem_type or "unknown"),
+                    by_problem_type,
+                ),
+            ]
+            for group_name, bucket_map in groups:
+                bucket = bucket_map.setdefault(group_name, _match_bucket())
+                bucket["total"] += 1
+                bucket["short_answer_count"] += int(not _is_proof_eval_mode(eval_mode))
+                bucket["exact_match_count"] += exact_hit
+                bucket["normalized_match_count"] += normalized_hit
+                bucket["numeric_match_count"] += numeric_hit
+                bucket["symbolic_match_count"] += symbolic_hit
+                bucket["proof_validity_count"] += int(_is_proof_eval_mode(eval_mode))
+                bucket["proof_validity_pass_count"] += proof_hit
+                if proof_score is not None:
+                    bucket["proof_quality_score_sum"] += proof_score.score
+                    bucket["proof_complete_count"] += int(proof_score.proof_complete)
+                    bucket["proof_partial_count"] += int(proof_score.proof_partial)
+                    bucket["proof_invalid_count"] += int(proof_score.proof_invalid)
+                bucket["evaluation_pass_count"] += (
+                    proof_hit if _is_proof_eval_mode(eval_mode) else normalized_hit
+                )
 
         metrics.update(
             {
                 "answer_covered_count": matched_items,
-                "exact_match": _safe_rate(exact, matched_items),
-                "normalized_match": _safe_rate(normalized, matched_items),
-                "numeric_match": _safe_rate(numeric, matched_items),
-                "symbolic_match": _safe_rate(symbolic, matched_items),
+                "short_answer_covered_count": short_answer_items,
+                "proof_validity_covered_count": proof_validity_items,
+                "proof_validity_pass_count": proof_validity_pass,
+                "proof_validity_rate": _safe_rate(
+                    proof_validity_pass, proof_validity_items
+                ),
+                "proof_quality_average": (
+                    proof_quality_sum / proof_validity_items
+                    if proof_validity_items
+                    else 0.0
+                ),
+                "proof_complete_count": proof_complete,
+                "proof_partial_count": proof_partial,
+                "proof_invalid_count": proof_invalid,
+                "proof_risk_counts": dict(sorted(proof_risk_counter.items())),
+                "evaluation_pass_count": evaluation_pass,
+                "evaluation_pass_rate": _safe_rate(evaluation_pass, matched_items),
+                "exact_match": _safe_rate(exact, short_answer_items),
+                "normalized_match": _safe_rate(normalized, short_answer_items),
+                "numeric_match": _safe_rate(numeric, short_answer_items),
+                "symbolic_match": _safe_rate(symbolic, short_answer_items),
+                "answer_match_by_domain": _finalize_match_buckets(by_domain),
+                "answer_match_by_problem_type": _finalize_match_buckets(
+                    by_problem_type
+                ),
             }
         )
 
+    metrics.update(_trace_budget_metrics(trace_dir))
     return metrics
+
+
+def _format_rate(value: Any) -> str:
+    if isinstance(value, float):
+        return f"{value:.4f}"
+    return str(value)
+
+
+def _render_counter_table(title: str, values: dict[str, Any]) -> list[str]:
+    lines = ["", f"## {title}", "", "| Name | Count |", "|---|---:|"]
+    for key, value in values.items():
+        lines.append(f"| {key} | {value} |")
+    return lines
+
+
+def _render_match_table(title: str, grouped: dict[str, Any]) -> list[str]:
+    lines = [
+        "",
+        f"## {title}",
+        "",
+        "| Group | Total | Short | Exact | Exact Rate | Normalized | Normalized Rate | Numeric Rate | Symbolic Rate | Proof Valid | Proof Rate | Avg Proof Score | Proof Complete | Eval Pass Rate |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for group_name, group_metrics in grouped.items():
+        if not isinstance(group_metrics, dict):
+            continue
+        lines.append(
+            "| {group} | {total} | {short} | {exact} | {exact_rate} | {norm} | {norm_rate} | {num_rate} | {sym_rate} | {proof} | {proof_rate} | {proof_score} | {proof_complete} | {eval_rate} |".format(
+                group=group_name,
+                total=group_metrics.get("total", 0),
+                short=group_metrics.get("short_answer_count", 0),
+                exact=group_metrics.get("exact_match_count", 0),
+                exact_rate=_format_rate(group_metrics.get("exact_match_rate", 0.0)),
+                norm=group_metrics.get("normalized_match_count", 0),
+                norm_rate=_format_rate(group_metrics.get("normalized_match_rate", 0.0)),
+                num_rate=_format_rate(group_metrics.get("numeric_match_rate", 0.0)),
+                sym_rate=_format_rate(group_metrics.get("symbolic_match_rate", 0.0)),
+                proof=group_metrics.get("proof_validity_pass_count", 0),
+                proof_rate=_format_rate(group_metrics.get("proof_validity_rate", 0.0)),
+                proof_score=_format_rate(
+                    group_metrics.get("proof_quality_average", 0.0)
+                ),
+                proof_complete=group_metrics.get("proof_complete_count", 0),
+                eval_rate=_format_rate(group_metrics.get("evaluation_pass_rate", 0.0)),
+            )
+        )
+    return lines
 
 
 def render_markdown_report(
@@ -146,47 +480,78 @@ def render_markdown_report(
     for k in keys:
         lines.append(f"- **{k}**: {metrics.get(k)}")
 
-    lines.extend(["", "## Domain Distribution"])
-    for k, v in metrics.get("domain_distribution", {}).items():
-        lines.append(f"- {k}: {v}")
+    domain_distribution = metrics.get("domain_distribution", {})
+    if isinstance(domain_distribution, dict):
+        lines.extend(_render_counter_table("Domain Distribution", domain_distribution))
 
-    lines.extend(["", "## Problem Type Distribution"])
-    for k, v in metrics.get("problem_type_distribution", {}).items():
-        lines.append(f"- {k}: {v}")
+    problem_type_distribution = metrics.get("problem_type_distribution", {})
+    if isinstance(problem_type_distribution, dict):
+        lines.extend(
+            _render_counter_table(
+                "Problem Type Distribution", problem_type_distribution
+            )
+        )
 
     if "exact_match" in metrics:
         lines.extend(["", "## Answer Matching"])
         for k in [
             "answer_covered_count",
+            "short_answer_covered_count",
+            "proof_validity_covered_count",
+            "proof_validity_pass_count",
+            "proof_validity_rate",
+            "proof_quality_average",
+            "proof_complete_count",
+            "proof_partial_count",
+            "proof_invalid_count",
+            "evaluation_pass_count",
+            "evaluation_pass_rate",
             "exact_match",
             "normalized_match",
             "numeric_match",
             "symbolic_match",
         ]:
             lines.append(f"- **{k}**: {metrics.get(k)}")
+        proof_risk_counts = metrics.get("proof_risk_counts")
+        if isinstance(proof_risk_counts, dict) and proof_risk_counts:
+            lines.extend(_render_counter_table("Proof Risk Counts", proof_risk_counts))
+        for section_title, key in [
+            ("Answer Match by Domain", "answer_match_by_domain"),
+            ("Answer Match by Problem Type", "answer_match_by_problem_type"),
+        ]:
+            grouped = metrics.get(key)
+            if isinstance(grouped, dict) and grouped:
+                lines.extend(_render_match_table(section_title, grouped))
+
+    if metrics.get("trace_read_ok") is not None:
+        lines.extend(
+            [
+                "",
+                "## Budget / Trace Metrics",
+                "",
+                "| Metric | Value |",
+                "|---|---:|",
+                f"| trace_read_ok | {metrics.get('trace_read_ok')} |",
+                f"| trace_count | {metrics.get('trace_count', 0)} |",
+                f"| trace_error_count | {metrics.get('trace_error_count', 0)} |",
+                f"| total_model_calls | {metrics.get('total_model_calls', 0)} |",
+                f"| total_tool_calls | {metrics.get('total_tool_calls', 0)} |",
+                f"| average_model_calls_per_trace | {_format_rate(metrics.get('average_model_calls_per_trace', 0.0))} |",
+                f"| average_tool_calls_per_trace | {_format_rate(metrics.get('average_tool_calls_per_trace', 0.0))} |",
+                f"| average_latency_seconds | {_format_rate(metrics.get('average_latency_seconds', 0.0))} |",
+            ]
+        )
+        stage_counts = metrics.get("model_calls_by_stage")
+        if isinstance(stage_counts, dict) and stage_counts:
+            lines.extend(_render_counter_table("Model Calls by Stage", stage_counts))
 
     return "\n".join(lines) + "\n"
-
-
-_BOXED_PATTERN = re.compile(r"\\boxed\{([^{}]+)\}")
 
 
 def normalize_answer(text: Any) -> str:
     if text is None:
         return ""
-    if isinstance(text, (int, float)):
-        n = float(text)
-        return str(int(n)) if n.is_integer() else str(n)
-
-    s = str(text).strip().lower()
-    s = _BOXED_PATTERN.sub(r"\1", s)
-    s = s.rstrip("。.").strip()
-
-    try:
-        n = float(s)
-        return str(int(n)) if n.is_integer() else str(n)
-    except (ValueError, TypeError):
-        return s
+    return normalize_answer_core(str(text)).lower()
 
 
 def normalized_exact_match(pred: Any, expected: Any) -> bool:

@@ -3,6 +3,9 @@ from __future__ import annotations
 import re
 
 _ANSWER_PATTERNS = [
+    r"final\s*answer\s*[:：]\s*(.+)$",
+    r"answer\s*[:：]\s*(.+)$",
+    r"result\s*[:：]\s*(.+)$",
     r"最终答案\s*[：:]\s*(.+)$",
     r"最终结论\s*[：:]\s*(.+)$",
     r"答案\s*[：:]\s*(.+)$",
@@ -94,20 +97,60 @@ def _clean_extracted_answer(raw: str) -> str:
     return candidate
 
 
+def _replace_latex_fractions(value: str) -> str:
+    text = value
+    for command in ("dfrac", "frac"):
+        pattern = re.compile(rf"\\{command}\s*\{{([^{{}}]+)\}}\s*\{{([^{{}}]+)\}}")
+        while True:
+            updated = pattern.sub(
+                lambda m: f"{m.group(1).strip()}/{m.group(2).strip()}",
+                text,
+            )
+            if updated == text:
+                break
+            text = updated
+    return text
+
+
+def _compact_math_spacing(value: str) -> str:
+    text = re.sub(r"\s*([=+\-*/,\[\]\(\)])\s*", r"\1", value.strip())
+    text = re.sub(r"\s+", " ", text)
+    if re.search(r"[=+\-*/\[\]\(\)\d]", text):
+        text = text.replace(" ", "")
+    return text
+
+
+def _insert_implicit_multiplication(value: str) -> str:
+    text = value
+    text = re.sub(r"(?<=\d)(?=pi\b)", "*", text, flags=re.I)
+    text = re.sub(r"(?<=\d)(?=[a-zA-Z])", "*", text)
+    text = re.sub(r"\)(?=\d|[a-zA-Z])", ")*", text)
+    text = re.sub(r"(?<=\d)\(", "*(", text)
+    text = re.sub(r"\)\(", ")*(", text)
+    text = text.replace("**", "__POW__")
+    text = re.sub(r"\*+", "*", text)
+    return text.replace("__POW__", "**")
+
+
 def strip_units(text: str) -> str:
     value = text.strip()
-    value = re.sub(
-        r"\s*(cm|mm|m|km|kg|g|mg|s|sec|°c|celsius|dollars|usd|%)+\b",
+    return re.sub(
+        r"(?<=\d)\s*(cm|mm|m|km|kg|g|mg|s|sec|celsius|dollars|usd|%)\b$",
         "",
         value,
         flags=re.I,
-    )
-    return value.strip()
+    ).strip()
 
 
 def normalize_latex(text: str) -> str:
     value = text.strip()
+    value = value.strip("$")
     value = value.replace("\\left", "").replace("\\right", "")
+    value = _replace_latex_fractions(value)
+    value = re.sub(r"\\sqrt\s*\{([^{}]+)\}", r"sqrt(\1)", value)
+    value = re.sub(r"sqrt\s*\{([^{}]+)\}", r"sqrt(\1)", value)
+    value = value.replace("\\cdot", "*").replace("\\times", "*")
+    value = value.replace("\\pi", "pi").replace("π", "pi")
     value = value.replace("^", "**")
     value = value.replace("\\", "")
     return value.strip()
@@ -115,6 +158,12 @@ def normalize_latex(text: str) -> str:
 
 def normalize_number(text: str) -> str:
     value = text.strip().replace(",", "")
+    value = re.sub(
+        r"(?<![\d.])([-+]?\d+)\.0+(?=($|[+\-*/\)]))",
+        lambda m: m.group(1),
+        value,
+    )
+    value = re.sub(r"(?<!\d)1\*pi\b", "pi", value)
     if re.fullmatch(r"[-+]?\d+\.0+", value):
         return str(int(float(value)))
     if re.fullmatch(r"[-+]?\d*\.\d+", value):
@@ -135,5 +184,7 @@ def normalize_answer(text: str) -> str:
 
     candidate = strip_units(candidate)
     candidate = normalize_latex(candidate)
+    candidate = _compact_math_spacing(candidate)
+    candidate = _insert_implicit_multiplication(candidate)
     candidate = normalize_number(candidate)
     return candidate.strip()

@@ -813,9 +813,31 @@ class CheckResult:
 
 
 def run_cmd(command: list[str], cwd: Path, timeout: int = 600) -> CheckResult:
-    p = subprocess.run(
-        command, cwd=cwd, capture_output=True, text=True, check=False, timeout=timeout
-    )
+    try:
+        p = subprocess.run(
+            command,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout,
+        )
+    except FileNotFoundError as exc:
+        return CheckResult(
+            " ".join(command),
+            command,
+            127,
+            "SKIPPED",
+            f"command not found: {exc.filename}",
+        )
+    except subprocess.TimeoutExpired as exc:
+        return CheckResult(
+            " ".join(command),
+            command,
+            124,
+            "FAIL",
+            f"timeout after {exc.timeout}s",
+        )
     out = (p.stdout + "\n" + p.stderr).strip()
     return CheckResult(
         " ".join(command),
@@ -827,9 +849,36 @@ def run_cmd(command: list[str], cwd: Path, timeout: int = 600) -> CheckResult:
 
 
 def count_lines(root: Path) -> dict[str, Any]:
-    files = subprocess.run(
-        ["git", "ls-files"], cwd=root, capture_output=True, text=True, check=False
-    ).stdout.splitlines()
+    try:
+        files = subprocess.run(
+            ["git", "ls-files"], cwd=root, capture_output=True, text=True, check=False
+        ).stdout.splitlines()
+    except FileNotFoundError:
+        files = [
+            str(p.relative_to(root).as_posix())
+            for p in root.rglob("*")
+            if p.is_file()
+            and not any(
+                part
+                in {
+                    ".git",
+                    "__pycache__",
+                    ".pytest_cache",
+                    ".mypy_cache",
+                    ".ruff_cache",
+                    "outputs",
+                    "trace",
+                    "traces",
+                    "submission",
+                    "dist",
+                    "build",
+                    ".venv",
+                    "venv",
+                    "node_modules",
+                }
+                for part in p.relative_to(root).parts
+            )
+        ]
     by_module: dict[str, int] = {}
     total = 0
     for fp in files:
