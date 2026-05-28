@@ -1,0 +1,120 @@
+{"question_id": "hard_hidden_proof_001", "question": "Prove that sqrt(2) is irrational. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_modpow_001", "question": "Find the least nonnegative residue of 7^128 modulo 19. Give the final answer only."}
+{"question_id": "hard_hidden_geo_inradius_001", "question": "A right triangle has legs 9 and 12. Compute its inradius. Give the final answer only."}
+{"question_id": "hard_hidden_proof_002", "question": "Prove that there are infinitely many prime numbers. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_modpow_002", "question": "Find the least nonnegative residue of 11^97 modulo 31. Give the final answer only."}
+{"question_id": "hard_hidden_geo_inradius_002", "question": "A right triangle has legs 12 and 16. Compute its inradius. Give the final answer only."}
+{"question_id": "hard_hidden_proof_003", "question": "Prove that the sum of the first n positive odd integers is n^2. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_modpow_003", "question": "Find the least nonnegative residue of 13^85 modulo 37. Give the final answer only."}
+{"question_id": "hard_hidden_geo_inradius_003", "question": "A right triangle has legs 15 and 20. Compute its inradius. Give the final answer only."}
+{"question_id": "hard_hidden_proof_004", "question": "Prove that if n is odd, then n^2 is odd. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_modpow_004", "question": "Find the least nonnegative residue of 17^64 modulo 43. Give the final answer only."}
+{"question_id": "hard_hidden_geo_inradius_004", "question": "A right triangle has legs 20 and 21. Compute its inradius. Give the final answer only."}
+{"question_id": "hard_hidden_proof_005", "question": "Prove that if n^2 is even, then n is even. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_modpow_005", "question": "Find the least nonnegative residue of 19^123 modulo 55. Give the final answer only."}
+{"question_id": "hard_hidden_geo_inradius_005", "question": "A right triangle has legs 28 and 45. Compute its inradius. Give the final answer only."}
+{"question_id": "hard_hidden_proof_006", "question": "Prove that every integer congruent to 1 modulo 4 has an odd square congruent to 1 modulo 8. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_modpow_006", "question": "Find the least nonnegative residue of 23^77 modulo 61. Give the final answer only."}
+{"question_id": "hard_hidden_geo_inradius_006", "question": "A right triangle has legs 33 and 56. Compute its inradius. Give the final answer only."}
+{"question_id": "hard_hidden_proof_007", "question": "Prove that if a and b are coprime integers and a divides bc, then a divides c. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_modpow_007", "question": "Find the least nonnegative residue of 29^101 modulo 71. Give the final answer only."}
+{"question_id": "hard_hidden_geo_inradius_007", "question": "A right triangle has legs 36 and 77. Compute its inradius. Give the final answer only."}
+{"question_id": "hard_hidden_proof_008", "question": "Prove that for any integer n, n^3 - n is divisible by 6. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_modpow_008", "question": "Find the least nonnegative residue of 31^89 modulo 97. Give the final answer only."}
+{"question_id": "hard_hidden_geo_inradius_008", "question": "A right triangle has legs 39 and 80. Compute its inradius. Give the final answer only."}
+{"question_id": "hard_hidden_proof_009", "question": "Prove that the arithmetic mean of two positive real numbers is at least their geometric mean. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_phi_001", "question": "Compute Euler phi of 840. Give the final answer only."}
+{"question_id": "hard_hidden_geo_inradius_009", "question": "A right triangle has legs 48 and 55. Compute its inradius. Give the final answer only."}
+{"question_id": "hard_hidden_proof_010", "question": "Prove that the product of two consecutive integers is even. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_phi_002", "question": "Compute Euler phi of 945. Give the final answer only."}
+{"question_id": "hard_hidden_geo_inradius_010", "question": "A right triangle has legs 65 and 72. Compute its inradius. Give the final answer only."}
+{"question_id": "hard_hidden_proof_011", "question": "Prove that a rational root of a monic integer polynomial is an integer. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_phi_003", "question": "Compute Euler phi of 1008. Give the final answer only."}
+{"question_id": "hard_hidden_geo_inradius_011", "question": "A right triangle has legs 84 and 187. Compute its inradius. Give the final answer only."}
+{"question_id": "hard_hidden_proof_012", "question": "Prove that if p is prime and p divides ab, then p divides a or p divides b. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_phi_004", "question": "Compute Euler phi of 1155. Give the final answer only."}
+{"question_id": "hard_hidden_geo_inradius_012", "question": "A right triangle has legs 119 and 120. Compute its inradius. Give the final answer only."}
+{"question_id": "hard_hidden_proof_013", "question": "Prove that the square of any integer is congruent to 0 or 1 modulo 4. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_phi_005", "question": "Compute Euler phi of 1260. Give the final answer only."}
+{"question_id": "hard_hidden_geo_inradius_013", "question": "A right triangle has legs 140 and 171. Compute its inradius. Give the final answer only."}
+{"question_id": "hard_hidden_proof_014", "question": "Prove that if gcd(a,b)=1, then gcd(a+b,a-b) divides 2. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_phi_006", "question": "Compute Euler phi of 1728. Give the final answer only."}
+{"question_id": "hard_hidden_geo_inradius_014", "question": "A right triangle has legs 160 and 231. Compute its inradius. Give the final answer only."}
+{"question_id": "hard_hidden_proof_015", "question": "Prove that the sequence defined by a_1=1 and a_{n+1}=a_n+2n+1 equals n^2. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_phi_007", "question": "Compute Euler phi of 2025. Give the final answer only."}
+{"question_id": "hard_hidden_geo_heron_001", "question": "A triangle has side lengths 13, 14, 15. Compute its area. Give the final answer only."}
+{"question_id": "hard_hidden_proof_016", "question": "Prove that a finite set with n elements has exactly 2^n subsets. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_phi_008", "question": "Compute Euler phi of 2310. Give the final answer only."}
+{"question_id": "hard_hidden_geo_heron_002", "question": "A triangle has side lengths 5, 5, 6. Compute its area. Give the final answer only."}
+{"question_id": "hard_hidden_proof_017", "question": "Prove that the sum of the interior angles of a triangle is 180 degrees. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_divisors_001", "question": "How many positive divisors does 756 have? Give the final answer only."}
+{"question_id": "hard_hidden_geo_heron_003", "question": "A triangle has side lengths 4, 13, 15. Compute its area. Give the final answer only."}
+{"question_id": "hard_hidden_proof_018", "question": "Prove that the base angles of an isosceles triangle are equal. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_divisors_002", "question": "How many positive divisors does 900 have? Give the final answer only."}
+{"question_id": "hard_hidden_geo_heron_004", "question": "A triangle has side lengths 10, 13, 13. Compute its area. Give the final answer only."}
+{"question_id": "hard_hidden_proof_019", "question": "Prove that the medians of a triangle divide it into six equal-area triangles. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_divisors_003", "question": "How many positive divisors does 1080 have? Give the final answer only."}
+{"question_id": "hard_hidden_geo_heron_005", "question": "A triangle has side lengths 7, 15, 20. Compute its area. Give the final answer only."}
+{"question_id": "hard_hidden_proof_020", "question": "Prove that if two chords of a circle are equal, then they are equidistant from the center. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_divisors_004", "question": "How many positive divisors does 1260 have? Give the final answer only."}
+{"question_id": "hard_hidden_geo_heron_006", "question": "A triangle has side lengths 9, 10, 17. Compute its area. Give the final answer only."}
+{"question_id": "hard_hidden_proof_021", "question": "Prove that the perpendicular bisector of a chord passes through the center of the circle. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_divisors_005", "question": "How many positive divisors does 1440 have? Give the final answer only."}
+{"question_id": "hard_hidden_geo_heron_007", "question": "A triangle has side lengths 15, 20, 25. Compute its area. Give the final answer only."}
+{"question_id": "hard_hidden_proof_022", "question": "Prove that a cyclic quadrilateral has opposite angles summing to 180 degrees. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_divisors_006", "question": "How many positive divisors does 1680 have? Give the final answer only."}
+{"question_id": "hard_hidden_geo_heron_008", "question": "A triangle has side lengths 8, 15, 17. Compute its area. Give the final answer only."}
+{"question_id": "hard_hidden_proof_023", "question": "Prove that if two triangles are similar, then their areas are in the square ratio of corresponding sides. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_divisors_007", "question": "How many positive divisors does 1800 have? Give the final answer only."}
+{"question_id": "hard_hidden_geo_heron_009", "question": "A triangle has side lengths 6, 8, 10. Compute its area. Give the final answer only."}
+{"question_id": "hard_hidden_proof_024", "question": "Prove that the altitude to the hypotenuse in a right triangle creates two triangles similar to the original. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_divisors_008", "question": "How many positive divisors does 2016 have? Give the final answer only."}
+{"question_id": "hard_hidden_geo_heron_010", "question": "A triangle has side lengths 17, 25, 26. Compute its area. Give the final answer only."}
+{"question_id": "hard_hidden_proof_025", "question": "Prove that the binomial coefficient C(n,k) equals C(n,n-k). Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_inverse_001", "question": "Find the least positive inverse of 17 modulo 43. Give the final answer only."}
+{"question_id": "hard_hidden_geo_heron_011", "question": "A triangle has side lengths 25, 39, 56. Compute its area. Give the final answer only."}
+{"question_id": "hard_hidden_proof_026", "question": "Prove Pascal's identity C(n,k)=C(n-1,k)+C(n-1,k-1). Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_inverse_002", "question": "Find the least positive inverse of 29 modulo 71. Give the final answer only."}
+{"question_id": "hard_hidden_geo_heron_012", "question": "A triangle has side lengths 20, 21, 29. Compute its area. Give the final answer only."}
+{"question_id": "hard_hidden_proof_027", "question": "Prove by induction that 1+2+...+n=n(n+1)/2. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_inverse_003", "question": "Find the least positive inverse of 31 modulo 80. Give the final answer only."}
+{"question_id": "hard_hidden_geo_heron_013", "question": "A triangle has side lengths 11, 13, 20. Compute its area. Give the final answer only."}
+{"question_id": "hard_hidden_proof_028", "question": "Prove by induction that 2^n >= n+1 for all nonnegative integers n. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_inverse_004", "question": "Find the least positive inverse of 37 modulo 97. Give the final answer only."}
+{"question_id": "hard_hidden_geo_chord_001", "question": "A circle has radius 13, and a chord is 5 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard_hidden_proof_029", "question": "Prove that the harmonic mean of two positive real numbers is at most their arithmetic mean. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_inverse_005", "question": "Find the least positive inverse of 41 modulo 121. Give the final answer only."}
+{"question_id": "hard_hidden_geo_chord_002", "question": "A circle has radius 25, and a chord is 7 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard_hidden_proof_030", "question": "Prove that if a positive integer is divisible by 9, then the sum of its decimal digits is divisible by 9. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_inverse_006", "question": "Find the least positive inverse of 53 modulo 127. Give the final answer only."}
+{"question_id": "hard_hidden_geo_chord_003", "question": "A circle has radius 10, and a chord is 6 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard_hidden_proof_031", "question": "Prove that among any n+1 integers, two have the same remainder modulo n. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_inverse_007", "question": "Find the least positive inverse of 64 modulo 101. Give the final answer only."}
+{"question_id": "hard_hidden_geo_chord_004", "question": "A circle has radius 17, and a chord is 8 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard_hidden_proof_032", "question": "Prove that if p is an odd prime, then p has an inverse modulo 2p+1 whenever gcd(p,2p+1)=1. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_inverse_008", "question": "Find the least positive inverse of 73 modulo 140. Give the final answer only."}
+{"question_id": "hard_hidden_geo_chord_005", "question": "A circle has radius 29, and a chord is 20 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard_hidden_proof_033", "question": "Prove that a graph with all vertex degrees at least 2 contains a cycle. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_crt_001", "question": "Find the least nonnegative solution x to x = 2 mod 5 and x = 3 mod 7. Give the final answer only."}
+{"question_id": "hard_hidden_geo_chord_006", "question": "A circle has radius 41, and a chord is 9 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard_hidden_proof_034", "question": "Prove that if x+y and xy are integers, then x^2+y^2 is an integer. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_crt_002", "question": "Find the least nonnegative solution x to x = 4 mod 9 and x = 5 mod 11. Give the final answer only."}
+{"question_id": "hard_hidden_geo_chord_007", "question": "A circle has radius 50, and a chord is 14 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard_hidden_proof_035", "question": "Prove that if real numbers x and y satisfy x^2+y^2=0, then x=0 and y=0. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_crt_003", "question": "Find the least nonnegative solution x to x = 7 mod 13 and x = 8 mod 17. Give the final answer only."}
+{"question_id": "hard_hidden_geo_chord_008", "question": "A circle has radius 65, and a chord is 33 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard_hidden_proof_036", "question": "Prove that for positive real numbers x,y,z, (x+y+z)^2 >= 3(xy+yz+zx). Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_crt_004", "question": "Find the least nonnegative solution x to x = 11 mod 19 and x = 13 mod 23. Give the final answer only."}
+{"question_id": "hard_hidden_geo_chord_009", "question": "A circle has radius 37, and a chord is 12 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard_hidden_proof_037", "question": "Prove that if a sequence is increasing and bounded above, then it has at most one limit. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_crt_005", "question": "Find the least nonnegative solution x to x = 5 mod 16 and x = 9 mod 25. Give the final answer only."}
+{"question_id": "hard_hidden_geo_chord_010", "question": "A circle has radius 20, and a chord is 3 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard_hidden_proof_038", "question": "Prove that the composition of two injective functions is injective. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_crt_006", "question": "Find the least nonnegative solution x to x = 14 mod 27 and x = 20 mod 31. Give the final answer only."}
+{"question_id": "hard_hidden_geo_chord_011", "question": "A circle has radius 30, and a chord is 11 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard_hidden_proof_039", "question": "Prove that the inverse image of a union is the union of inverse images. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_crt_007", "question": "Find the least nonnegative solution x to x = 17 mod 29 and x = 22 mod 35. Give the final answer only."}
+{"question_id": "hard_hidden_geo_chord_012", "question": "A circle has radius 26, and a chord is 10 from the center. Compute the chord length. Give the final answer only."}
+{"question_id": "hard_hidden_proof_040", "question": "Prove that if a divides b and b divides c, then a divides c. Give a rigorous but concise proof."}
+{"question_id": "hard_hidden_nt_crt_008", "question": "Find the least nonnegative solution x to x = 19 mod 37 and x = 6 mod 41. Give the final answer only."}
+{"question_id": "hard_hidden_geo_chord_013", "question": "A circle has radius 34, and a chord is 16 from the center. Compute the chord length. Give the final answer only."}

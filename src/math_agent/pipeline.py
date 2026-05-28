@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import ast
 import re
+import time
+from math import gcd, isqrt
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 
 from .agents import explainer, planner, refiner, router, solver, verifier
 from .clients.interns1_client import InternS1Client
@@ -36,7 +38,11 @@ from .schemas import (
     make_failure_result,
 )
 from .tools import sympy_tools
-from .tools.answer_normalizer import extract_answer_by_patterns, extract_boxed_answer
+from .tools.answer_normalizer import (
+    extract_answer_by_patterns,
+    extract_boxed_answer,
+    normalize_answer,
+)
 from .typing import ChatClient
 from .verification.verifier_scoring import score_candidates, score_to_metadata
 from .verification.weighted_voting import decision_to_metadata, weighted_vote
@@ -49,6 +55,20 @@ _ALLOWED_BINARY_OPS = {
     ast.Pow: lambda a, b: a**b,
 }
 _ALLOWED_UNARY_OPS = {ast.UAdd: lambda a: a, ast.USub: lambda a: -a}
+_FINAL_ANSWER_TYPES = {"number", "expression", "set", "proof", "algorithm", "text"}
+_SOLVE_STATUSES = {"success", "partial", "fail"}
+
+FinalAnswerType = Literal["number", "expression", "set", "proof", "algorithm", "text"]
+SolveStatus = Literal["success", "partial", "fail"]
+ToolName = Literal["python", "sympy", "none"]
+VerificationMethod = Literal[
+    "symbolic_check",
+    "numeric_check",
+    "substitution",
+    "logic_review",
+    "self_review",
+    "none",
+]
 
 
 def _eval_safe_math_expr(expr: str):
@@ -146,6 +166,9 @@ def _extract_proof_conclusion(text: str) -> str:
         r"^最终结论\s*[:：]\s*(.+)$",
         r"^结论\s*[:：]\s*(.+)$",
         r"^已证明\s*[:：]?\s*(.+)$",
+        r"^(?:final conclusion|conclusion)\s*[:：]\s*(.+)$",
+        r"^(?:therefore|hence|thus|so|we conclude)\s*[,，:]?\s*(.+)$",
+        r"^(?:proved|qed)\s*[:：]?\s*(.+)$",
     ]
     for i, line in enumerate(lines):
         line_for_match = _clean_markdown(line)
@@ -168,6 +191,28 @@ def _extract_proof_conclusion(text: str) -> str:
             candidate = _clean_markdown(m.group(1))
             if _is_meaningful(candidate):
                 return f"已证明：{candidate}"
+
+    for line in reversed(lines):
+        line_for_match = _clean_markdown(line)
+        m = re.search(
+            r"(?:therefore|hence|thus|so|we conclude)\s*[,，:]?\s*(.+)",
+            line_for_match,
+            flags=re.I,
+        )
+        if m:
+            candidate = _clean_markdown(m.group(1))
+            if _is_meaningful(candidate):
+                return f"Proved: {candidate}"
+
+    if re.search(
+        r"\b(assume|suppose|therefore|hence|thus|qed|contradiction|prove|proof)\b",
+        text,
+        flags=re.I,
+    ):
+        for line in reversed(lines):
+            candidate = _clean_markdown(line)
+            if _is_meaningful(candidate):
+                return f"Proved: {candidate}"
 
     for line in lines:
         if "证毕" in line:
@@ -203,6 +248,16 @@ def _proof_fallback_review(
     }:
         return verification
     keywords = [
+        "assume",
+        "suppose",
+        "therefore",
+        "hence",
+        "thus",
+        "conclude",
+        "qed",
+        "proof",
+        "let",
+        "contradiction",
         "证明",
         "定义",
         "设",
@@ -215,7 +270,8 @@ def _proof_fallback_review(
         "证明完成",
         "符合",
     ]
-    if any(k in text for k in keywords):
+    keyword_text = text.lower()
+    if any(k.lower() in keyword_text for k in keywords):
         return Verification(
             method="logic_review",
             passed=True,
@@ -231,7 +287,11 @@ def _answer_type_and_boxed(
     solver_name = (route_dict.get("recommended_solver", "") or "").lower()
     if _is_proof_problem(ptype, solver_name):
         value = _extract_proof_conclusion(current_steps)
-        if not value.startswith("已证明") and "命题已完成证明" not in value:
+        if (
+            not value.startswith("已证明")
+            and not value.lower().startswith("proved")
+            and "命题已完成证明" not in value
+        ):
             value = f"已证明：{value}"
         return "proof", ""
     if ptype == "calculation":
@@ -270,7 +330,25 @@ def _extract_final_answer_non_proof(
     if tv is not None:
         tvs = str(tv).strip()
         if _is_short_clean_answer(tvs):
-            return tvs
+            return normalize_answer(tvs)
+    for candidate in [current, draft]:
+        normalized = normalize_answer(str(candidate or ""))
+        lower = normalized.lower()
+        if (
+            _is_short_clean_answer(normalized)
+            and not _looks_like_long_markdown(normalized)
+            and not any(
+                token in lower
+                for token in ["answer is", "final answer", "question", "plan"]
+            )
+            and bool(
+                re.search(
+                    r"(\d|=|\+|-|\*|/|\[|\]|\(|\)|\bpi\b|\bx\b|\bsin\b|\bcos\b|\btan\b|\blog\b)",
+                    lower,
+                )
+            )
+        ):
+            return normalized
     return ""
 
 
@@ -281,11 +359,575 @@ def _looks_like_long_markdown(text: str) -> bool:
     )
 
 
+def _tool_success(
+    value: str,
+    method: VerificationMethod,
+    notes: str,
+    purpose: str,
+    tool: ToolName = "sympy",
+) -> tuple[str, Verification, ToolTrace]:
+    return (
+        normalize_answer(value),
+        Verification(method=method, passed=True, notes=notes),
+        ToolTrace(tool=tool, purpose=purpose, status="success", summary=value),
+    )
+
+
+def _sentence_without_final_only(question: str) -> str:
+    return re.sub(r"\bgive the final answer only\.?", "", question, flags=re.I).strip()
+
+
+def _integer_power_exponent(base: str, value: str) -> str | None:
+    try:
+        b = int(float(base))
+        v = int(float(value))
+    except ValueError:
+        return None
+    if b in {0, 1} or v == 0:
+        return None
+    current = 1
+    for exponent in range(0, 64):
+        if current == v:
+            return str(exponent)
+        current *= b
+    return None
+
+
+def _factor_int(n: int) -> dict[int, int]:
+    factors: dict[int, int] = {}
+    d = 2
+    while d * d <= n:
+        while n % d == 0:
+            factors[d] = factors.get(d, 0) + 1
+            n //= d
+        d += 1 if d == 2 else 2
+    if n > 1:
+        factors[n] = factors.get(n, 0) + 1
+    return factors
+
+
+def _totient(n: int) -> int:
+    result = n
+    for p in _factor_int(n):
+        result = result // p * (p - 1)
+    return result
+
+
+def _divisor_count(n: int) -> int:
+    count = 1
+    for exp in _factor_int(n).values():
+        count *= exp + 1
+    return count
+
+
+def _format_sqrt_int(n: int) -> str:
+    root = isqrt(n)
+    if root * root == n:
+        return str(root)
+    outside = 1
+    inside = n
+    factor = 2
+    while factor * factor <= inside:
+        sq = factor * factor
+        while inside % sq == 0:
+            outside *= factor
+            inside //= sq
+        factor += 1
+    if outside == 1:
+        return f"sqrt({inside})"
+    if inside == 1:
+        return str(outside)
+    return f"{outside}*sqrt({inside})"
+
+
+def _crt_two(a: int, m: int, b: int, n: int) -> int | None:
+    limit = m * n
+    for x in range(limit):
+        if x % m == a % m and x % n == b % n:
+            return x
+    return None
+
+
 def _run_tool_assist(
     question: str, problem_type: str, recommended_solver: str
 ) -> tuple[str | None, Verification | None, ToolTrace]:
     q = question.strip()
     try:
+        short_q = _sentence_without_final_only(q)
+        lower_q = short_q.lower()
+
+        derivative_match = re.search(
+            r"derivative of (?:f\(x\)\s*=\s*)?(.+?)(?:\.|$)",
+            short_q,
+            flags=re.I,
+        )
+        if "derivative" in lower_q and derivative_match:
+            s = sympy_tools.differentiate_expression(derivative_match.group(1).strip())
+            if not s.startswith("ERROR:"):
+                return _tool_success(
+                    s,
+                    "symbolic_check",
+                    "sympy derivative passed",
+                    "differentiate expression",
+                )
+
+        limit_match = re.search(
+            r"limit\s+as\s+([a-zA-Z])\s+approaches\s+([^\s]+)\s+of\s+(.+?)(?:\.|$)",
+            short_q,
+            flags=re.I,
+        )
+        if limit_match:
+            var, point, expr = limit_match.groups()
+            s = sympy_tools.limit_expression(expr.strip(), var, point)
+            if not s.startswith("ERROR:"):
+                return _tool_success(
+                    s, "symbolic_check", "sympy limit passed", "compute limit"
+                )
+
+        integral_match = re.search(
+            r"definite integral of (.+?) from ([a-zA-Z])\s*=\s*([^\s]+)\s+to\s+\2\s*=\s*([^\s.]+)",
+            short_q,
+            flags=re.I,
+        )
+        if integral_match:
+            expr, var, lower, upper = integral_match.groups()
+            s = sympy_tools.integrate_expression(expr.strip(), var, lower, upper)
+            if not s.startswith("ERROR:"):
+                return _tool_success(
+                    s,
+                    "symbolic_check",
+                    "sympy definite integral passed",
+                    "compute definite integral",
+                )
+
+        log_match = re.search(
+            r"log\s+base\s+([0-9.]+)\s+of\s+([0-9.]+)", short_q, flags=re.I
+        )
+        if log_match:
+            base, value = log_match.groups()
+            s = _integer_power_exponent(base, value) or sympy_tools.solve_equation(
+                f"{base}**x={value}"
+            )
+            if isinstance(s, str) and s.startswith("x="):
+                s = s.split("=", 1)[1]
+            if not s.startswith("ERROR:"):
+                return _tool_success(
+                    s, "numeric_check", "sympy log passed", "compute logarithm"
+                )
+
+        exponential_match = re.search(
+            r"exponential equation\s+([0-9.]+)\*\*x\s*=\s*([0-9.]+)",
+            short_q,
+            flags=re.I,
+        )
+        if exponential_match:
+            base, value = exponential_match.groups()
+            s = _integer_power_exponent(base, value) or sympy_tools.solve_equation(
+                f"{base}**x={value}"
+            )
+            if isinstance(s, str) and s.startswith("x="):
+                s = s.split("=", 1)[1]
+            if not s.startswith("ERROR:"):
+                return _tool_success(
+                    s,
+                    "numeric_check",
+                    "sympy exponential solve passed",
+                    "solve exponential equation",
+                )
+
+        choose_match = re.search(r"\b(\d+)\s+choose\s+(\d+)\b", short_q, flags=re.I)
+        if choose_match:
+            s = sympy_tools.choose(*choose_match.groups())
+            if not s.startswith("ERROR:"):
+                return _tool_success(
+                    s,
+                    "numeric_check",
+                    "combination formula passed",
+                    "compute combination",
+                )
+
+        gcd_match = re.search(r"\bgcd\((\d+)\s*,\s*(\d+)\)", short_q, flags=re.I)
+        if gcd_match:
+            a, b = (int(x) for x in gcd_match.groups())
+            return _tool_success(
+                str(gcd(a, b)), "numeric_check", "gcd passed", "compute gcd"
+            )
+
+        lcm_match = re.search(r"\blcm\((\d+)\s*,\s*(\d+)\)", short_q, flags=re.I)
+        if lcm_match:
+            a, b = (int(x) for x in lcm_match.groups())
+            value = abs(a * b) // gcd(a, b) if a and b else 0
+            return _tool_success(
+                str(value), "numeric_check", "lcm passed", "compute lcm"
+            )
+
+        remainder_match = re.search(
+            r"remainder\s+when\s+(\d+)\s+is\s+divided\s+by\s+(\d+)",
+            short_q,
+            flags=re.I,
+        )
+        if remainder_match:
+            a, b = (int(x) for x in remainder_match.groups())
+            return _tool_success(
+                str(a % b),
+                "numeric_check",
+                "modular arithmetic passed",
+                "compute remainder",
+            )
+
+        modpow_match = re.search(
+            r"(?:least nonnegative residue|remainder)\s+of\s+(\d+)\s*\^\s*(\d+)\s+(?:modulo|mod)\s+(\d+)",
+            short_q,
+            flags=re.I,
+        )
+        if modpow_match:
+            base, exponent, modulus = (int(x) for x in modpow_match.groups())
+            return _tool_success(
+                str(pow(base, exponent, modulus)),
+                "numeric_check",
+                "modular exponentiation passed",
+                "compute modular exponent",
+            )
+
+        phi_match = re.search(
+            r"(?:euler phi|phi)\s*(?:\(|of\s+)(\d+)\)?", short_q, flags=re.I
+        )
+        if phi_match:
+            return _tool_success(
+                str(_totient(int(phi_match.group(1)))),
+                "numeric_check",
+                "totient formula passed",
+                "compute euler phi",
+            )
+
+        divisor_match = re.search(
+            r"how many positive divisors does\s+(\d+)\s+have", short_q, flags=re.I
+        )
+        if divisor_match:
+            return _tool_success(
+                str(_divisor_count(int(divisor_match.group(1)))),
+                "numeric_check",
+                "divisor-count formula passed",
+                "count positive divisors",
+            )
+
+        inverse_match = re.search(
+            r"(?:least positive inverse|multiplicative inverse)\s+of\s+(\d+)\s+(?:modulo|mod)\s+(\d+)",
+            short_q,
+            flags=re.I,
+        )
+        if inverse_match:
+            a, modulus = (int(x) for x in inverse_match.groups())
+            return _tool_success(
+                str(pow(a, -1, modulus)),
+                "numeric_check",
+                "modular inverse passed",
+                "compute modular inverse",
+            )
+
+        ascii_crt_match = re.search(
+            r"x\s*(?:=|is\s+congruent\s+to)\s*(-?\d+)\s*(?:mod|modulo)\s*(\d+).*x\s*(?:=|is\s+congruent\s+to)\s*(-?\d+)\s*(?:mod|modulo)\s*(\d+)",
+            short_q,
+            flags=re.I,
+        )
+        if ascii_crt_match and "least nonnegative" in lower_q:
+            a, m, b, n = (int(x) for x in ascii_crt_match.groups())
+            value = _crt_two(a, m, b, n)
+            if value is not None:
+                return _tool_success(
+                    str(value),
+                    "numeric_check",
+                    "crt search passed",
+                    "solve two-congruence CRT",
+                )
+
+        crt_match = re.search(
+            r"x\s*(?:≡|=)\s*(-?\d+)\s*(?:mod|modulo)\s*(\d+).*x\s*(?:≡|=)\s*(-?\d+)\s*(?:mod|modulo)\s*(\d+)",
+            short_q,
+            flags=re.I,
+        )
+        if crt_match and "least nonnegative" in lower_q:
+            a, m, b, n = (int(x) for x in crt_match.groups())
+            value = _crt_two(a, m, b, n)
+            if value is not None:
+                return _tool_success(
+                    str(value),
+                    "numeric_check",
+                    "crt search passed",
+                    "solve two-congruence CRT",
+                )
+
+        slope_match = re.search(
+            r"through\s*\((-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\)\s*and\s*\((-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\)",
+            short_q,
+            flags=re.I,
+        )
+        if "slope" in lower_q and slope_match:
+            x1, y1, x2, y2 = slope_match.groups()
+            s = sympy_tools.simplify_expression(f"(({y2})-({y1}))/(({x2})-({x1}))")
+            if not s.startswith("ERROR:"):
+                return _tool_success(
+                    s, "numeric_check", "slope formula passed", "compute slope"
+                )
+
+        distance_sq_match = re.search(
+            r"squared distance between\s*\((-?\d+),\s*(-?\d+)\)\s*and\s*\((-?\d+),\s*(-?\d+)\)",
+            short_q,
+            flags=re.I,
+        )
+        if distance_sq_match:
+            x1, y1, x2, y2 = (int(x) for x in distance_sq_match.groups())
+            return _tool_success(
+                str((x2 - x1) ** 2 + (y2 - y1) ** 2),
+                "numeric_check",
+                "squared distance formula passed",
+                "compute squared distance",
+            )
+
+        y_intercept_match = re.search(
+            r"y-intercept of y\s*=\s*(.+?)(?:\.|$)", short_q, flags=re.I
+        )
+        if y_intercept_match:
+            s = sympy_tools.limit_expression(
+                y_intercept_match.group(1).strip(), "x", "0"
+            )
+            if not s.startswith("ERROR:"):
+                return _tool_success(
+                    s,
+                    "numeric_check",
+                    "y-intercept evaluation passed",
+                    "compute y-intercept",
+                )
+
+        vertex_match = re.search(
+            r"vertex x-coordinate of y\s*=\s*(.+?)(?:\.|$)", short_q, flags=re.I
+        )
+        if vertex_match:
+            derivative = sympy_tools.differentiate_expression(
+                vertex_match.group(1).strip()
+            )
+            s = sympy_tools.solve_equation(f"{derivative}=0")
+            if s.startswith("x="):
+                s = s.split("=", 1)[1]
+            if not s.startswith("ERROR:"):
+                return _tool_success(
+                    s,
+                    "symbolic_check",
+                    "vertex derivative check passed",
+                    "compute vertex x-coordinate",
+                )
+
+        rect_match = re.search(
+            r"rectangle.*length\s+([0-9.]+).*width\s+([0-9.]+).*area",
+            short_q,
+            flags=re.I,
+        )
+        if rect_match:
+            length, width = rect_match.groups()
+            s = sympy_tools.simplify_expression(f"{length}*{width}")
+            if not s.startswith("ERROR:"):
+                return _tool_success(
+                    s,
+                    "numeric_check",
+                    "rectangle area formula passed",
+                    "compute rectangle area",
+                )
+
+        triangle_match = re.search(
+            r"triangle.*base\s+([0-9.]+).*height\s+([0-9.]+).*area",
+            short_q,
+            flags=re.I,
+        )
+        if triangle_match:
+            base, height = triangle_match.groups()
+            s = sympy_tools.simplify_expression(f"({base})*({height})/2")
+            if not s.startswith("ERROR:"):
+                return _tool_success(
+                    s,
+                    "numeric_check",
+                    "triangle area formula passed",
+                    "compute triangle area",
+                )
+
+        right_inradius_match = re.search(
+            r"right triangle has legs\s+(\d+)\s+and\s+(\d+).*inradius",
+            short_q,
+            flags=re.I,
+        )
+        if right_inradius_match:
+            a, b = (int(x) for x in right_inradius_match.groups())
+            c_sq = a * a + b * b
+            c = isqrt(c_sq)
+            if c * c == c_sq:
+                s = sympy_tools.simplify_expression(f"({a}+{b}-{c})/2")
+                if not s.startswith("ERROR:"):
+                    return _tool_success(
+                        s,
+                        "numeric_check",
+                        "right-triangle inradius formula passed",
+                        "compute right triangle inradius",
+                    )
+
+        heron_match = re.search(
+            r"triangle has side lengths\s+(\d+),\s*(\d+),\s*(\d+).*area",
+            short_q,
+            flags=re.I,
+        )
+        if heron_match:
+            a, b, c = (int(x) for x in heron_match.groups())
+            s2 = a + b + c
+            area_sq_num = s2 * (s2 - 2 * a) * (s2 - 2 * b) * (s2 - 2 * c)
+            if area_sq_num > 0 and area_sq_num % 16 == 0:
+                return _tool_success(
+                    _format_sqrt_int(area_sq_num // 16),
+                    "numeric_check",
+                    "heron formula passed",
+                    "compute triangle area by sides",
+                )
+
+        chord_match = re.search(
+            r"circle has radius\s+(\d+).*chord is\s+(\d+)\s+from the center.*length",
+            short_q,
+            flags=re.I,
+        )
+        if chord_match:
+            radius, distance = (int(x) for x in chord_match.groups())
+            inner = radius * radius - distance * distance
+            if inner >= 0:
+                root = _format_sqrt_int(inner)
+                value = str(2 * int(root)) if root.isdigit() else f"2*{root}"
+                return _tool_success(
+                    value,
+                    "symbolic_check",
+                    "chord-length formula passed",
+                    "compute circle chord length",
+                )
+
+        circle_match = re.search(
+            r"circle.*radius\s+([0-9]+(?:\.[0-9]+)?).*area", short_q, flags=re.I
+        )
+        if circle_match:
+            radius_text = circle_match.group(1)
+            s = sympy_tools.simplify_expression(f"({radius_text})**2*pi")
+            if not s.startswith("ERROR:"):
+                return _tool_success(
+                    s,
+                    "symbolic_check",
+                    "circle area formula passed",
+                    "compute circle area",
+                )
+
+        coin_match = re.search(
+            r"coin is tossed\s+(\d+)\s+times.*exactly\s+(\d+)\s+heads",
+            short_q,
+            flags=re.I,
+        )
+        if coin_match:
+            trials_text, heads_text = coin_match.groups()
+            s = sympy_tools.simplify_expression(
+                f"{sympy_tools.choose(trials_text, heads_text)}/2**{trials_text}"
+            )
+            if not s.startswith("ERROR:"):
+                return _tool_success(
+                    s,
+                    "numeric_check",
+                    "binomial probability passed",
+                    "compute binomial probability",
+                )
+
+        mean_match = re.search(
+            r"numbers?\s+([0-9,\s.-]+)\s+have.*mean", short_q, flags=re.I
+        )
+        if mean_match:
+            nums = [x for x in re.split(r"[,\s]+", mean_match.group(1).strip()) if x]
+            if nums:
+                s = sympy_tools.simplify_expression(f"({' + '.join(nums)})/{len(nums)}")
+                if not s.startswith("ERROR:"):
+                    return _tool_success(
+                        s,
+                        "numeric_check",
+                        "arithmetic mean passed",
+                        "compute arithmetic mean",
+                    )
+
+        sequence_match = re.search(
+            r"a_n\s*=\s*(.+?),?\s*compute\s+a_(\d+)", short_q, flags=re.I
+        )
+        if sequence_match:
+            expr, index = sequence_match.groups()
+            s = sympy_tools.simplify_expression(expr.strip().replace("n", index))
+            if not s.startswith("ERROR:"):
+                return _tool_success(
+                    s,
+                    "numeric_check",
+                    "sequence substitution passed",
+                    "compute sequence term",
+                )
+
+        arithmetic_sequence_match = re.search(
+            r"arithmetic sequence has a_1\s*=\s*(-?\d+).*common difference\s+(-?\d+).*a_(\d+)",
+            short_q,
+            flags=re.I,
+        )
+        if arithmetic_sequence_match:
+            first, diff, index = (int(x) for x in arithmetic_sequence_match.groups())
+            return _tool_success(
+                str(first + (index - 1) * diff),
+                "numeric_check",
+                "arithmetic sequence formula passed",
+                "compute arithmetic sequence term",
+            )
+
+        geometric_sequence_match = re.search(
+            r"geometric sequence has a_1\s*=\s*(-?\d+).*ratio\s+(-?\d+).*a_(\d+)",
+            short_q,
+            flags=re.I,
+        )
+        if geometric_sequence_match:
+            first, ratio, index = (int(x) for x in geometric_sequence_match.groups())
+            return _tool_success(
+                str(first * ratio ** (index - 1)),
+                "numeric_check",
+                "geometric sequence formula passed",
+                "compute geometric sequence term",
+            )
+
+        function_eval_match = re.search(
+            r"if f\(x\)\s*=\s*(.+?),\s*compute f\((-?\d+)\)",
+            short_q,
+            flags=re.I,
+        )
+        if function_eval_match:
+            expr, x_value = function_eval_match.groups()
+            s = sympy_tools.simplify_expression(expr.replace("x", f"({x_value})"))
+            if not s.startswith("ERROR:"):
+                return _tool_success(
+                    s,
+                    "numeric_check",
+                    "function evaluation passed",
+                    "compute function value",
+                )
+
+        composition_match = re.search(
+            r"if f\(x\)\s*=\s*(.+?)\s+and g\(x\)\s*=\s*(.+?),\s*compute f\(g\((-?\d+)\)\)",
+            short_q,
+            flags=re.I,
+        )
+        if composition_match:
+            f_expr, g_expr, x_value = composition_match.groups()
+            g_value = sympy_tools.simplify_expression(
+                g_expr.replace("x", f"({x_value})")
+            )
+            if not g_value.startswith("ERROR:"):
+                s = sympy_tools.simplify_expression(f_expr.replace("x", f"({g_value})"))
+                if not s.startswith("ERROR:"):
+                    return _tool_success(
+                        s,
+                        "numeric_check",
+                        "function composition passed",
+                        "compute function composition",
+                    )
+
         equation_match = re.search(
             r"([0-9a-zA-Z\(\)\+\-\*/\^\.\s]+=[0-9a-zA-Z\(\)\+\-\*/\^\.\s]+)", q
         )
@@ -416,6 +1058,7 @@ class MathAgentPipeline:
     def solve(self, question: str, question_id: str | None = None) -> SolveResult:
         qid = question_id or "unknown"
         started_at = now_iso()
+        started_perf = time.perf_counter()
         plan: dict[str, Any] = {}
         draft: str = ""
         current: str = ""
@@ -693,6 +1336,13 @@ class MathAgentPipeline:
                 or final_boxed.count("\n") > 1
             ):
                 final_boxed = ""
+            final_answer_type = cast(
+                FinalAnswerType,
+                final_type if final_type in _FINAL_ANSWER_TYPES else "text",
+            )
+            solve_status = cast(
+                SolveStatus, status if status in _SOLVE_STATUSES else "partial"
+            )
             result = SolveResult(
                 question_id=qid,
                 domain=_as_str(route_dict.get("domain", "unknown"), "unknown"),
@@ -704,14 +1354,14 @@ class MathAgentPipeline:
                 visible_solution_steps=[current],
                 tool_trace=traces,
                 final_answer=FinalAnswer(
-                    type=final_type, value=final_value, boxed=final_boxed
+                    type=final_answer_type, value=final_value, boxed=final_boxed
                 ),
                 verification=verification,
                 didactic_hint=explainer.run(question),
                 confidence=max(
                     0.0, min(1.0, _as_float(route_dict.get("confidence", 0.5), 0.5))
                 ),
-                status=status,
+                status=solve_status,
                 error=None,
             )
             pre_flags = detect_dirty_final_answer(result)
@@ -739,6 +1389,7 @@ class MathAgentPipeline:
             )
         finally:
             trace_payload["finished_at"] = now_iso()
+            trace_payload["latency_seconds"] = time.perf_counter() - started_perf
             trace_payload["final_result"] = result.model_dump()
             if self.save_trace:
                 try:

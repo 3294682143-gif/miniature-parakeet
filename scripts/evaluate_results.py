@@ -14,13 +14,18 @@ def main() -> int:
     parser.add_argument("--results", required=True, help="Path to results.jsonl")
     parser.add_argument("--answers", default=None, help="Path to answers.jsonl")
     parser.add_argument(
+        "--trace-dir",
+        default=None,
+        help="Optional trace directory used to add model-call and latency metrics.",
+    )
+    parser.add_argument(
         "--report",
         default="outputs/evaluation_report.md",
         help="Output markdown report path",
     )
     args = parser.parse_args()
 
-    metrics = evaluate_results(args.results, args.answers)
+    metrics = evaluate_results(args.results, args.answers, args.trace_dir)
     print(json.dumps(metrics, ensure_ascii=False, indent=2))
 
     report = render_markdown_report(metrics, args.results, args.answers)

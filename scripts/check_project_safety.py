@@ -48,6 +48,10 @@ TEST_AUTH_ALLOWLINE_MARKERS = (
 )
 
 
+def _rel(path: Path, root: Path) -> str:
+    return path.relative_to(root).as_posix()
+
+
 def _is_probably_doc(path: Path) -> bool:
     return (
         any(part in {"README", "docs"} for part in path.parts)
@@ -70,7 +74,7 @@ def scan_project(root: Path) -> list[tuple[str, str]]:
 
     for path in root.rglob(".env"):
         if path.is_file() and path.name != ".env.example":
-            findings.append((str(path.relative_to(root)), "forbidden_env_file"))
+            findings.append((_rel(path, root), "forbidden_env_file"))
 
     forbidden_paths = [
         ("official_results.jsonl", "forbidden_official_results_file"),
@@ -91,18 +95,18 @@ def scan_project(root: Path) -> list[tuple[str, str]]:
             if not p.exists():
                 continue
             if p.exists():
-                findings.append((str(p.relative_to(root)), risk))
+                findings.append((_rel(p, root), risk))
 
     traces_dir = root / "outputs" / "traces"
     if traces_dir.exists():
         for p in traces_dir.rglob("*"):
             if p == traces_dir or p == traces_dir / ".gitkeep":
                 continue
-            findings.append((str(p.relative_to(root)), "forbidden_outputs_traces"))
+            findings.append((_rel(p, root), "forbidden_outputs_traces"))
 
     for cache in ["__pycache__", ".pytest_cache"]:
         for p in root.rglob(cache):
-            findings.append((str(p.relative_to(root)), f"forbidden_{cache}_artifact"))
+            findings.append((_rel(p, root), f"forbidden_{cache}_artifact"))
 
     git_path = root / ".git"
     if git_path.is_file():
@@ -119,7 +123,7 @@ def scan_project(root: Path) -> list[tuple[str, str]]:
         is_doc = _is_probably_doc(rel)
 
         if in_strong_dir or not is_doc:
-            rel_str = str(rel)
+            rel_str = rel.as_posix()
             for pat in API_KEY_PATTERNS:
                 if pat.search(text):
                     findings.append((rel_str, "suspected_api_key"))

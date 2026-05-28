@@ -3,10 +3,11 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from pydantic import ValidationError
+
 from math_agent.harness.formatter_repair import detect_dirty_final_answer
 from math_agent.schemas import CandidateAnswer, SolveResult, WeightedVoteResult
 from math_agent.tools.answer_normalizer import normalize_answer, normalize_number
-from pydantic import ValidationError
 
 
 def _to_float(value: Any, default: float = 0.0) -> float:

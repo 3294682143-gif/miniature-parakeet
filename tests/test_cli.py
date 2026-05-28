@@ -127,3 +127,114 @@ def test_cli_batch_trace_generation(tmp_path: Path):
     subprocess.run(cmd, capture_output=True, text=True, check=True)
     assert (trace_dir / "q1.json").exists()
     assert (trace_dir / "q2.json").exists()
+
+
+def test_cli_batch_writes_budget_stats(tmp_path: Path):
+    in_file = tmp_path / "in_stats.jsonl"
+    in_file.write_text(
+        '{"question_id":"q1","question":"Compute gcd(48, 18). Give the final answer only."}\n',
+        encoding="utf-8",
+    )
+    out_file = tmp_path / "results.jsonl"
+    trace_dir = tmp_path / "traces"
+    stats_file = tmp_path / "stats.json"
+    cmd = [
+        sys.executable,
+        "-m",
+        "math_agent.cli",
+        "batch",
+        "--input",
+        str(in_file),
+        "--output",
+        str(out_file),
+        "--trace-dir",
+        str(trace_dir),
+        "--stats",
+        str(stats_file),
+        "--enable-tools",
+        "--mode",
+        "tool-first",
+    ]
+    subprocess.run(cmd, capture_output=True, text=True, check=True)
+    stats = json.loads(stats_file.read_text(encoding="utf-8"))
+    assert stats["processed_count"] == 1
+    assert stats["total_tool_calls"] >= 1
+    assert stats["trace_found_count"] == 1
+
+
+def test_cli_batch_resume_and_retry_failed(tmp_path: Path):
+    in_file = tmp_path / "in_resume.jsonl"
+    in_file.write_text(
+        '{"question_id":"done","question":"1+1=?"}\n'
+        '{"question_id":"retry","question":"2+2=?"}\n'
+        '{"question_id":"new","question":"3+3=?"}\n',
+        encoding="utf-8",
+    )
+    base = {
+        "domain": "Unknown",
+        "problem_type": "unknown",
+        "problem_parse": {"goal": "g", "givens": [], "symbols": []},
+        "solution_plan": [],
+        "visible_solution_steps": [],
+        "tool_trace": [],
+        "didactic_hint": "h",
+        "error": None,
+    }
+    out_file = tmp_path / "resume_results.jsonl"
+    out_file.write_text(
+        json.dumps(
+            {
+                **base,
+                "question_id": "done",
+                "final_answer": {"type": "number", "value": "2", "boxed": "\\boxed{2}"},
+                "verification": {"method": "none", "passed": True, "notes": "old"},
+                "confidence": 0.8,
+                "status": "success",
+            },
+            ensure_ascii=False,
+        )
+        + "\n"
+        + json.dumps(
+            {
+                **base,
+                "question_id": "retry",
+                "final_answer": {"type": "text", "value": "", "boxed": ""},
+                "verification": {"method": "none", "passed": False, "notes": "old"},
+                "confidence": 0.0,
+                "status": "partial",
+            },
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    cmd = [
+        sys.executable,
+        "-m",
+        "math_agent.cli",
+        "batch",
+        "--input",
+        str(in_file),
+        "--output",
+        str(out_file),
+        "--resume",
+        "--retry-failed",
+        "--enable-tools",
+        "--mode",
+        "tool-first",
+        "--no-trace",
+    ]
+    subprocess.run(cmd, capture_output=True, text=True, check=True)
+    rows = [
+        SolveResult.model_validate(json.loads(line))
+        for line in out_file.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    ids = [row.question_id for row in rows]
+    assert ids.count("done") == 1
+    assert ids.count("retry") == 1
+    assert ids.count("new") == 1
+    assert next(row for row in rows if row.question_id == "retry").status in {
+        "success",
+        "partial",
+    }

@@ -81,6 +81,36 @@ def test_payload_contains_model_and_messages(monkeypatch: pytest.MonkeyPatch) ->
     assert captured["json"]["messages"] == [{"role": "user", "content": "question"}]
 
 
+def test_timeout_and_retries_can_be_set_from_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("INTERNS1_TIMEOUT", "123")
+    monkeypatch.setenv("INTERNS1_MAX_RETRIES", "4")
+    client = InternS1Client(
+        api_key="dummy",
+        base_url="https://example.com/v1",
+        model="intern-s1",
+        mock=False,
+    )
+    assert client.timeout == 123
+    assert client.max_retries == 4
+
+
+def test_invalid_timeout_env_keeps_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("INTERNS1_TIMEOUT", "bad")
+    monkeypatch.setenv("INTERNS1_MAX_RETRIES", "0")
+    client = InternS1Client(
+        api_key="dummy",
+        base_url="https://example.com/v1",
+        model="intern-s1",
+        timeout=77,
+        max_retries=3,
+        mock=False,
+    )
+    assert client.timeout == 77
+    assert client.max_retries == 3
+
+
 def test_base_url_append_chat_completions(monkeypatch: pytest.MonkeyPatch) -> None:
     urls: list[str] = []
 
