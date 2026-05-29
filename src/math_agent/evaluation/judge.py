@@ -45,9 +45,10 @@ def symbolic_match(pred: str, gold: str) -> bool:
     p = normalize_answer(pred or "")
     g = normalize_answer(gold or "")
     local_symbols = {"e": sp.E, "E": sp.E}
+    sympify_any = cast(Any, sp.sympify)
     try:
-        pexpr = cast(Any, sp.sympify(p, locals=local_symbols))
-        gexpr = cast(Any, sp.sympify(g, locals=local_symbols))
+        pexpr = cast(Any, sympify_any(p, locals=local_symbols))
+        gexpr = cast(Any, sympify_any(g, locals=local_symbols))
     except Exception:
         return False
     try:

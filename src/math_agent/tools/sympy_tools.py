@@ -21,6 +21,7 @@ from sympy.parsing.sympy_parser import (  # type: ignore[import-untyped]
 
 _TRANSFORMS = standard_transformations + (implicit_multiplication_application,)
 _LOCAL_SYMBOLS = {"e": sympify("E"), "E": sympify("E")}
+_SYMPIFY_ANY = cast(Any, sympify)
 
 
 def _parse_math_expr(expr: str):
@@ -86,8 +87,8 @@ def choose(n: str | int, k: str | int) -> str:
 
 def check_equivalent(expr1: str, expr2: str) -> bool:
     try:
-        lhs = cast(Any, sympify(expr1, locals=_LOCAL_SYMBOLS))
-        rhs = cast(Any, sympify(expr2, locals=_LOCAL_SYMBOLS))
+        lhs = cast(Any, _SYMPIFY_ANY(expr1, locals=_LOCAL_SYMBOLS))
+        rhs = cast(Any, _SYMPIFY_ANY(expr2, locals=_LOCAL_SYMBOLS))
         return bool(simplify(lhs - rhs) == 0)
     except Exception:
         return False
@@ -95,8 +96,8 @@ def check_equivalent(expr1: str, expr2: str) -> bool:
 
 def numeric_compare(a: str, b: str, tol: float = 1e-6) -> bool:
     try:
-        av = float(cast(Any, sympify(a, locals=_LOCAL_SYMBOLS)).evalf())
-        bv = float(cast(Any, sympify(b, locals=_LOCAL_SYMBOLS)).evalf())
+        av = float(cast(Any, _SYMPIFY_ANY(a, locals=_LOCAL_SYMBOLS)).evalf())
+        bv = float(cast(Any, _SYMPIFY_ANY(b, locals=_LOCAL_SYMBOLS)).evalf())
         return abs(av - bv) <= tol
     except Exception:
         return False

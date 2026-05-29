@@ -21,6 +21,9 @@ class OfficialStyleCase:
     min_proof_score: float | None = None
 
 
+RawCase = tuple[str, str, str, str, float | None]
+
+
 DOMAIN_COUNTS = {
     "PDE": 7,
     "ComplexAnalysis": 7,
@@ -43,7 +46,7 @@ DOMAIN_COUNTS = {
 }
 
 # fmt: off
-RAW_CASES: dict[str, list[tuple[str, str, str, str, str, float | None]]] = {
+RAW_CASES: dict[str, list[RawCase]] = {
     "PDE": [
         ("Classify the PDE u_xx + u_yy = 0.", "elliptic", "classification", "short_answer", None),
         ("Classify the PDE u_t - 4 u_xx = 0.", "parabolic", "classification", "short_answer", None),
