@@ -198,7 +198,10 @@ def _explanation_quality_metrics(results: list[SolveResult]) -> dict[str, object
     hints = sum(int(bool(q["didactic_hint_nonempty"])) for q in qualities)
     template_risk = sum(int(bool(q["didactic_hint_template_risk"])) for q in qualities)
     key_idea = sum(int(bool(q["key_idea_present"])) for q in qualities)
-    total_steps = sum(int(q["visible_step_count"]) for q in qualities)
+    total_steps = sum(
+        q["visible_step_count"] if isinstance(q["visible_step_count"], int) else 0
+        for q in qualities
+    )
     return {
         "explanation_checked_count": checked,
         "visible_steps_nonempty_count": visible,
