@@ -11,7 +11,10 @@ from typing import Any
 from dotenv import load_dotenv
 
 from math_agent.clients.interns1_client import InternS1Client
-from math_agent.evaluation.failure_report import build_failure_rows, write_failure_report
+from math_agent.evaluation.failure_report import (
+    build_failure_rows,
+    write_failure_report,
+)
 from math_agent.evaluation.metrics import evaluate_results, render_markdown_report
 from math_agent.evaluation.proof_review import write_proof_review_pack
 from math_agent.pipeline import solve_question
@@ -218,8 +221,12 @@ def main() -> int:
         args.limit,
         include_proof=bool(args.include_proof),
     )
-    selected_questions = [row for row in questions if row.get("question_id") in selected_ids]
-    selected_answers = [row for row in answers if row.get("question_id") in selected_ids]
+    selected_questions = [
+        row for row in questions if row.get("question_id") in selected_ids
+    ]
+    selected_answers = [
+        row for row in answers if row.get("question_id") in selected_ids
+    ]
     sample_questions_path = out_dir / "sample_questions.jsonl"
     sample_answers_path = out_dir / "sample_answers.jsonl"
     results_path = out_dir / "results.jsonl"
@@ -287,7 +294,9 @@ def main() -> int:
         "per_domain": args.per_domain,
         "include_proof": bool(args.include_proof),
         "max_attempts": int(args.max_attempts),
-        "retry_attempt_count": sum(max(0, count - 1) for count in attempt_counts.values()),
+        "retry_attempt_count": sum(
+            max(0, count - 1) for count in attempt_counts.values()
+        ),
         "retried_question_ids": [
             qid for qid, count in attempt_counts.items() if count > 1
         ],

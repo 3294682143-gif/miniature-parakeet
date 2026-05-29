@@ -27,7 +27,9 @@ def agent_step_to_lagent_message(step: AgentStep) -> dict[str, Any]:
     )
 
 
-def tool_call_to_lagent_message(record: ToolCallRecord | dict[str, Any]) -> dict[str, Any]:
+def tool_call_to_lagent_message(
+    record: ToolCallRecord | dict[str, Any],
+) -> dict[str, Any]:
     payload = (
         record.model_dump()
         if isinstance(record, ToolCallRecord)
@@ -88,7 +90,10 @@ def trace_to_lagent_messages(trace: dict[str, Any]) -> list[dict[str, Any]]:
                 {
                     "role": "assistant",
                     "sender": str(call.get("stage", "model")),
-                    "content": f"model={call.get('model', 'unknown')} status={call.get('status', 'unknown')}",
+                    "content": (
+                        f"model={call.get('model', 'unknown')} "
+                        f"status={call.get('status', 'unknown')}"
+                    ),
                     "formatted": dict(call),
                 }
             )

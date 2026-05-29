@@ -43,6 +43,7 @@ def _remove_path(path: Path, dry_run: bool) -> bool:
     if dry_run:
         return True
     if path.is_dir() and not path.is_symlink():
+
         def _clear_readonly(func, target, exc_info):
             try:
                 os.chmod(target, stat.S_IWRITE)
@@ -116,7 +117,9 @@ def clean_transient_artifacts(
     print(f"dry_run={dry_run}")
 
     return CleanupStats(
-        cleaned_count=cleaned_count, skipped_count=skipped_count, dry_run=dry_run
+        cleaned_count=cleaned_count,
+        skipped_count=skipped_count,
+        dry_run=dry_run,
     )
 
 

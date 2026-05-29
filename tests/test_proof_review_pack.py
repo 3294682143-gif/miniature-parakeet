@@ -35,10 +35,16 @@ def test_proof_review_pack_exports_full_text_and_rubric(tmp_path: Path) -> None:
     traces = tmp_path / "traces"
     traces.mkdir()
     strong_steps = [
-        "Let n be arbitrary. Since n=2k, then n^2=4k^2; therefore n^2 is even. This proves the claim."
+        (
+            "Let n be arbitrary. Since n=2k, then n^2=4k^2; therefore n^2 "
+            "is even. This proves the claim."
+        )
     ]
     weak_steps = ["Clearly true."]
-    rows = [_proof_result("proof_ok", strong_steps), _proof_result("proof_weak", weak_steps)]
+    rows = [
+        _proof_result("proof_ok", strong_steps),
+        _proof_result("proof_weak", weak_steps),
+    ]
     results.write_text(
         "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n",
         encoding="utf-8",

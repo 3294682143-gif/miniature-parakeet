@@ -169,7 +169,11 @@ _KEY_IDEA_MARKERS = (
 
 
 def explanation_quality_for_result(result: SolveResult) -> dict[str, object]:
-    steps = [str(step).strip() for step in result.visible_solution_steps if str(step).strip()]
+    steps = [
+        str(step).strip()
+        for step in result.visible_solution_steps
+        if str(step).strip()
+    ]
     hint = (result.didactic_hint or "").strip()
     hint_norm = hint.lower()
     combined = " ".join([*steps, hint]).lower()
@@ -331,7 +335,8 @@ def _trace_budget_metrics(trace_dir: str | Path | None) -> dict[str, object]:
         if isinstance(tool_calls, list):
             total_tool_calls += len(tool_calls)
             successful_tool_call = any(
-                isinstance(call, dict) and str(call.get("status", "")).lower() == "success"
+                isinstance(call, dict)
+                and str(call.get("status", "")).lower() == "success"
                 for call in tool_calls
             )
         latency = trace.get("latency_seconds")
@@ -552,18 +557,28 @@ def _render_counter_table(title: str, values: dict[str, Any]) -> list[str]:
 
 
 def _render_match_table(title: str, grouped: dict[str, Any]) -> list[str]:
+    header = (
+        "| Group | Total | Short | Exact | Exact Rate | Normalized | "
+        "Normalized Rate | Numeric Rate | Symbolic Rate | Proof Valid | "
+        "Proof Rate | Avg Proof Score | Proof Complete | Eval Pass Rate |"
+    )
+    row_template = (
+        "| {group} | {total} | {short} | {exact} | {exact_rate} | {norm} | "
+        "{norm_rate} | {num_rate} | {sym_rate} | {proof} | {proof_rate} | "
+        "{proof_score} | {proof_complete} | {eval_rate} |"
+    )
     lines = [
         "",
         f"## {title}",
         "",
-        "| Group | Total | Short | Exact | Exact Rate | Normalized | Normalized Rate | Numeric Rate | Symbolic Rate | Proof Valid | Proof Rate | Avg Proof Score | Proof Complete | Eval Pass Rate |",
+        header,
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for group_name, group_metrics in grouped.items():
         if not isinstance(group_metrics, dict):
             continue
         lines.append(
-            "| {group} | {total} | {short} | {exact} | {exact_rate} | {norm} | {norm_rate} | {num_rate} | {sym_rate} | {proof} | {proof_rate} | {proof_score} | {proof_complete} | {eval_rate} |".format(
+            row_template.format(
                 group=group_name,
                 total=group_metrics.get("total", 0),
                 short=group_metrics.get("short_answer_count", 0),
@@ -665,6 +680,13 @@ def render_markdown_report(
                 lines.extend(_render_match_table(section_title, grouped))
 
     if metrics.get("trace_read_ok") is not None:
+        average_model_calls = _format_rate(
+            metrics.get("average_model_calls_per_trace", 0.0)
+        )
+        average_tool_calls = _format_rate(
+            metrics.get("average_tool_calls_per_trace", 0.0)
+        )
+        average_latency = _format_rate(metrics.get("average_latency_seconds", 0.0))
         lines.extend(
             [
                 "",
@@ -681,9 +703,9 @@ def render_markdown_report(
                 f"| model_solved_count | {metrics.get('model_solved_count', 0)} |",
                 f"| model_verified_count | {metrics.get('model_verified_count', 0)} |",
                 f"| tool_override_count | {metrics.get('tool_override_count', 0)} |",
-                f"| average_model_calls_per_trace | {_format_rate(metrics.get('average_model_calls_per_trace', 0.0))} |",
-                f"| average_tool_calls_per_trace | {_format_rate(metrics.get('average_tool_calls_per_trace', 0.0))} |",
-                f"| average_latency_seconds | {_format_rate(metrics.get('average_latency_seconds', 0.0))} |",
+                f"| average_model_calls_per_trace | {average_model_calls} |",
+                f"| average_tool_calls_per_trace | {average_tool_calls} |",
+                f"| average_latency_seconds | {average_latency} |",
             ]
         )
         stage_counts = metrics.get("model_calls_by_stage")

@@ -43,7 +43,7 @@ DOMAIN_COUNTS = {
     "NumericalAnalysis": 6,
 }
 
-
+# fmt: off
 RAW_CASES: dict[str, list[tuple[str, str, str, str, str, float | None]]] = {
     "PDE": [
         ("Classify the PDE u_xx + u_yy = 0.", "elliptic", "classification", "short_answer", None),
@@ -194,6 +194,7 @@ RAW_CASES: dict[str, list[tuple[str, str, str, str, str, float | None]]] = {
         ("Prove that bisection halves the interval length at each iteration.", "proved", "proof", "proof_quality", 0.68),
     ],
 }
+# fmt: on
 
 
 def build_cases() -> list[OfficialStyleCase]:
@@ -201,7 +202,9 @@ def build_cases() -> list[OfficialStyleCase]:
     for domain, target_count in DOMAIN_COUNTS.items():
         raw_cases = RAW_CASES[domain]
         if len(raw_cases) != target_count:
-            raise ValueError(f"{domain} expected {target_count} cases, got {len(raw_cases)}")
+            raise ValueError(
+                f"{domain} expected {target_count} cases, got {len(raw_cases)}"
+            )
         prefix = domain.lower().replace("analysis", "analysis").replace(" ", "_")
         for idx, (question, answer, problem_type, eval_mode, min_score) in enumerate(
             raw_cases, start=1
@@ -265,13 +268,15 @@ def write_cases(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Generate a 112-item official-style synthetic suite across 18 math domains."
+        description=(
+            "Generate a 112-item official-style synthetic suite across 18 math "
+            "domains."
+        )
     )
+    parser.add_argument("--questions", default="data/official_style_18domain_112.jsonl")
     parser.add_argument(
-        "--questions", default="data/official_style_18domain_112.jsonl"
-    )
-    parser.add_argument(
-        "--answers", default="data/official_style_18domain_112_answers.jsonl"
+        "--answers",
+        default="data/official_style_18domain_112_answers.jsonl",
     )
     return parser
 

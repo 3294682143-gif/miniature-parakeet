@@ -52,10 +52,15 @@ def run_command(index: int, total: int, command: Sequence[str]) -> None:
 
 def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run final pre-submit gates: pytest, official-style dry run, safety scan."
+        description=(
+            "Run final pre-submit gates: pytest, official-style dry run, safety scan."
+        )
     )
     parser.add_argument("--input", default="data/official_style_18domain_112.jsonl")
-    parser.add_argument("--out-dir", default="outputs/pre_submit_official_style_dry_run")
+    parser.add_argument(
+        "--out-dir",
+        default="outputs/pre_submit_official_style_dry_run",
+    )
     parser.add_argument("--dry-run-limit", type=int, default=18)
     return parser.parse_args(list(argv))
 

@@ -41,7 +41,11 @@ def test_select_question_ids_balances_by_domain() -> None:
         {"question_id": "b1", "domain": "B"},
         {"question_id": "b2", "domain": "B"},
     ]
-    selected = _select_question_ids(json.loads(json.dumps(rows)), per_domain=2, limit=None)
+    selected = _select_question_ids(
+        json.loads(json.dumps(rows)),
+        per_domain=2,
+        limit=None,
+    )
     assert selected == {"a1", "a2", "b1", "b2"}
 
 
