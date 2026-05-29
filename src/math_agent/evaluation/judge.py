@@ -14,9 +14,10 @@ def exact_match(pred: str, gold: str) -> bool:
 
 
 def normalized_match(pred: str, gold: str) -> bool:
-    return normalize_answer(pred or "").casefold() == normalize_answer(
-        gold or ""
-    ).casefold()
+    return (
+        normalize_answer(pred or "").casefold()
+        == normalize_answer(gold or "").casefold()
+    )
 
 
 def numeric_match(pred: str, gold: str, tol: float = 1e-9) -> bool:

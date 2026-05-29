@@ -5,7 +5,6 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-
 SOURCE_NOTE = (
     "Official-style Synthetic 18-domain regression item; not official benchmark data."
 )

@@ -8,11 +8,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from math_agent.evaluation.judge import exact_match as judge_exact_match
-from math_agent.evaluation.judge import (
-    normalized_match,
-    numeric_match,
-    symbolic_match,
-)
+from math_agent.evaluation.judge import normalized_match, numeric_match, symbolic_match
 from math_agent.harness.trace_reader import read_trace_dir
 from math_agent.proof import ProofRubricScore, score_proof_candidate
 from math_agent.schemas import SolveResult
@@ -170,9 +166,7 @@ _KEY_IDEA_MARKERS = (
 
 def explanation_quality_for_result(result: SolveResult) -> dict[str, object]:
     steps = [
-        str(step).strip()
-        for step in result.visible_solution_steps
-        if str(step).strip()
+        str(step).strip() for step in result.visible_solution_steps if str(step).strip()
     ]
     hint = (result.didactic_hint or "").strip()
     hint_norm = hint.lower()
