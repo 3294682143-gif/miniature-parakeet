@@ -96,6 +96,29 @@ def test_failure_replay_script_help_runs() -> None:
     assert "--trace-dir" in proc.stdout
 
 
+def test_failure_replay_can_exclude_normalization_only_rows(tmp_path: Path) -> None:
+    results = tmp_path / "results.jsonl"
+    answers = tmp_path / "answers.jsonl"
+    rows = [_result("symbolic_ok", "e^2")]
+    results.write_text(
+        "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n",
+        encoding="utf-8",
+    )
+    answers.write_text(
+        json.dumps(
+            {"question_id": "symbolic_ok", "answer": "exp(2)"},
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    all_rows = build_failure_rows(results, answers)
+    hard_rows = build_failure_rows(results, answers, include_format_only=False)
+    assert all_rows[0]["category"] == "normalization_gap_symbolic_match"
+    assert hard_rows == []
+
+
 def test_failure_replay_uses_proof_validity_mode(tmp_path: Path) -> None:
     results = tmp_path / "results.jsonl"
     answers = tmp_path / "answers.jsonl"

@@ -1,0 +1,112 @@
+{"question_id": "os18_pde_001", "question": "Classify the PDE u_xx + u_yy = 0."}
+{"question_id": "os18_pde_002", "question": "Classify the PDE u_t - 4 u_xx = 0."}
+{"question_id": "os18_pde_003", "question": "Classify the PDE u_tt - 9 u_xx = 0."}
+{"question_id": "os18_pde_004", "question": "For u_t = 3 u_xx, what is the diffusion coefficient?"}
+{"question_id": "os18_pde_005", "question": "For the heat equation u_t = k u_xx with k>0, name the equation type."}
+{"question_id": "os18_pde_006", "question": "For Laplace equation Delta u = 0, what is the standard name for such a function u?"}
+{"question_id": "os18_pde_007", "question": "Prove that the sum of two solutions of a linear homogeneous PDE is again a solution."}
+{"question_id": "os18_complexanalysis_001", "question": "Compute the residue of 1/(z-2) at z=2."}
+{"question_id": "os18_complexanalysis_002", "question": "Compute the residue of z/(z-1) at z=1."}
+{"question_id": "os18_complexanalysis_003", "question": "How many isolated singularities does 1/((z-1)(z-2)) have?"}
+{"question_id": "os18_complexanalysis_004", "question": "Evaluate the contour integral of 1/z around the unit circle counterclockwise."}
+{"question_id": "os18_complexanalysis_005", "question": "If f is entire and bounded, what theorem implies f is constant?"}
+{"question_id": "os18_complexanalysis_006", "question": "For f(z)=z^3, compute f'(z)."}
+{"question_id": "os18_complexanalysis_007", "question": "Prove that if f and g are analytic, then f+g is analytic."}
+{"question_id": "os18_topology_001", "question": "In a metric space, is every open ball open? Answer yes or no."}
+{"question_id": "os18_topology_002", "question": "Is every finite subset of R compact? Answer yes or no."}
+{"question_id": "os18_topology_003", "question": "Is the interval (0,1) compact in R with the usual topology? Answer yes or no."}
+{"question_id": "os18_topology_004", "question": "Name the property: every open cover has a finite subcover."}
+{"question_id": "os18_topology_005", "question": "Is a continuous image of a compact space compact? Answer yes or no."}
+{"question_id": "os18_topology_006", "question": "In R, is the set [0,1] connected? Answer yes or no."}
+{"question_id": "os18_topology_007", "question": "Prove that the intersection of two open sets is open."}
+{"question_id": "os18_operationsresearch_001", "question": "Maximize 3x+2y subject to x+y<=4, x>=0, y>=0. What is the optimal value?"}
+{"question_id": "os18_operationsresearch_002", "question": "Minimize x+y subject to x>=2 and y>=3. What is the optimal value?"}
+{"question_id": "os18_operationsresearch_003", "question": "In a shortest path problem with nonnegative edge weights, which classic algorithm is used?"}
+{"question_id": "os18_operationsresearch_004", "question": "For EOQ with demand D, order cost S, holding cost H, give the optimal order quantity."}
+{"question_id": "os18_operationsresearch_005", "question": "If a queue has arrival rate lambda=2 and service rate mu=5, what is rho?"}
+{"question_id": "os18_operationsresearch_006", "question": "In a max-flow network, what theorem equates max flow with a cut capacity?"}
+{"question_id": "os18_operationsresearch_007", "question": "Prove briefly that a linear program over a nonempty bounded polytope has an optimal solution at an extreme point."}
+{"question_id": "os18_algebra_001", "question": "Solve: x**2 - 5*x + 6 = 0. Give sorted roots."}
+{"question_id": "os18_algebra_002", "question": "Compute the order of the cyclic group Z_12."}
+{"question_id": "os18_algebra_003", "question": "In a field, what is the multiplicative identity called?"}
+{"question_id": "os18_algebra_004", "question": "Factor x**2 - 9 over the integers."}
+{"question_id": "os18_algebra_005", "question": "Solve: 3*x + 4 = 19."}
+{"question_id": "os18_algebra_006", "question": "Prove that the identity element in a group is unique."}
+{"question_id": "os18_linearalgebra_001", "question": "Compute the determinant of [[1,2],[3,4]]."}
+{"question_id": "os18_linearalgebra_002", "question": "What is the trace of [[2,1],[0,5]]?"}
+{"question_id": "os18_linearalgebra_003", "question": "What is the rank of the 2x2 identity matrix?"}
+{"question_id": "os18_linearalgebra_004", "question": "Find the eigenvalues of diag(2,5). Give sorted values."}
+{"question_id": "os18_linearalgebra_005", "question": "If A is invertible, what is rank(A) for a 3x3 matrix?"}
+{"question_id": "os18_linearalgebra_006", "question": "Prove that the columns of an invertible matrix are linearly independent."}
+{"question_id": "os18_calculus_001", "question": "Compute the derivative of f(x)=x**3."}
+{"question_id": "os18_calculus_002", "question": "Evaluate the limit as x approaches 2 of x**2 + 1."}
+{"question_id": "os18_calculus_003", "question": "Compute the definite integral of 2*x from x=0 to x=3."}
+{"question_id": "os18_calculus_004", "question": "Find the critical point of f(x)=x**2-4*x."}
+{"question_id": "os18_calculus_005", "question": "Compute d/dx sin(x)."}
+{"question_id": "os18_calculus_006", "question": "Prove that if f'(x)=0 on an interval, then f is constant on that interval."}
+{"question_id": "os18_realanalysis_001", "question": "Does the sequence 1/n converge? Answer yes or no."}
+{"question_id": "os18_realanalysis_002", "question": "What is the limit of 1/n as n tends to infinity?"}
+{"question_id": "os18_realanalysis_003", "question": "Is every convergent real sequence bounded? Answer yes or no."}
+{"question_id": "os18_realanalysis_004", "question": "State the least upper bound property in one word."}
+{"question_id": "os18_realanalysis_005", "question": "Is the union of two open intervals open in R? Answer yes or no."}
+{"question_id": "os18_realanalysis_006", "question": "Prove that a monotone increasing sequence bounded above converges."}
+{"question_id": "os18_probability_001", "question": "A fair coin is tossed 3 times. Probability of exactly 2 heads?"}
+{"question_id": "os18_probability_002", "question": "A fair die is rolled. Probability of an even number?"}
+{"question_id": "os18_probability_003", "question": "If X is Bernoulli(p), what is E[X]?"}
+{"question_id": "os18_probability_004", "question": "If X and Y are independent, what is P(A and B) in terms of P(A),P(B)?"}
+{"question_id": "os18_probability_005", "question": "For Binomial(n,p), what is the mean?"}
+{"question_id": "os18_probability_006", "question": "Prove that probabilities of complementary events sum to 1."}
+{"question_id": "os18_statistics_001", "question": "Compute the mean of 2, 4, 6, 8."}
+{"question_id": "os18_statistics_002", "question": "What is the sample size of the data set 1,1,2,3,5?"}
+{"question_id": "os18_statistics_003", "question": "For data 1,2,3, what is the median?"}
+{"question_id": "os18_statistics_004", "question": "If Var(X)=4, what is the standard deviation?"}
+{"question_id": "os18_statistics_005", "question": "For a normal distribution, what parameter denotes the mean?"}
+{"question_id": "os18_statistics_006", "question": "Prove that adding a constant c to all observations adds c to the mean."}
+{"question_id": "os18_geometry_001", "question": "A rectangle has length 8 and width 5. Compute its area."}
+{"question_id": "os18_geometry_002", "question": "A right triangle has legs 3 and 4. Compute the hypotenuse."}
+{"question_id": "os18_geometry_003", "question": "Find the squared distance between (1,2) and (4,6)."}
+{"question_id": "os18_geometry_004", "question": "A circle has radius 3. Compute its area in terms of pi."}
+{"question_id": "os18_geometry_005", "question": "A triangle has base 10 and height 6. Compute its area."}
+{"question_id": "os18_geometry_006", "question": "Prove that base angles of an isosceles triangle are equal."}
+{"question_id": "os18_numbertheory_001", "question": "Compute gcd(48,18)."}
+{"question_id": "os18_numbertheory_002", "question": "Compute lcm(6,8)."}
+{"question_id": "os18_numbertheory_003", "question": "Find the least nonnegative residue of 7^5 modulo 19."}
+{"question_id": "os18_numbertheory_004", "question": "Compute Euler phi of 12."}
+{"question_id": "os18_numbertheory_005", "question": "How many positive divisors does 36 have?"}
+{"question_id": "os18_numbertheory_006", "question": "Prove that if n is even, then n^2 is even."}
+{"question_id": "os18_combinatorics_001", "question": "Compute 8 choose 2."}
+{"question_id": "os18_combinatorics_002", "question": "How many permutations of 3 distinct objects are there?"}
+{"question_id": "os18_combinatorics_003", "question": "How many subsets does a 4-element set have?"}
+{"question_id": "os18_combinatorics_004", "question": "How many ways to arrange A,B,C in a row?"}
+{"question_id": "os18_combinatorics_005", "question": "What is C(5,0)?"}
+{"question_id": "os18_combinatorics_006", "question": "Prove Pascal's identity C(n,k)=C(n-1,k)+C(n-1,k-1)."}
+{"question_id": "os18_optimization_001", "question": "Minimize f(x)=(x-3)^2. What is the minimizer?"}
+{"question_id": "os18_optimization_002", "question": "Maximize -x^2+4*x. What is the maximum value?"}
+{"question_id": "os18_optimization_003", "question": "For f(x)=x^2, is x=0 a local minimum? Answer yes or no."}
+{"question_id": "os18_optimization_004", "question": "With constraint x+y=10, maximize xy over nonnegative x,y. What is the maximum?"}
+{"question_id": "os18_optimization_005", "question": "Name the first-order condition for an unconstrained differentiable optimum."}
+{"question_id": "os18_optimization_006", "question": "Prove that a convex function has no strict non-global local minimum."}
+{"question_id": "os18_differentialequations_001", "question": "Solve y'=2y with y(0)=1. Give y(1)."}
+{"question_id": "os18_differentialequations_002", "question": "Solve y'=3 with y(0)=2. Give y(4)."}
+{"question_id": "os18_differentialequations_003", "question": "For y''+y=0, name one fundamental solution."}
+{"question_id": "os18_differentialequations_004", "question": "For y'=ky, what is the general solution form?"}
+{"question_id": "os18_differentialequations_005", "question": "Is y=0 a solution to y'=y? Answer yes or no."}
+{"question_id": "os18_differentialequations_006", "question": "Prove that a linear combination of two homogeneous linear ODE solutions is a solution."}
+{"question_id": "os18_discretemath_001", "question": "In a graph with 5 vertices and degrees 2,2,2,2,2, how many edges?"}
+{"question_id": "os18_discretemath_002", "question": "How many edges are in a tree with 10 vertices?"}
+{"question_id": "os18_discretemath_003", "question": "Is every tree connected? Answer yes or no."}
+{"question_id": "os18_discretemath_004", "question": "How many truth assignments are there for 3 Boolean variables?"}
+{"question_id": "os18_discretemath_005", "question": "What is the complement of true in Boolean logic?"}
+{"question_id": "os18_discretemath_006", "question": "Prove that the sum of degrees in a finite graph is twice the number of edges."}
+{"question_id": "os18_functionalequations_001", "question": "If f(x)=2*x+1, compute f(4)."}
+{"question_id": "os18_functionalequations_002", "question": "If f(x)=x+2 and g(x)=3*x, compute f(g(2))."}
+{"question_id": "os18_functionalequations_003", "question": "If f(x+y)=f(x)+f(y) and f(1)=3 for integer inputs, compute f(4)."}
+{"question_id": "os18_functionalequations_004", "question": "If f(f(x))=x and f(2)=5, what is f(5)?"}
+{"question_id": "os18_functionalequations_005", "question": "If f(x)=x^2, solve f(x)=9 over nonnegative x."}
+{"question_id": "os18_functionalequations_006", "question": "Prove that the composition of two injective functions is injective."}
+{"question_id": "os18_numericalanalysis_001", "question": "Using Newton's method for f(x)=x^2-2, what is f'(x)?"}
+{"question_id": "os18_numericalanalysis_002", "question": "With step h=0.1, forward Euler uses how many steps from t=0 to t=1?"}
+{"question_id": "os18_numericalanalysis_003", "question": "For trapezoidal rule on [0,1] with one panel, what weight multiplies f(0)+f(1)?"}
+{"question_id": "os18_numericalanalysis_004", "question": "What is the bisection interval midpoint of [2,6]?"}
+{"question_id": "os18_numericalanalysis_005", "question": "If an iterative method has error e_{n+1}=0.5e_n, what is the contraction factor?"}
+{"question_id": "os18_numericalanalysis_006", "question": "Prove that bisection halves the interval length at each iteration."}

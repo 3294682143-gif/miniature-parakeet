@@ -7,7 +7,7 @@ from typing import Any
 from math_agent.agents.proof_guardian import check_proof_structure, detect_proof_problem
 from math_agent.prompting import get_prompt, load_prompts, render_prompt
 from math_agent.schemas import Verification
-from math_agent.tools.answer_normalizer import normalize_answer
+from math_agent.tools.answer_normalizer import extract_boxed_answers, normalize_answer
 from math_agent.tools.sympy_tools import check_equivalent, numeric_compare
 
 
@@ -37,12 +37,28 @@ class Verifier:
                 passed=True,
                 notes="Symbolic equivalence passed.",
             )
-        if nd and nf and nf in nd:
+        if nd and nf and nf.casefold() in nd.casefold():
             return Verification(
                 method="substitution",
                 passed=True,
                 notes="Final answer appears in derivation.",
             )
+        final_parts = _list_parts(nf)
+        if final_parts:
+            draft_boxes = [
+                normalize_answer(value)
+                for value in extract_boxed_answers(draft_solution)
+            ]
+            draft_text = nd.casefold()
+            if all(
+                part in draft_boxes or part.casefold() in draft_text
+                for part in final_parts
+            ):
+                return Verification(
+                    method="substitution",
+                    passed=True,
+                    notes="All final answer components appear in derivation.",
+                )
         return None
 
     def verify(
@@ -96,3 +112,14 @@ class Verifier:
 def run(question: str) -> str:
     _ = question
     return "pass"
+
+
+def _list_parts(value: str) -> list[str]:
+    text = (value or "").strip()
+    if not text.startswith("[") or not text.endswith("]"):
+        return []
+    return [
+        normalize_answer(part)
+        for part in text.strip("[]").split(",")
+        if normalize_answer(part)
+    ]

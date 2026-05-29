@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
+import stat
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -21,6 +23,10 @@ TRANSIENT_OUTPUT_DIRS: tuple[str, ...] = (
     "outputs/proof_guardian_demo_test",
     "outputs/official_dry_run",
     "outputs/official_dry_run_test",
+    "outputs/pre_submit_official_style_dry_run",
+    "outputs/real_api_sample_gate",
+    "outputs/benchmark_suite",
+    "outputs/proof_manual_review_pack",
 )
 
 
@@ -37,8 +43,20 @@ def _remove_path(path: Path, dry_run: bool) -> bool:
     if dry_run:
         return True
     if path.is_dir() and not path.is_symlink():
-        shutil.rmtree(path)
+
+        def _clear_readonly(func, target, exc_info):
+            try:
+                os.chmod(target, stat.S_IWRITE)
+                func(target)
+            except Exception:
+                raise exc_info[1]
+
+        shutil.rmtree(path, onerror=_clear_readonly)
     else:
+        try:
+            os.chmod(path, stat.S_IWRITE)
+        except OSError:
+            pass
         path.unlink(missing_ok=True)
     return True
 
@@ -99,7 +117,9 @@ def clean_transient_artifacts(
     print(f"dry_run={dry_run}")
 
     return CleanupStats(
-        cleaned_count=cleaned_count, skipped_count=skipped_count, dry_run=dry_run
+        cleaned_count=cleaned_count,
+        skipped_count=skipped_count,
+        dry_run=dry_run,
     )
 
 

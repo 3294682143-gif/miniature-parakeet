@@ -216,3 +216,14 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Math-agent generated artifacts
+outputs/**
+!outputs/
+!outputs/.gitkeep
+!outputs/traces/
+!outputs/traces/.gitkeep
+trace/
+run_records/
+official_results.jsonl
+submission.zip

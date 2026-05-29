@@ -106,7 +106,11 @@ def build_failure_rows(
         category = classify_failure(result, gold, evaluation_mode, answer_row)
         if category == "pass":
             continue
-        if category == "format_only_exact_mismatch" and not include_format_only:
+        if not include_format_only and category in {
+            "format_only_exact_mismatch",
+            "normalization_gap_numeric_match",
+            "normalization_gap_symbolic_match",
+        }:
             continue
 
         trace_summary: dict[str, Any] = {}

@@ -1,6 +1,7 @@
 from math_agent.tools.answer_normalizer import (
     extract_answer_by_patterns,
     extract_boxed_answer,
+    extract_boxed_answers,
     normalize_answer,
     normalize_latex,
     normalize_number,
@@ -48,3 +49,14 @@ def test_normalize_latex_and_implicit_multiplication() -> None:
     assert normalize_answer(r"\dfrac{3}{8}") == "3/8"
     assert normalize_answer(r"2\sqrt{21}") == "2*sqrt(21)"
     assert normalize_answer("cos(x)") == "cos(x)"
+
+
+def test_extract_boxed_answers_preserves_all_matches() -> None:
+    assert extract_boxed_answers(r"Final Answer: \boxed{2} and \boxed{3}") == [
+        "2",
+        "3",
+    ]
+
+
+def test_normalize_text_wrapper() -> None:
+    assert normalize_answer(r"\text{Elliptic}") == "Elliptic"

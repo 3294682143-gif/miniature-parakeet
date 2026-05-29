@@ -43,6 +43,18 @@ def test_proof_intent_overrides_domain_specific_keywords() -> None:
     assert result.needs_tool is False
 
 
+def test_operations_research_linear_program_routes_to_proof_solver() -> None:
+    router = Router(mode="rule_based")
+    result = router.route(
+        "Prove briefly that a linear program over a nonempty bounded polytope "
+        "has an optimal solution at an extreme point."
+    )
+    assert result.domain == "OperationsResearch"
+    assert result.problem_type == "proof"
+    assert result.recommended_solver == "proof"
+    assert result.needs_tool is False
+
+
 def test_optimization_routes_to_optimization_solver() -> None:
     router = Router(mode="rule_based")
     result = router.route("在约束条件下最小化该函数")

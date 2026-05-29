@@ -41,6 +41,7 @@ from .tools import sympy_tools
 from .tools.answer_normalizer import (
     extract_answer_by_patterns,
     extract_boxed_answer,
+    extract_boxed_answers,
     normalize_answer,
 )
 from .typing import ChatClient
@@ -318,6 +319,12 @@ def _answer_type_and_boxed(
 def _extract_final_answer_non_proof(
     draft: str, current: str, tv: str | None = None
 ) -> str:
+    for candidate in [
+        _extract_multiple_boxed_answer(current),
+        _extract_multiple_boxed_answer(draft),
+    ]:
+        if candidate:
+            return candidate
     for candidate in [extract_boxed_answer(current), extract_boxed_answer(draft)]:
         if candidate:
             return candidate
@@ -343,13 +350,39 @@ def _extract_final_answer_non_proof(
             )
             and bool(
                 re.search(
-                    r"(\d|=|\+|-|\*|/|\[|\]|\(|\)|\bpi\b|\bx\b|\bsin\b|\bcos\b|\btan\b|\blog\b)",
+                    (
+                        r"(\d|=|\+|-|\*|/|\[|\]|\(|\)|\bpi\b|\bx\b|\bsin\b|"
+                        r"\bcos\b|\btan\b|\blog\b)"
+                    ),
                     lower,
                 )
             )
         ):
             return normalized
     return ""
+
+
+def _extract_multiple_boxed_answer(text: str) -> str | None:
+    if not text:
+        return None
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    scopes: list[str] = []
+    for line in reversed(lines):
+        if re.search(r"(final\s*answer|answer\s*:|final_answer|答案|最终)", line, re.I):
+            scopes.append(line)
+            break
+    if not scopes and len(lines) == 1:
+        scopes.append(lines[0])
+    for scope in scopes:
+        boxes = [
+            normalize_answer(value)
+            for value in extract_boxed_answers(scope)
+            if _is_short_clean_answer(value)
+        ]
+        boxes = [value for value in boxes if value]
+        if len(boxes) >= 2:
+            return "[" + ",".join(boxes) + "]"
+    return None
 
 
 def _looks_like_long_markdown(text: str) -> bool:
@@ -485,7 +518,10 @@ def _run_tool_assist(
                 )
 
         integral_match = re.search(
-            r"definite integral of (.+?) from ([a-zA-Z])\s*=\s*([^\s]+)\s+to\s+\2\s*=\s*([^\s.]+)",
+            (
+                r"definite integral of (.+?) from ([a-zA-Z])\s*=\s*([^\s]+)"
+                r"\s+to\s+\2\s*=\s*([^\s.]+)"
+            ),
             short_q,
             flags=re.I,
         )
@@ -576,7 +612,10 @@ def _run_tool_assist(
             )
 
         modpow_match = re.search(
-            r"(?:least nonnegative residue|remainder)\s+of\s+(\d+)\s*\^\s*(\d+)\s+(?:modulo|mod)\s+(\d+)",
+            (
+                r"(?:least nonnegative residue|remainder)\s+of\s+(\d+)\s*\^\s*"
+                r"(\d+)\s+(?:modulo|mod)\s+(\d+)"
+            ),
             short_q,
             flags=re.I,
         )
@@ -612,7 +651,10 @@ def _run_tool_assist(
             )
 
         inverse_match = re.search(
-            r"(?:least positive inverse|multiplicative inverse)\s+of\s+(\d+)\s+(?:modulo|mod)\s+(\d+)",
+            (
+                r"(?:least positive inverse|multiplicative inverse)\s+of\s+(\d+)"
+                r"\s+(?:modulo|mod)\s+(\d+)"
+            ),
             short_q,
             flags=re.I,
         )
@@ -626,7 +668,11 @@ def _run_tool_assist(
             )
 
         ascii_crt_match = re.search(
-            r"x\s*(?:=|is\s+congruent\s+to)\s*(-?\d+)\s*(?:mod|modulo)\s*(\d+).*x\s*(?:=|is\s+congruent\s+to)\s*(-?\d+)\s*(?:mod|modulo)\s*(\d+)",
+            (
+                r"x\s*(?:=|is\s+congruent\s+to)\s*(-?\d+)\s*(?:mod|modulo)"
+                r"\s*(\d+).*x\s*(?:=|is\s+congruent\s+to)\s*(-?\d+)"
+                r"\s*(?:mod|modulo)\s*(\d+)"
+            ),
             short_q,
             flags=re.I,
         )
@@ -642,7 +688,10 @@ def _run_tool_assist(
                 )
 
         crt_match = re.search(
-            r"x\s*(?:≡|=)\s*(-?\d+)\s*(?:mod|modulo)\s*(\d+).*x\s*(?:≡|=)\s*(-?\d+)\s*(?:mod|modulo)\s*(\d+)",
+            (
+                r"x\s*(?:\u2261|=)\s*(-?\d+)\s*(?:mod|modulo)\s*(\d+).*"
+                r"x\s*(?:\u2261|=)\s*(-?\d+)\s*(?:mod|modulo)\s*(\d+)"
+            ),
             short_q,
             flags=re.I,
         )
@@ -658,7 +707,10 @@ def _run_tool_assist(
                 )
 
         slope_match = re.search(
-            r"through\s*\((-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\)\s*and\s*\((-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\)",
+            (
+                r"through\s*\((-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\)"
+                r"\s*and\s*\((-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\)"
+            ),
             short_q,
             flags=re.I,
         )
@@ -671,7 +723,10 @@ def _run_tool_assist(
                 )
 
         distance_sq_match = re.search(
-            r"squared distance between\s*\((-?\d+),\s*(-?\d+)\)\s*and\s*\((-?\d+),\s*(-?\d+)\)",
+            (
+                r"squared distance between\s*\((-?\d+),\s*(-?\d+)\)\s*and"
+                r"\s*\((-?\d+),\s*(-?\d+)\)"
+            ),
             short_q,
             flags=re.I,
         )
@@ -865,7 +920,10 @@ def _run_tool_assist(
                 )
 
         arithmetic_sequence_match = re.search(
-            r"arithmetic sequence has a_1\s*=\s*(-?\d+).*common difference\s+(-?\d+).*a_(\d+)",
+            (
+                r"arithmetic sequence has a_1\s*=\s*(-?\d+).*common "
+                r"difference\s+(-?\d+).*a_(\d+)"
+            ),
             short_q,
             flags=re.I,
         )
@@ -909,7 +967,10 @@ def _run_tool_assist(
                 )
 
         composition_match = re.search(
-            r"if f\(x\)\s*=\s*(.+?)\s+and g\(x\)\s*=\s*(.+?),\s*compute f\(g\((-?\d+)\)\)",
+            (
+                r"if f\(x\)\s*=\s*(.+?)\s+and g\(x\)\s*=\s*(.+?),"
+                r"\s*compute f\(g\((-?\d+)\)\)"
+            ),
             short_q,
             flags=re.I,
         )
@@ -1106,7 +1167,9 @@ class MathAgentPipeline:
                 "hard_mode_enabled": self.hard_mode_policy.enabled,
                 "hard_mode_level": self.hard_mode_policy.level,
                 "hard_mode_effect": runtime_config.effect,
-                "hard_mode_candidate_budget_preview": runtime_config.effective_candidate_budget,
+                "hard_mode_candidate_budget_preview": (
+                    runtime_config.effective_candidate_budget
+                ),
                 "hard_mode_verifier_level_preview": runtime_config.verifier_level,
             }
             if runtime_config.enabled:
@@ -1374,7 +1437,10 @@ class MathAgentPipeline:
                     update={
                         "verification": repaired.verification.model_copy(
                             update={
-                                "notes": f"{repaired.verification.notes} | formatter_risk_flags={risk_flags}"
+                                "notes": (
+                                    f"{repaired.verification.notes} | "
+                                    f"formatter_risk_flags={risk_flags}"
+                                )
                             }
                         )
                     }
