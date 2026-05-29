@@ -14,7 +14,9 @@ def exact_match(pred: str, gold: str) -> bool:
 
 
 def normalized_match(pred: str, gold: str) -> bool:
-    return normalize_answer(pred or "") == normalize_answer(gold or "")
+    return normalize_answer(pred or "").casefold() == normalize_answer(
+        gold or ""
+    ).casefold()
 
 
 def numeric_match(pred: str, gold: str, tol: float = 1e-9) -> bool:
@@ -41,9 +43,10 @@ def numeric_match(pred: str, gold: str, tol: float = 1e-9) -> bool:
 def symbolic_match(pred: str, gold: str) -> bool:
     p = normalize_answer(pred or "")
     g = normalize_answer(gold or "")
+    local_symbols = {"e": sp.E, "E": sp.E}
     try:
-        pexpr = cast(Any, sp.sympify(p))
-        gexpr = cast(Any, sp.sympify(g))
+        pexpr = cast(Any, sp.sympify(p, locals=local_symbols))
+        gexpr = cast(Any, sp.sympify(g, locals=local_symbols))
     except Exception:
         return False
     try:

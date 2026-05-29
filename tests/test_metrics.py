@@ -174,10 +174,51 @@ def test_trace_budget_metrics_and_markdown_tables(tmp_path):
     metrics = evaluate_results(rp, ap, trace_dir)
     assert metrics["total_model_calls"] == 2
     assert metrics["total_tool_calls"] == 1
+    assert metrics["model_solved_count"] == 1
+    assert metrics["model_verified_count"] == 1
+    assert metrics["tool_solved_count"] == 0
+    assert metrics["tool_override_count"] == 0
     assert metrics["average_latency_seconds"] == 1.25
     report = render_markdown_report(metrics, str(rp), str(ap))
     assert "| Group | Total | Short | Exact |" in report
     assert "## Budget / Trace Metrics" in report
+    assert "tool_solved_count" in report
+
+
+def test_explanation_quality_metrics(tmp_path):
+    rp = tmp_path / "results.jsonl"
+    rows = [
+        _result(
+            "q1",
+            "success",
+            "Calculus",
+            "derivative",
+            "3*x**2",
+            visible_steps=["Use the power rule, therefore d/dx x^3 = 3*x^2."],
+        ),
+        _result(
+            "q2",
+            "success",
+            "Algebra",
+            "equation",
+            "5",
+            visible_steps=[],
+        ),
+    ]
+    rows[0]["didactic_hint"] = "The key idea is the derivative power rule."
+    rows[1]["didactic_hint"] = "h"
+    rp.write_text(
+        "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n",
+        encoding="utf-8",
+    )
+    metrics = evaluate_results(rp)
+    assert metrics["explanation_checked_count"] == 2
+    assert metrics["visible_steps_nonempty_count"] == 1
+    assert metrics["didactic_hint_nonempty_count"] == 2
+    assert metrics["didactic_hint_template_risk_count"] == 1
+    assert metrics["key_idea_coverage_count"] >= 1
+    report = render_markdown_report(metrics, str(rp))
+    assert "## Explanation Quality" in report
 
 
 def test_proof_validity_evaluation_mode_is_not_string_matched(tmp_path):

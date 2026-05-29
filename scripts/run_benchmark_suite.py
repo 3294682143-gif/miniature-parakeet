@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from math_agent.control.hard_mode import build_hard_mode_policy
 from math_agent.evaluation.failure_report import write_failure_report
 from math_agent.evaluation.metrics import evaluate_results, render_markdown_report
+from math_agent.evaluation.proof_review import write_proof_review_pack
 from math_agent.pipeline import solve_question
 from math_agent.schemas import MathQuestion
 
@@ -91,6 +92,7 @@ def _run_label(
     results_path = label_dir / "results.jsonl"
     report_path = label_dir / "evaluation_report.md"
     failure_report_path = label_dir / "failure_replay_report.md"
+    proof_review_path = label_dir / "proof_manual_review_pack.md"
     stats_path = label_dir / "run_stats.json"
 
     hard_policy = (
@@ -160,7 +162,18 @@ def _run_label(
     metrics = _write_eval_artifacts(
         results_path, answers_path, trace_dir, report_path, failure_report_path
     )
+    proof_review_rows = write_proof_review_pack(
+        results_path=results_path,
+        answers_path=answers_path,
+        trace_dir=trace_dir,
+        out_path=proof_review_path,
+    )
     stats["metrics"] = metrics
+    stats["proof_review_count"] = len(proof_review_rows)
+    stats["proof_manual_review_recommended_count"] = sum(
+        1 for row in proof_review_rows if row.get("manual_review_recommended")
+    )
+    stats["proof_manual_review_pack"] = str(proof_review_path)
     stats_path.write_text(
         json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8"
     )

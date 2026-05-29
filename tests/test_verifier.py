@@ -31,6 +31,17 @@ def test_symbolic_check() -> None:
     assert result.passed is True
 
 
+def test_list_answer_components_can_verify_from_boxed_derivation() -> None:
+    verifier = Verifier(client=DummyClient(), mock=False)
+    result = verifier.verify(
+        "Solve x**2 - 5*x + 6 = 0.",
+        r"Final Answer: \boxed{2} and \boxed{3}",
+        "[2,3]",
+    )
+    assert result.method == "substitution"
+    assert result.passed is True
+
+
 def test_fallback_no_crash() -> None:
     verifier = Verifier(client=DummyClient("not json"), mock=False)
     result = verifier.verify("q", "nonsense", "other")

@@ -1,5 +1,6 @@
 from math_agent.pipeline import (
     MathAgentPipeline,
+    _extract_final_answer_non_proof,
     _extract_proof_conclusion,
     extract_boxed_answer,
 )
@@ -117,6 +118,11 @@ def test_non_proof_prefers_boxed_and_not_long_markdown(monkeypatch):
     assert len(out.final_answer.boxed) <= 120
     assert "###" not in out.final_answer.boxed
     assert out.status in {"success", "partial"}
+
+
+def test_non_proof_extracts_multiple_final_boxed_values():
+    draft = r"Work... Final Answer: \boxed{2} and \boxed{3}"
+    assert _extract_final_answer_non_proof(draft, draft) == "[2,3]"
 
 
 def test_proof_conclusion_empty_shell_falls_back():

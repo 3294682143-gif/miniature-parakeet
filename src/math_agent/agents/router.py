@@ -37,6 +37,18 @@ class Router:
             "留数",
         ],
         "Topology": ["topology", "compact", "homeomorphism", "同胚", "鎷撴墤"],
+        "OperationsResearch": [
+            "linear program",
+            "linear programming",
+            "bounded polytope",
+            "extreme point",
+            "shortest path",
+            "dijkstra",
+            "eoq",
+            "queue",
+            "max-flow",
+            "min-cut",
+        ],
         "Optimization": [
             "linear programming",
             "线性规划",

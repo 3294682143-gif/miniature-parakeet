@@ -43,9 +43,9 @@ def _extract_braced_content(text: str, open_idx: int) -> tuple[str, int] | None:
     return None
 
 
-def extract_boxed_answer(text: str) -> str | None:
+def extract_boxed_answers(text: str) -> list[str]:
     if not text:
-        return None
+        return []
     needle = r"\boxed"
     start = 0
     matches: list[str] = []
@@ -66,6 +66,11 @@ def extract_boxed_answer(text: str) -> str | None:
                 start = end_pos + 1
                 continue
         start = pos + len(needle)
+    return matches
+
+
+def extract_boxed_answer(text: str) -> str | None:
+    matches = extract_boxed_answers(text)
     if matches:
         return matches[-1]
     return None
@@ -146,6 +151,7 @@ def normalize_latex(text: str) -> str:
     value = text.strip()
     value = value.strip("$")
     value = value.replace("\\left", "").replace("\\right", "")
+    value = re.sub(r"\\(?:text|mathrm)\s*\{([^{}]+)\}", r"\1", value)
     value = _replace_latex_fractions(value)
     value = re.sub(r"\\sqrt\s*\{([^{}]+)\}", r"sqrt(\1)", value)
     value = re.sub(r"sqrt\s*\{([^{}]+)\}", r"sqrt(\1)", value)
@@ -157,7 +163,7 @@ def normalize_latex(text: str) -> str:
 
 
 def normalize_number(text: str) -> str:
-    value = text.strip().replace(",", "")
+    value = re.sub(r"(?<=\d),(?=\d{3}\b)", "", text.strip())
     value = re.sub(
         r"(?<![\d.])([-+]?\d+)\.0+(?=($|[+\-*/\)]))",
         lambda m: m.group(1),

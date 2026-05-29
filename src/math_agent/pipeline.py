@@ -41,6 +41,7 @@ from .tools import sympy_tools
 from .tools.answer_normalizer import (
     extract_answer_by_patterns,
     extract_boxed_answer,
+    extract_boxed_answers,
     normalize_answer,
 )
 from .typing import ChatClient
@@ -318,6 +319,9 @@ def _answer_type_and_boxed(
 def _extract_final_answer_non_proof(
     draft: str, current: str, tv: str | None = None
 ) -> str:
+    for candidate in [_extract_multiple_boxed_answer(current), _extract_multiple_boxed_answer(draft)]:
+        if candidate:
+            return candidate
     for candidate in [extract_boxed_answer(current), extract_boxed_answer(draft)]:
         if candidate:
             return candidate
@@ -350,6 +354,29 @@ def _extract_final_answer_non_proof(
         ):
             return normalized
     return ""
+
+
+def _extract_multiple_boxed_answer(text: str) -> str | None:
+    if not text:
+        return None
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    scopes: list[str] = []
+    for line in reversed(lines):
+        if re.search(r"(final\s*answer|answer\s*:|final_answer|答案|最终)", line, re.I):
+            scopes.append(line)
+            break
+    if not scopes and len(lines) == 1:
+        scopes.append(lines[0])
+    for scope in scopes:
+        boxes = [
+            normalize_answer(value)
+            for value in extract_boxed_answers(scope)
+            if _is_short_clean_answer(value)
+        ]
+        boxes = [value for value in boxes if value]
+        if len(boxes) >= 2:
+            return "[" + ",".join(boxes) + "]"
+    return None
 
 
 def _looks_like_long_markdown(text: str) -> bool:

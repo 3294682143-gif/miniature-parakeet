@@ -130,6 +130,91 @@ def _is_proof_eval_mode(eval_mode: str) -> bool:
     return eval_mode in {"proof_validity", "proof_quality"}
 
 
+_EXPLANATION_TEMPLATE_VALUES = {"", "h", "n", "ok", "none", "no hint"}
+_EXPLANATION_TEMPLATE_MARKERS = (
+    "[mock]",
+    "stable response",
+    "placeholder",
+    "template",
+    "todo",
+)
+_KEY_IDEA_MARKERS = (
+    "because",
+    "since",
+    "therefore",
+    "hence",
+    "formula",
+    "theorem",
+    "definition",
+    "derivative",
+    "integral",
+    "limit",
+    "modulo",
+    "probability",
+    "area",
+    "matrix",
+    "compact",
+    "analytic",
+    "proof",
+    "verify",
+    "substitute",
+    "simplify",
+    "因",
+    "所以",
+    "因此",
+    "公式",
+    "定理",
+    "定义",
+)
+
+
+def explanation_quality_for_result(result: SolveResult) -> dict[str, object]:
+    steps = [str(step).strip() for step in result.visible_solution_steps if str(step).strip()]
+    hint = (result.didactic_hint or "").strip()
+    hint_norm = hint.lower()
+    combined = " ".join([*steps, hint]).lower()
+    template_risk = hint_norm in _EXPLANATION_TEMPLATE_VALUES or any(
+        marker in combined for marker in _EXPLANATION_TEMPLATE_MARKERS
+    )
+    key_idea_present = any(marker in combined for marker in _KEY_IDEA_MARKERS) or any(
+        token in combined
+        for token in [
+            str(result.problem_type).lower(),
+            str(result.domain).lower(),
+        ]
+        if token and token != "unknown"
+    )
+    return {
+        "visible_steps_nonempty": bool(steps),
+        "visible_step_count": len(steps),
+        "didactic_hint_nonempty": bool(hint),
+        "didactic_hint_template_risk": template_risk,
+        "key_idea_present": key_idea_present,
+    }
+
+
+def _explanation_quality_metrics(results: list[SolveResult]) -> dict[str, object]:
+    checked = len(results)
+    qualities = [explanation_quality_for_result(result) for result in results]
+    visible = sum(int(bool(q["visible_steps_nonempty"])) for q in qualities)
+    hints = sum(int(bool(q["didactic_hint_nonempty"])) for q in qualities)
+    template_risk = sum(int(bool(q["didactic_hint_template_risk"])) for q in qualities)
+    key_idea = sum(int(bool(q["key_idea_present"])) for q in qualities)
+    total_steps = sum(int(q["visible_step_count"]) for q in qualities)
+    return {
+        "explanation_checked_count": checked,
+        "visible_steps_nonempty_count": visible,
+        "visible_steps_nonempty_rate": _safe_rate(visible, checked),
+        "average_visible_step_count": _safe_rate(total_steps, checked),
+        "didactic_hint_nonempty_count": hints,
+        "didactic_hint_nonempty_rate": _safe_rate(hints, checked),
+        "didactic_hint_template_risk_count": template_risk,
+        "didactic_hint_template_risk_rate": _safe_rate(template_risk, checked),
+        "key_idea_coverage_count": key_idea,
+        "key_idea_coverage_rate": _safe_rate(key_idea, checked),
+    }
+
+
 def _proof_text_for_result(result: SolveResult) -> str:
     steps = "\n".join(str(step) for step in result.visible_solution_steps)
     final_value = result.final_answer.value.strip()
@@ -218,6 +303,10 @@ def _trace_budget_metrics(trace_dir: str | Path | None) -> dict[str, object]:
     latency_count = 0
     stage_counter: Counter[str] = Counter()
     trace_count = 0
+    tool_solved_count = 0
+    model_solved_count = 0
+    model_verified_count = 0
+    tool_override_count = 0
     for item in trace_result.get("items", []):
         if not item.get("ok"):
             continue
@@ -227,21 +316,53 @@ def _trace_budget_metrics(trace_dir: str | Path | None) -> dict[str, object]:
         trace_count += 1
         model_calls = trace.get("model_calls")
         tool_calls = trace.get("tool_calls")
+        stages: list[str] = []
         if isinstance(model_calls, list):
             total_model_calls += len(model_calls)
-            stage_counter.update(
+            stages = [
                 str(call.get("stage", "unknown"))
                 for call in model_calls
                 if isinstance(call, dict)
-            )
+            ]
+            stage_counter.update(stages)
         elif isinstance(trace.get("model_calls_count"), int):
             total_model_calls += int(trace["model_calls_count"])
+        successful_tool_call = False
         if isinstance(tool_calls, list):
             total_tool_calls += len(tool_calls)
+            successful_tool_call = any(
+                isinstance(call, dict) and str(call.get("status", "")).lower() == "success"
+                for call in tool_calls
+            )
         latency = trace.get("latency_seconds")
         if isinstance(latency, (int, float)) and latency >= 0:
             total_latency += float(latency)
             latency_count += 1
+        final_result = trace.get("final_result")
+        final_status = ""
+        verification_method = ""
+        if isinstance(final_result, dict):
+            final_status = str(final_result.get("status", ""))
+            verification = final_result.get("verification")
+            if isinstance(verification, dict):
+                verification_method = str(verification.get("method", ""))
+        is_success = final_status == "success"
+        has_model_solver = "solver" in stages
+        has_model_verifier = "verifier" in stages
+        if is_success and successful_tool_call and not has_model_solver:
+            tool_solved_count += 1
+        if is_success and has_model_solver:
+            model_solved_count += 1
+        if is_success and has_model_verifier:
+            model_verified_count += 1
+        if (
+            is_success
+            and has_model_solver
+            and successful_tool_call
+            and verification_method
+            in {"symbolic_check", "numeric_check", "substitution"}
+        ):
+            tool_override_count += 1
 
     return {
         "trace_dir": str(trace_dir),
@@ -255,6 +376,10 @@ def _trace_budget_metrics(trace_dir: str | Path | None) -> dict[str, object]:
         "average_latency_seconds": _safe_rate(int(total_latency * 1000), latency_count)
         / 1000,
         "model_calls_by_stage": dict(sorted(stage_counter.items())),
+        "tool_solved_count": tool_solved_count,
+        "model_solved_count": model_solved_count,
+        "model_verified_count": model_verified_count,
+        "tool_override_count": tool_override_count,
     }
 
 
@@ -303,6 +428,7 @@ def evaluate_results(
         "domain_distribution": dict(sorted(domain_counter.items())),
         "problem_type_distribution": dict(sorted(type_counter.items())),
     }
+    metrics.update(_explanation_quality_metrics(valid_results))
 
     if answers:
         exact = normalized = numeric = symbolic = matched_items = 0
@@ -480,6 +606,21 @@ def render_markdown_report(
     for k in keys:
         lines.append(f"- **{k}**: {metrics.get(k)}")
 
+    lines.extend(["", "## Explanation Quality"])
+    for k in [
+        "explanation_checked_count",
+        "visible_steps_nonempty_count",
+        "visible_steps_nonempty_rate",
+        "average_visible_step_count",
+        "didactic_hint_nonempty_count",
+        "didactic_hint_nonempty_rate",
+        "didactic_hint_template_risk_count",
+        "didactic_hint_template_risk_rate",
+        "key_idea_coverage_count",
+        "key_idea_coverage_rate",
+    ]:
+        lines.append(f"- **{k}**: {metrics.get(k)}")
+
     domain_distribution = metrics.get("domain_distribution", {})
     if isinstance(domain_distribution, dict):
         lines.extend(_render_counter_table("Domain Distribution", domain_distribution))
@@ -536,6 +677,10 @@ def render_markdown_report(
                 f"| trace_error_count | {metrics.get('trace_error_count', 0)} |",
                 f"| total_model_calls | {metrics.get('total_model_calls', 0)} |",
                 f"| total_tool_calls | {metrics.get('total_tool_calls', 0)} |",
+                f"| tool_solved_count | {metrics.get('tool_solved_count', 0)} |",
+                f"| model_solved_count | {metrics.get('model_solved_count', 0)} |",
+                f"| model_verified_count | {metrics.get('model_verified_count', 0)} |",
+                f"| tool_override_count | {metrics.get('tool_override_count', 0)} |",
                 f"| average_model_calls_per_trace | {_format_rate(metrics.get('average_model_calls_per_trace', 0.0))} |",
                 f"| average_tool_calls_per_trace | {_format_rate(metrics.get('average_tool_calls_per_trace', 0.0))} |",
                 f"| average_latency_seconds | {_format_rate(metrics.get('average_latency_seconds', 0.0))} |",

@@ -63,3 +63,6 @@ def test_benchmark_suite_mock_run(tmp_path: Path) -> None:
     assert "mixed" in summary["runs"]
     assert (out_dir / "mixed_official_like" / "evaluation_report.md").exists()
     assert (out_dir / "mixed_official_like" / "failure_replay_report.md").exists()
+    assert (out_dir / "mixed_official_like" / "proof_manual_review_pack.md").exists()
+    assert (out_dir / "mixed_official_like" / "proof_manual_review_pack.json").exists()
+    assert "proof_review_count" in summary["runs"]["mixed"]
