@@ -4,6 +4,33 @@ from typing import Any
 
 from math_agent.schemas import AgentStep, ToolCallRecord, sanitize_protocol_metadata
 
+LAGENT_ALIGNMENT_EVIDENCE: tuple[dict[str, str], ...] = (
+    {
+        "project_stage": "Planner",
+        "lagent_concept": "Agent message",
+        "trace_source": "model_calls[stage=planner]",
+        "review_evidence": "planning intent is exported as a sanitized assistant message",
+    },
+    {
+        "project_stage": "Solver",
+        "lagent_concept": "Agent message",
+        "trace_source": "model_calls[stage=solver]",
+        "review_evidence": "solver reasoning/call metadata is exported without secrets",
+    },
+    {
+        "project_stage": "Verifier",
+        "lagent_concept": "Agent message / critic",
+        "trace_source": "model_calls[stage=verifier], final_result.verification",
+        "review_evidence": "verification status and method are visible in the final formatter message",
+    },
+    {
+        "project_stage": "Tool Observation",
+        "lagent_concept": "Action observation",
+        "trace_source": "tool_calls[]",
+        "review_evidence": "tool name, status, parameters, latency, and summary map to tool messages",
+    },
+)
+
 
 def _short_text(value: Any, limit: int = 600) -> str:
     text = str(value or "").strip()
@@ -124,3 +151,7 @@ def trace_to_lagent_messages(trace: dict[str, Any]) -> list[dict[str, Any]]:
             )
         )
     return messages
+
+
+def lagent_alignment_evidence_table() -> list[dict[str, str]]:
+    return [dict(row) for row in LAGENT_ALIGNMENT_EVIDENCE]

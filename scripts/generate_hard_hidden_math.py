@@ -674,8 +674,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Generate a balanced hard hidden-style math regression set."
     )
-    parser.add_argument("--questions", default="data/hard_hidden_math.jsonl")
-    parser.add_argument("--answers", default="data/hard_hidden_math_answers.jsonl")
+    parser.add_argument("--questions", default="data/synthetic_hard_math.jsonl")
+    parser.add_argument("--answers", default="data/synthetic_hard_math_answers.jsonl")
     parser.add_argument("--profile", choices=["compact", "large"], default="compact")
     return parser
 

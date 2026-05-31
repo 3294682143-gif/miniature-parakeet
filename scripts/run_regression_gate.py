@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
+import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Iterable, Sequence
@@ -12,6 +16,70 @@ if __package__ in {None, ""}:
 
 from scripts.clean_transient_artifacts import clean_transient_artifacts
 
+DEV_TOOL_HINT = (
+    "Missing local quality tool '{tool}'. Install development tools with "
+    "`python -m pip install -e .[dev] ruff black isort mypy pyright`, "
+    "or run the GitHub Actions quality-gates workflow."
+)
+
+DEV_TOOL_MODULES = {
+    "ruff": "ruff",
+    "black": "black",
+    "isort": "isort",
+    "mypy": "mypy",
+    "pyright": "pyright",
+}
+
+
+def py_cmd(*args: str) -> list[str]:
+    return [sys.executable, *args]
+
+
+def quality_tool_cmd(tool: str, *args: str) -> list[str]:
+    module = DEV_TOOL_MODULES.get(tool, tool)
+    if importlib.util.find_spec(module) is not None:
+        return py_cmd("-m", module, *args)
+    if shutil.which(tool) is not None:
+        return [tool, *args]
+    return [tool, *args]
+
+
+def bundled_node_bin() -> Path | None:
+    dependencies = Path(sys.executable).resolve().parent.parent
+    node_bin = dependencies / "node" / "bin"
+    return node_bin if (node_bin / "node.exe").exists() else None
+
+
+def gate_temp_dir() -> Path | None:
+    temp_root = Path(tempfile.gettempdir()) / "math-agent-regression-gate"
+    try:
+        temp_root.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return None
+    return temp_root
+
+
+def command_env(command: Sequence[str]) -> dict[str, str] | None:
+    env: dict[str, str] | None = None
+    is_python_module = len(command) >= 3 and command[0] == sys.executable
+    is_pyright = is_python_module and command[1:3] == ["-m", "pyright"]
+    is_pytest = is_python_module and command[1:3] == ["-m", "pytest"]
+
+    if is_pyright:
+        node_bin = bundled_node_bin()
+        if node_bin is not None:
+            env = os.environ.copy()
+            env["PATH"] = str(node_bin) + os.pathsep + env.get("PATH", "")
+
+    if is_pytest:
+        temp_dir = gate_temp_dir()
+        if temp_dir is not None:
+            env = env or os.environ.copy()
+            env["TEMP"] = str(temp_dir)
+            env["TMP"] = str(temp_dir)
+
+    return env
+
 
 def build_commands(
     skip_type_checks: bool,
@@ -20,51 +88,50 @@ def build_commands(
     include_shadow_eval: bool,
 ) -> list[list[str]]:
     commands: list[list[str]] = [
-        ["ruff", "check", "."],
-        ["black", "--check", "src", "scripts", "demo", "tests"],
-        ["isort", "--check-only", "--diff", "src", "scripts", "demo", "tests"],
+        quality_tool_cmd("ruff", "check", "."),
+        quality_tool_cmd("black", "--check", "src", "scripts", "demo", "tests"),
+        quality_tool_cmd(
+            "isort", "--check-only", "--diff", "src", "scripts", "demo", "tests"
+        ),
     ]
 
     if not skip_type_checks:
         commands.extend(
             [
-                ["mypy", "src", "--show-error-codes"],
-                ["pyright"],
+                quality_tool_cmd("mypy", "src", "--show-error-codes"),
+                quality_tool_cmd("pyright", "--pythonpath", sys.executable),
             ]
         )
 
-    commands.append(["python", "-m", "compileall", "src", "scripts", "demo", "tests"])
+    commands.append(py_cmd("-m", "compileall", "src", "scripts", "demo", "tests"))
 
     if not skip_slow:
-        commands.append(["python", "-m", "pytest", "-q"])
+        commands.append(py_cmd("-m", "pytest", "-q"))
 
     if include_shadow_eval:
         commands.extend(
             [
-                [
-                    "python",
+                py_cmd(
                     "scripts/shadow_eval.py",
                     "--mock",
                     "--limit",
                     "5",
                     "--out",
                     "outputs/shadow_eval_gate",
-                ],
-                [
-                    "python",
+                ),
+                py_cmd(
                     "scripts/build_eval_report.py",
                     "--results",
                     "outputs/shadow_eval_gate/shadow_results.jsonl",
                     "--out-dir",
                     "outputs/shadow_eval_gate",
-                ],
+                ),
             ]
         )
 
     if not no_cli_smoke:
         commands.append(
-            [
-                "python",
+            py_cmd(
                 "-m",
                 "math_agent.cli",
                 "solve",
@@ -74,10 +141,10 @@ def build_commands(
                 "--mode",
                 "fast",
                 "--no-trace",
-            ]
+            )
         )
 
-    commands.append(["python", "scripts/check_project_safety.py"])
+    commands.append(py_cmd("scripts/check_project_safety.py"))
     commands.append(["git", "status", "--short"])
     return commands
 
@@ -85,7 +152,16 @@ def build_commands(
 def run_command(index: int, total: int, command: Sequence[str]) -> None:
     printable = " ".join(command)
     print(f"\n[{index}/{total}] Running: {printable}")
-    completed = subprocess.run(command, check=False)
+    executable = str(command[0])
+    if executable != sys.executable and shutil.which(executable) is None:
+        print(DEV_TOOL_HINT.format(tool=executable))
+        raise SystemExit(127)
+    try:
+        completed = subprocess.run(command, check=False, env=command_env(command))
+    except FileNotFoundError as exc:
+        tool = str(exc.filename or executable)
+        print(DEV_TOOL_HINT.format(tool=tool))
+        raise SystemExit(127) from exc
     if completed.returncode != 0:
         print(f"\nFAILED command: {printable}")
         print(f"Return code: {completed.returncode}")
@@ -124,7 +200,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     )
 
     print("=== Local Regression Gate ===")
-    safety_command = ["python", "scripts/check_project_safety.py"]
+    safety_command = py_cmd("scripts/check_project_safety.py")
     for idx, command in enumerate(commands, start=1):
         if command == safety_command:
             print("\n=== Cleanup artifacts ===")

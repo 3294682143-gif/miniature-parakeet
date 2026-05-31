@@ -99,6 +99,20 @@ def test_health_score_exists(tmp_path: Path) -> None:
     assert "health_score" in report["score"]
 
 
+def test_binary_assets_count_as_zero_lines(tmp_path: Path) -> None:
+    root = _setup_repo(tmp_path)
+    assets = root / "assets"
+    assets.mkdir()
+    (assets / "logo.png").write_bytes(b"\x89PNG\r\n\x1a\n\x00binary")
+    report = phr.build_report(root, collect_tests=False)
+    top_files = {
+        row["file"].replace("\\", "/"): row["lines"]
+        for row in report["size"]["top_files"]
+    }
+    assert top_files["assets/logo.png"] == 0
+    assert report["size"]["lines_by_extension"][".png"] == 0
+
+
 def test_ci_detect_present(tmp_path: Path) -> None:
     root = _setup_repo(tmp_path)
     ci = phr.inspect_ci(root)

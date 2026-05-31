@@ -90,6 +90,12 @@ def test_hard_hidden_generator_writes_official_like_jsonl(tmp_path: Path) -> Non
     assert "evaluation_mode" in answer_rows[0]
 
 
+def test_hard_hidden_generator_default_names_are_synthetic() -> None:
+    source = Path("scripts/generate_hard_hidden_math.py").read_text(encoding="utf-8")
+    assert "data/synthetic_hard_math.jsonl" in source
+    assert "data/synthetic_hard_math_answers.jsonl" in source
+
+
 def test_hard_hidden_large_profile_writes_min_proof_score(tmp_path: Path) -> None:
     questions = tmp_path / "hard300_questions.jsonl"
     answers = tmp_path / "hard300_answers.jsonl"

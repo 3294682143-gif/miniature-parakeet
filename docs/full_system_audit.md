@@ -30,6 +30,10 @@ Do not rename dry-run outputs to official_results.jsonl.
 
 `python scripts/full_system_audit.py --out-dir outputs/full_system_audit --skip-slow`
 
+Use the stricter gate before submission:
+
+`python scripts/full_system_audit.py --out-dir outputs/full_system_audit --fail-on-risk`
+
 
 ## 本地完整验收顺序（提交前门禁）
 
