@@ -1,17 +1,35 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
+import os
+import shutil
 import subprocess
+import sys
+import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
+
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from scripts.clean_transient_artifacts import clean_transient_artifacts
 
 DISCLAIMER = (
     "This is NOT official evaluation.\n"
     "Do not claim official accuracy from this audit.\n"
     "Do not rename dry-run outputs to official_results.jsonl."
 )
+
+DEV_TOOL_MODULES = {
+    "ruff": "ruff",
+    "black": "black",
+    "isort": "isort",
+    "mypy": "mypy",
+    "pyright": "pyright",
+}
 
 CATEGORY_LABELS = {
     "A": "Stable Core / 主解题内核",
@@ -61,6 +79,18 @@ REQUIRED_FIELDS = [
     "docs",
     "notes",
 ]
+
+BINARY_SUFFIXES = {
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".ico",
+    ".pdf",
+    ".zip",
+    ".gz",
+}
 
 
 def reg(
@@ -812,6 +842,56 @@ class CheckResult:
     summary: str
 
 
+def py_cmd(*args: str) -> list[str]:
+    return [sys.executable, *args]
+
+
+def quality_tool_cmd(tool: str, *args: str) -> list[str]:
+    module = DEV_TOOL_MODULES.get(tool, tool)
+    if importlib.util.find_spec(module) is not None:
+        return py_cmd("-m", module, *args)
+    if shutil.which(tool) is not None:
+        return [tool, *args]
+    return [tool, *args]
+
+
+def bundled_node_bin() -> Path | None:
+    dependencies = Path(sys.executable).resolve().parent.parent
+    node_bin = dependencies / "node" / "bin"
+    return node_bin if (node_bin / "node.exe").exists() else None
+
+
+def audit_temp_dir() -> Path | None:
+    temp_root = Path(tempfile.gettempdir()) / "math-agent-full-system-audit"
+    try:
+        temp_root.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return None
+    return temp_root
+
+
+def command_env(command: list[str]) -> dict[str, str] | None:
+    env: dict[str, str] | None = None
+    is_python_module = len(command) >= 3 and command[0] == sys.executable
+    is_pyright = is_python_module and command[1:3] == ["-m", "pyright"]
+    is_pytest = is_python_module and command[1:3] == ["-m", "pytest"]
+
+    if is_pyright:
+        node_bin = bundled_node_bin()
+        if node_bin is not None:
+            env = os.environ.copy()
+            env["PATH"] = str(node_bin) + os.pathsep + env.get("PATH", "")
+
+    if is_pytest:
+        temp_dir = audit_temp_dir()
+        if temp_dir is not None:
+            env = env or os.environ.copy()
+            env["TEMP"] = str(temp_dir)
+            env["TMP"] = str(temp_dir)
+
+    return env
+
+
 def run_cmd(command: list[str], cwd: Path, timeout: int = 600) -> CheckResult:
     try:
         p = subprocess.run(
@@ -821,6 +901,7 @@ def run_cmd(command: list[str], cwd: Path, timeout: int = 600) -> CheckResult:
             text=True,
             check=False,
             timeout=timeout,
+            env=command_env(command),
         )
     except FileNotFoundError as exc:
         return CheckResult(
@@ -849,11 +930,16 @@ def run_cmd(command: list[str], cwd: Path, timeout: int = 600) -> CheckResult:
 
 
 def count_lines(root: Path) -> dict[str, Any]:
+    files: list[str] = []
     try:
-        files = subprocess.run(
+        proc = subprocess.run(
             ["git", "ls-files"], cwd=root, capture_output=True, text=True, check=False
-        ).stdout.splitlines()
+        )
+        if proc.returncode == 0:
+            files = proc.stdout.splitlines()
     except FileNotFoundError:
+        files = []
+    if not files:
         files = [
             str(p.relative_to(root).as_posix())
             for p in root.rglob("*")
@@ -885,11 +971,23 @@ def count_lines(root: Path) -> dict[str, Any]:
         p = root / fp
         if not p.is_file():
             continue
-        lines = len(p.read_text(encoding="utf-8", errors="ignore").splitlines())
+        lines = _count_file_lines(p)
         total += lines
         top = fp.split("/")[0] if "/" in fp else "<root>"
         by_module[top] = by_module.get(top, 0) + lines
     return {"total_code_lines": total, "by_module": dict(sorted(by_module.items()))}
+
+
+def _count_file_lines(path: Path) -> int:
+    if path.suffix.lower() in BINARY_SUFFIXES:
+        return 0
+    try:
+        sample = path.read_bytes()[:2048]
+        if b"\0" in sample:
+            return 0
+        return len(path.read_text(encoding="utf-8", errors="ignore").splitlines())
+    except OSError:
+        return 0
 
 
 def validate_registry(root: Path) -> list[dict[str, Any]]:
@@ -979,6 +1077,10 @@ def write_outputs(
     )
 
 
+def has_gate_risk(quality: list[CheckResult], smoke: list[CheckResult]) -> bool:
+    return any(item.status != "PASS" for item in [*quality, *smoke])
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out-dir", default="outputs/full_system_audit")
@@ -995,21 +1097,27 @@ def main() -> int:
         else Path(args.out_dir)
     )
     lines = count_lines(root)
+    safety_cmd = py_cmd("scripts/check_project_safety.py")
     quality_cmds = [
-        ["ruff", "check", "."],
-        ["black", "--check", "src", "scripts", "demo", "tests"],
-        ["isort", "--check-only", "--diff", "src", "scripts", "demo", "tests"],
-        ["mypy", "src", "--show-error-codes"],
-        ["pyright"],
-        ["python", "-m", "compileall", "src", "scripts", "demo", "tests"],
-        ["python", "scripts/check_project_safety.py"],
+        quality_tool_cmd("ruff", "check", "."),
+        quality_tool_cmd("black", "--check", "src", "scripts", "demo", "tests"),
+        quality_tool_cmd(
+            "isort", "--check-only", "--diff", "src", "scripts", "demo", "tests"
+        ),
+        quality_tool_cmd("mypy", "src", "--show-error-codes"),
+        quality_tool_cmd("pyright", "--pythonpath", sys.executable),
+        py_cmd("-m", "compileall", "src", "scripts", "demo", "tests"),
+        safety_cmd,
     ]
     if not args.skip_slow:
-        quality_cmds.insert(-1, ["python", "-m", "pytest", "-q"])
-    quality = [run_cmd(c, root, 1200) for c in quality_cmds]
+        quality_cmds.insert(-1, py_cmd("-m", "pytest", "-q"))
+    quality = []
+    for command in quality_cmds:
+        if command == safety_cmd:
+            clean_transient_artifacts(root=root, dry_run=False, quiet=True)
+        quality.append(run_cmd(command, root, 1200))
     smoke_cmds = [
-        [
-            "python",
+        py_cmd(
             "-m",
             "math_agent.cli",
             "solve",
@@ -1019,18 +1127,16 @@ def main() -> int:
             "--mode",
             "fast",
             "--no-trace",
-        ],
-        [
-            "python",
+        ),
+        py_cmd(
             "scripts/shadow_eval.py",
             "--mock",
             "--limit",
             "5",
             "--out",
             str(out_dir / "shadow_eval"),
-        ],
-        [
-            "python",
+        ),
+        py_cmd(
             "scripts/run_official_dry_run.py",
             "--input",
             "data/sample_questions.jsonl",
@@ -1041,7 +1147,7 @@ def main() -> int:
             "--enable-tools",
             "--mock",
             "--no-trace",
-        ],
+        ),
     ]
     smoke = [
         (
@@ -1053,7 +1159,7 @@ def main() -> int:
     ]
     inv = validate_registry(root)
     write_outputs(root, out_dir, lines, quality, smoke, inv)
-    return 1 if args.fail_on_risk and any(x.status == "FAIL" for x in quality) else 0
+    return 1 if args.fail_on_risk and has_gate_risk(quality, smoke) else 0
 
 
 if __name__ == "__main__":

@@ -13,6 +13,15 @@ from math_agent.evaluation.metrics import (
 from math_agent.harness.trace_reader import read_trace
 from math_agent.schemas import SolveResult
 
+RISK_FEEDBACK = {
+    "proof_partial": "Add missing assumptions, intermediate lemmas, and an explicit final conclusion.",
+    "proof_invalid": "Reject or regenerate; the proof fails the structural validity rubric.",
+    "proof_empty": "Regenerate with a non-empty proof body before final formatting.",
+    "proof_shallow_assertion": "Replace obvious/trivial assertions with theorem-backed steps.",
+    "proof_contradiction_risk": "Clarify the contradiction assumption and derive the contradiction explicitly.",
+    "proof_circular_reasoning_risk": "Remove circular dependence on the target conclusion.",
+}
+
 
 def _trace_path(trace_dir: str | Path | None, question_id: str) -> Path | None:
     if not trace_dir:
@@ -35,6 +44,21 @@ def _proof_text(result: SolveResult) -> str:
     if steps.strip() and final_value:
         return f"{steps}\n{final_value}"
     return steps.strip() or final_value
+
+
+def proof_review_feedback(risk_flags: list[str], reasons: list[str]) -> list[str]:
+    feedback: list[str] = []
+    for flag in risk_flags:
+        item = RISK_FEEDBACK.get(str(flag))
+        if item:
+            feedback.append(item)
+    if "proof_partial_structure" in reasons and not any(
+        "intermediate lemmas" in item for item in feedback
+    ):
+        feedback.append(
+            "Strengthen the reasoning chain before accepting the proof as complete."
+        )
+    return list(dict.fromkeys(feedback))
 
 
 def build_proof_review_rows(
@@ -77,6 +101,9 @@ def build_proof_review_rows(
                 "proof_invalid": score.proof_invalid,
                 "rubric_reasons": score.reasons,
                 "risk_flags": score.risk_flags,
+                "review_feedback": proof_review_feedback(
+                    score.risk_flags, score.reasons
+                ),
                 "manual_review_recommended": (
                     not passed or bool(score.risk_flags) or score.proof_partial
                 ),
@@ -129,6 +156,7 @@ def render_proof_review_pack(rows: list[dict[str, Any]]) -> str:
                 f"- score: {float(row.get('proof_score', 0.0)):.3f}",
                 f"- reasons: {', '.join(str(x) for x in row.get('rubric_reasons', [])) or 'none'}",
                 f"- risks: {', '.join(str(x) for x in row.get('risk_flags', [])) or 'none'}",
+                f"- feedback: {'; '.join(str(x) for x in row.get('review_feedback', [])) or 'none'}",
                 "",
                 "```text",
                 text,

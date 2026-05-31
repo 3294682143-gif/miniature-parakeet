@@ -22,6 +22,11 @@ dependencies = [
 dev = [
   "pytest",
   "streamlit",
+  "ruff",
+  "black",
+  "isort",
+  "mypy",
+  "pyright",
 ]
 
 [project.scripts]

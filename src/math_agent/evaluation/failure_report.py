@@ -61,6 +61,57 @@ def _trace_path(trace_dir: str | Path | None, question_id: str) -> Path | None:
     return Path(trace_dir) / f"{question_id}.json"
 
 
+def _failure_fix_category(category: str, proof_flags: list[str]) -> str:
+    if category == "status_fail":
+        return "retry_or_api_failure"
+    if category == "status_partial":
+        return "prompt_or_verifier_repair"
+    if category == "missing_final_answer":
+        return "formatter_repair"
+    if category.startswith("proof_") or proof_flags:
+        return "proof_prompt_rubric_repair"
+    if category in {
+        "normalization_gap_numeric_match",
+        "normalization_gap_symbolic_match",
+        "format_only_exact_mismatch",
+    }:
+        return "normalizer_or_formatter_repair"
+    if category == "verifier_failed":
+        return "verifier_repair"
+    if category == "answer_mismatch":
+        return "solver_prompt_or_tool_routing"
+    return "manual_triage"
+
+
+def _failure_review_bucket(category: str, proof_flags: list[str]) -> str:
+    if category == "status_fail":
+        return "api_retry_or_runtime_failure"
+    if category == "missing_final_answer":
+        return "final_answer_format_repair"
+    if category.startswith("proof_") or proof_flags:
+        return "proof_too_shallow_or_invalid"
+    if category in {
+        "normalization_gap_numeric_match",
+        "normalization_gap_symbolic_match",
+        "format_only_exact_mismatch",
+    }:
+        return "final_answer_format_repair"
+    if category == "verifier_failed":
+        return "verifier_misjudge_or_threshold"
+    if category == "answer_mismatch":
+        return "prompt_reasoning_or_tool_routing"
+    if category == "status_partial":
+        return "prompt_formatter_or_verifier_repair"
+    return "manual_review"
+
+
+def _model_output_preview(result: SolveResult) -> str:
+    steps = "\n".join(str(step) for step in result.visible_solution_steps).strip()
+    if steps:
+        return steps[:800]
+    return result.final_answer.value[:800]
+
+
 def build_failure_rows(
     results_path: str | Path,
     answers_path: str | Path | None = None,
@@ -114,39 +165,62 @@ def build_failure_rows(
             continue
 
         trace_summary: dict[str, Any] = {}
+        question = ""
         trace_path = _trace_path(trace_dir, result.question_id)
         if trace_path is not None and trace_path.exists():
             trace_read = read_trace(trace_path)
             if trace_read.get("ok") and isinstance(trace_read.get("trace"), dict):
-                trace_summary = summarize_trace(trace_read["trace"])
+                trace = trace_read["trace"]
+                trace_summary = summarize_trace(trace)
+                question = str(trace.get("question", ""))
             else:
                 trace_summary = {"trace_error": trace_read.get("error")}
 
+        proof_risk_flags: list[str] = []
+        proof_score: Any = ""
+        proof_complete: Any = ""
+        proof_partial: Any = ""
+        proof_invalid: Any = ""
+        proof_reasons: list[str] = []
+        if evaluation_mode in {"proof_validity", "proof_quality"}:
+            score = proof_quality_score(result)
+            proof_score = score.score
+            proof_complete = score.proof_complete
+            proof_partial = score.proof_partial
+            proof_invalid = score.proof_invalid
+            proof_reasons = score.reasons
+            proof_risk_flags = score.risk_flags
+
         failure_row = {
             "question_id": result.question_id,
+            "question": question,
             "category": category,
             "status": result.status,
             "domain": result.domain,
             "problem_type": result.problem_type,
+            "model_output_preview": _model_output_preview(result),
             "prediction": result.final_answer.value,
+            "final_answer": result.final_answer.model_dump(),
             "boxed": result.final_answer.boxed,
             "gold": gold or "",
             "evaluation_mode": evaluation_mode,
             "verifier_passed": result.verification.passed,
             "verification_method": result.verification.method,
+            "verifier_reason": result.verification.notes,
+            "proof_risk_flags": proof_risk_flags,
+            "suggested_fix_category": _failure_fix_category(category, proof_risk_flags),
+            "review_bucket": _failure_review_bucket(category, proof_risk_flags),
             "trace_path": str(trace_path or ""),
             "trace_summary": trace_summary,
         }
         if evaluation_mode in {"proof_validity", "proof_quality"}:
-            score = proof_quality_score(result)
             failure_row.update(
                 {
-                    "proof_score": score.score,
-                    "proof_complete": score.proof_complete,
-                    "proof_partial": score.proof_partial,
-                    "proof_invalid": score.proof_invalid,
-                    "proof_reasons": score.reasons,
-                    "proof_risk_flags": score.risk_flags,
+                    "proof_score": proof_score,
+                    "proof_complete": proof_complete,
+                    "proof_partial": proof_partial,
+                    "proof_invalid": proof_invalid,
+                    "proof_reasons": proof_reasons,
                 }
             )
         rows.append(failure_row)
@@ -203,6 +277,22 @@ def render_failure_report(
         )
 
     for row in rows:
+        lines.extend(
+            [
+                "",
+                f"## Case: {row.get('question_id', '')}",
+                "",
+                f"- question: {row.get('question', '') or 'missing'}",
+                f"- verifier_reason: {row.get('verifier_reason', '') or 'none'}",
+                f"- proof_risk_flags: {', '.join(str(x) for x in row.get('proof_risk_flags', [])) or 'none'}",
+                f"- suggested_fix_category: {row.get('suggested_fix_category', 'manual_triage')}",
+                f"- review_bucket: {row.get('review_bucket', 'manual_review')}",
+                "",
+                "```text",
+                str(row.get("model_output_preview", "")),
+                "```",
+            ]
+        )
         trace_summary = row.get("trace_summary")
         if not isinstance(trace_summary, dict) or not trace_summary:
             continue

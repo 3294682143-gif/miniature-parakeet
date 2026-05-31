@@ -33,6 +33,11 @@ def test_dry_run_does_not_delete(tmp_path: Path) -> None:
 
 def test_cleanup_artifacts_and_safety(tmp_path: Path) -> None:
     (tmp_path / ".pytest_cache").mkdir()
+    (tmp_path / ".mypy_cache").mkdir()
+    (tmp_path / ".ruff_cache").mkdir()
+    (tmp_path / "build").mkdir()
+    egg_info = tmp_path / "src" / "interns1_math_agent.egg-info"
+    egg_info.mkdir(parents=True)
     pycache = tmp_path / "src" / "__pycache__"
     pycache.mkdir(parents=True)
     (pycache / "x.pyc").write_text("x", encoding="utf-8")
@@ -43,6 +48,11 @@ def test_cleanup_artifacts_and_safety(tmp_path: Path) -> None:
     audit = tmp_path / "outputs" / "full_system_audit"
     audit.mkdir(parents=True)
     (audit / "tmp.txt").write_text("x", encoding="utf-8")
+    gate_env = tmp_path / "outputs" / "gate_environment"
+    gate_env.mkdir(parents=True)
+    (gate_env / "tmp.txt").write_text("x", encoding="utf-8")
+    health_report = tmp_path / "outputs" / "project_health_report.json"
+    health_report.write_text("{}", encoding="utf-8")
     source_file = tmp_path / "src" / "keep.py"
     source_file.parent.mkdir(parents=True, exist_ok=True)
     source_file.write_text("print('ok')\n", encoding="utf-8")
@@ -55,10 +65,16 @@ def test_cleanup_artifacts_and_safety(tmp_path: Path) -> None:
     stats2 = clean_transient_artifacts(tmp_path, dry_run=False, quiet=True)
 
     assert not (tmp_path / ".pytest_cache").exists()
+    assert not (tmp_path / ".mypy_cache").exists()
+    assert not (tmp_path / ".ruff_cache").exists()
+    assert not (tmp_path / "build").exists()
+    assert not egg_info.exists()
     assert not pycache.exists()
     assert not (traces / "fake.json").exists()
     assert (traces / ".gitkeep").exists()
     assert not audit.exists()
+    assert not gate_env.exists()
+    assert not health_report.exists()
     assert source_file.exists()
     assert readme.exists()
     assert stats.cleaned_count >= 4

@@ -100,12 +100,25 @@ demo/
 configs/
 ```
 
-## Line Count Summary / 代码行数摘要
+## Line Count Summary / Code Size
 
-Run:
+Latest local health check for this working tree (2026-05-30, mock-safe, no real API calls) measured tracked text files only; binary logo assets and generated `outputs/` artifacts are excluded from code-line totals.
+
+| Metric | Count |
+|---|---:|
+| Total tracked text lines | 24,470 |
+| Python lines | 19,536 |
+| tests lines | 5,518 |
+| scripts lines | 5,089 |
+| demo lines | 130 |
+| docs Markdown lines | 1,188 |
+
+`scripts/full_system_audit.py` also reports an audit-oriented total of 27,748 lines across tracked text assets, including docs, data, skills, memory, and configuration, while counting binary assets as 0 lines.
+
+Regenerate locally with:
 
 ```bash
-python scripts/full_system_audit.py --out-dir outputs/full_system_audit --skip-slow
+python scripts/full_system_audit.py --out-dir outputs/full_system_audit --fail-on-risk
 ```
 
 Then inspect:
@@ -113,8 +126,6 @@ Then inspect:
 ```text
 outputs/full_system_audit/line_count_report.md
 ```
-
-The README does not commit dynamic line-count artifacts. The latest numbers must be regenerated locally.
 
 ## Current Limitations / 当前限制
 
@@ -292,18 +303,35 @@ python scripts/run_official_dry_run.py --input data/preofficial_sample.jsonl --o
 python scripts/generate_official_style_18domain_112.py
 python scripts/run_benchmark_suite.py --input data/official_style_18domain_112.jsonl --answers data/official_style_18domain_112_answers.jsonl --out-dir outputs/benchmark_suite --limit 36 --enable-tools --mode-pattern fast,tool-first --ab-limit 0
 python scripts/run_real_api_sample_gate.py --input data/official_style_18domain_112.jsonl --answers data/official_style_18domain_112_answers.jsonl --out-dir outputs/real_api_sample_gate --per-domain 2 --real --allow-real --max-attempts 2
+python scripts/run_real_api_sample_gate.py --input data/official_style_18domain_112.jsonl --answers data/official_style_18domain_112_answers.jsonl --out-dir outputs/real_api_sample_gate_rerun --rerun-failures-from outputs/real_api_sample_gate/failure_replay_report.json --real --allow-real --max-attempts 2
+python scripts/check_gate_environment.py --out-dir outputs/gate_environment
 python scripts/build_proof_review_pack.py --results outputs/benchmark_suite/mixed_official_like/results.jsonl --answers data/official_style_18domain_112_answers.jsonl --trace-dir outputs/benchmark_suite/mixed_official_like/traces
+python scripts/build_final_submission_report.py --real-api-summary outputs/real_api_sample_gate/real_api_sample_gate_summary.json --domain-dashboard outputs/real_api_sample_gate/domain_dashboard.json --failure-report outputs/real_api_sample_gate/failure_replay_report.json --out-dir outputs/final_submission_report
 ```
 
-`official_style_*` datasets are synthetic official-style regression data, not official hidden-set data. `run_real_api_sample_gate.py` is an explicit opt-in local audit command; raw traces/results must not be committed.
+`official_style_*` datasets are synthetic official-style regression data, not official hidden-set data. `run_real_api_sample_gate.py` is an explicit opt-in local audit command; it performs a one-call real API preflight by default so network/auth failures do not masquerade as model failures. Raw traces/results must not be committed.
+The failure rerun command uses the generated failure replay JSON to rerun only fail/partial cases, saving real API tokens while preserving the no-manual-result-editing rule.
+The gate environment report checks local lint/type tools and real API environment readiness without printing secrets, helping distinguish setup blockers from model or pipeline failures.
+The final submission report builder summarizes gate evidence, real API metrics, failure closure buckets, and lagent alignment without copying raw traces or secrets.
+The canonical synthetic hard-suite generator now writes `data/synthetic_hard_math*.jsonl` by default; any remaining `hard_hidden_*` fixtures are legacy synthetic regression assets and are not official hidden-set data.
 
 ### lagent Trace Alignment
 
 ```bash
 python -m pytest -q tests/test_lagent_trace_adapter.py
+python scripts/build_final_submission_report.py --out-dir outputs/final_submission_report
 ```
 
-See `docs/lagent_alignment.md` for the mapping between this project's planner/solver/verifier/tool traces and lagent-style agent/action/observation concepts.
+The stable runtime does not depend on `lagent`; this is an evidence and trace-alignment layer for reviewer readability. See `docs/lagent_alignment.md` for the full mapping between this project's planner/solver/verifier/tool traces and lagent-style agent/action/observation concepts.
+
+| Project stage | lagent concept | Evidence source | Review proof |
+|---|---|---|---|
+| Planner | Agent message | `model_calls[stage=planner]` | planning intent exports as a sanitized assistant message |
+| Solver | Agent message | `model_calls[stage=solver]` | solver call metadata exports without secrets |
+| Verifier | Agent message / critic | `final_result.verification` | verification status and method appear in the final trace view |
+| Tool Observation | Action observation | `tool_calls[]` | tool name, status, latency, and summary map to action observations |
+
+This keeps the official-reference alignment visible while avoiding a risky runtime swap before the real API 18-domain gate is stable.
 
 ### Demo Evidence Pack
 
@@ -314,8 +342,7 @@ python scripts/generate_demo_pack.py --out-dir outputs/demo_pack_test
 ### Full System Audit
 
 ```bash
-python scripts/full_system_audit.py --out-dir outputs/full_system_audit --skip-slow
-python scripts/full_system_audit.py --out-dir outputs/full_system_audit
+python scripts/full_system_audit.py --out-dir outputs/full_system_audit --fail-on-risk
 ```
 
 ### Literature Traceability
@@ -326,45 +353,53 @@ python scripts/check_literature_traceability.py --out-dir outputs/literature_tra
 
 ## Quality Gates
 
-The intended quality gate suite is:
+The canonical local gate uses Python-module entry points so it works even when console scripts are not on `PATH`:
 
 ```bash
-ruff check .
-black --check src scripts demo tests
-isort --check-only --diff src scripts demo tests
-mypy src --show-error-codes
-pyright
-python -m compileall src scripts demo tests
-python -m pytest -q
-python scripts/run_pre_submit_gate.py
+python scripts/run_regression_gate.py
+python scripts/run_pre_submit_gate.py --dry-run-limit 3
+python scripts/full_system_audit.py --out-dir outputs/full_system_audit --fail-on-risk
+python scripts/check_gate_environment.py --out-dir outputs/gate_environment
+python scripts/clean_transient_artifacts.py --quiet
 python scripts/check_project_safety.py
 ```
 
-`run_regression_gate.py` wraps the local regression gate. `run_pre_submit_gate.py` wraps the final local gate: pytest, official-style mock dry-run, cleanup, and safety scan. The full audit records pass/fail summaries instead of hiding failures.
+Equivalent expanded checks:
 
-Latest final local validation for this working tree: `python -m pytest -q` reports 404 passed; `python scripts/run_pre_submit_gate.py` reports PASS.
+```bash
+python -m ruff check .
+python -m black --check src scripts demo tests
+python -m isort --check-only --diff src scripts demo tests
+python -m mypy src --show-error-codes
+python -m pyright --pythonpath <path-to-current-python>
+python -m compileall src scripts demo tests
+python -m pytest -q
+python -m math_agent.cli solve --question "计算 2+3" --enable-tools --mode fast --no-trace
+python scripts/check_project_safety.py
+```
+
+`run_regression_gate.py` wraps lint, format, import, type, compile, pytest, CLI smoke, cleanup, and safety checks. `run_pre_submit_gate.py` wraps the final local gate: pytest, official-style mock dry-run, cleanup, and safety scan. `full_system_audit.py --fail-on-risk` records pass/fail summaries and exits non-zero on skipped or failed checks. A final evidence report can be assembled from `docs/final_submission_report_template.md` or generated with `scripts/build_final_submission_report.py` after the real sample gate has produced local summaries.
+
+Latest local validation for this working tree (2026-05-30, no real API calls):
+
+| Command | Result | Key output |
+|---|---|---|
+| `python -m pytest --collect-only -q` | PASS | 433 tests collected |
+| `python -m pytest -q` | PASS | 433 passed |
+| `python scripts/run_regression_gate.py` | PASS | ruff, black, isort, mypy, pyright, compileall, pytest, CLI smoke, safety all passed |
+| `python scripts/run_pre_submit_gate.py --dry-run-limit 3` | PASS | 433 passed; official-style mock dry-run PASS; safety PASS |
+| `python scripts/full_system_audit.py --out-dir outputs/full_system_audit --fail-on-risk` | PASS | 8 quality checks PASS; 3 functional smokes PASS |
+| `python scripts/check_gate_environment.py --out-dir outputs/gate_environment` | PASS | ready_for_regression_gate=True; real API gate not run |
+| `python -m streamlit --version` | PASS | Streamlit 1.57.0 |
+| `python scripts/smoke_interns1.py --mock` | PASS | mock response OK |
+| `python scripts/check_project_safety.py` | PASS | no forbidden artifacts detected after cleanup |
+
+Windows note: use a UTF-8 capable terminal when reading Chinese logs or docs. If PowerShell displays garbled text, run `chcp 65001` before printing Markdown files.
 
 Final pre-submit shortcut:
 
 ```bash
 python scripts/run_pre_submit_gate.py
-```
-
-### 本地完整验收顺序（Pre-submit）
-
-1. 跑质量门禁（ruff / black / isort / mypy / pyright / compileall）。
-2. 跑 `python -m pytest -q`。
-3. 清理 `.pytest_cache` / `__pycache__` / `outputs/traces` 与临时输出目录。
-4. 跑 `python scripts/check_project_safety.py`。
-5. 通过后再进入 P19 Frozen Submission / Safety Freeze。
-
-参考清理命令：
-
-```bash
-rm -rf .pytest_cache
-find . -type d -name "__pycache__" -prune -exec rm -rf {} +
-find outputs/traces -mindepth 1 ! -name ".gitkeep" -delete 2>/dev/null || true
-rm -rf outputs/full_system_audit outputs/literature_traceability outputs/demo_pack outputs/demo_pack_test outputs/shadow_eval_gate outputs/shadow_eval_test outputs/debug_shadow outputs/debug_shadow_test outputs/hard_mode_ablation outputs/hard_mode_ablation_test outputs/proof_guardian_demo outputs/proof_guardian_demo_test outputs/official_dry_run outputs/official_dry_run_test
 ```
 
 ## Safety Boundaries
@@ -428,25 +463,3 @@ For the exhaustive A-X inventory, regenerate `outputs/full_system_audit/function
 
 - **P19 Frozen Submission / Safety Freeze**: freeze commands, freeze configuration, run final safety scan, verify no forbidden artifacts, verify official-style synthetic gates, and prepare submission checklist.
 - **P20 Final PPT / Paper / Defense Pack**: convert audit, demo evidence, proof review packs, literature mapping, lagent alignment, and architecture chain into defense materials.
-
-
-## 本地完整验收顺序（提交前门禁）
-
-提交前建议按以下顺序执行：
-
-```bash
-ruff check .
-black --check src scripts demo tests
-isort --check-only --diff src scripts demo tests
-mypy src --show-error-codes
-pyright
-python -m compileall src scripts demo tests
-python -m pytest -q
-python -m math_agent.cli solve --question "计算 2+3" --enable-tools --mode fast --no-trace
-python scripts/run_pre_submit_gate.py
-python scripts/clean_transient_artifacts.py
-python scripts/check_project_safety.py
-git status --short
-```
-
-注意：`compileall` / `pytest` / CLI smoke 会生成缓存与运行产物，因此 `check_project_safety.py` 前必须先执行 cleanup。

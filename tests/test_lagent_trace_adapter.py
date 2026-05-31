@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from math_agent.harness.lagent_trace_adapter import trace_to_lagent_messages
+from math_agent.harness.lagent_trace_adapter import (
+    lagent_alignment_evidence_table,
+    trace_to_lagent_messages,
+)
 
 
 def test_trace_to_lagent_messages_redacts_sensitive_metadata() -> None:
@@ -38,3 +41,11 @@ def test_trace_to_lagent_messages_redacts_sensitive_metadata() -> None:
     rendered = str(messages)
     assert "SECRET" not in rendered
     assert "[REDACTED]" in rendered
+
+
+def test_lagent_alignment_evidence_table_mentions_core_stages() -> None:
+    rows = lagent_alignment_evidence_table()
+    stages = {row["project_stage"] for row in rows}
+    assert {"Planner", "Solver", "Verifier", "Tool Observation"}.issubset(stages)
+    assert all(row["lagent_concept"] for row in rows)
+    assert all(row["trace_source"] for row in rows)

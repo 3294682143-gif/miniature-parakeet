@@ -74,12 +74,15 @@ def test_proof_review_pack_exports_full_text_and_rubric(tmp_path: Path) -> None:
     assert len(review_rows) == 2
     assert review_rows[0]["proof_text"].startswith("Let n be arbitrary")
     assert "rubric_reasons" in review_rows[0]
+    assert "review_feedback" in review_rows[1]
+    assert review_rows[1]["review_feedback"]
     assert any(row["manual_review_recommended"] for row in review_rows)
 
     out = tmp_path / "proof_pack.md"
     write_proof_review_pack(results, out, answers, traces)
     text = out.read_text(encoding="utf-8")
     assert "Proof Manual Review Pack" in text
+    assert "- feedback:" in text
     assert "```text" in text
     assert out.with_suffix(".json").exists()
 

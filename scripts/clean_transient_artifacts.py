@@ -25,8 +25,20 @@ TRANSIENT_OUTPUT_DIRS: tuple[str, ...] = (
     "outputs/official_dry_run_test",
     "outputs/pre_submit_official_style_dry_run",
     "outputs/real_api_sample_gate",
+    "outputs/final_submission_report",
+    "outputs/gate_environment",
     "outputs/benchmark_suite",
     "outputs/proof_manual_review_pack",
+)
+
+TRANSIENT_OUTPUT_FILES: tuple[str, ...] = ("outputs/project_health_report.json",)
+
+TRANSIENT_LOCAL_DIRS: tuple[str, ...] = (
+    ".mypy_cache",
+    ".ruff_cache",
+    ".pyright",
+    "build",
+    "src/interns1_math_agent.egg-info",
 )
 
 
@@ -81,6 +93,15 @@ def clean_transient_artifacts(
             if not quiet:
                 print(f"CLEAN: {pycache}")
 
+    for rel in TRANSIENT_LOCAL_DIRS:
+        target = root / rel
+        if _remove_path(target, dry_run=dry_run):
+            cleaned_count += 1
+            if not quiet:
+                print(f"CLEAN: {target}")
+        else:
+            skipped_count += 1
+
     traces_dir = root / "outputs" / "traces"
     if traces_dir.exists():
         for path in sorted(traces_dir.rglob("*")):
@@ -101,6 +122,15 @@ def clean_transient_artifacts(
                         print(f"CLEAN: {path}")
 
     for rel in TRANSIENT_OUTPUT_DIRS:
+        target = root / rel
+        if _remove_path(target, dry_run=dry_run):
+            cleaned_count += 1
+            if not quiet:
+                print(f"CLEAN: {target}")
+        else:
+            skipped_count += 1
+
+    for rel in TRANSIENT_OUTPUT_FILES:
         target = root / rel
         if _remove_path(target, dry_run=dry_run):
             cleaned_count += 1

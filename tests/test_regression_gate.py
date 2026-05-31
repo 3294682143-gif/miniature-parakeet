@@ -2,9 +2,16 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 from scripts import run_regression_gate
+
+
+def _line(cmd: list[str]) -> str:
+    if cmd and cmd[0] == sys.executable:
+        return "python " + " ".join(cmd[1:])
+    return " ".join(cmd)
 
 
 def test_script_exists() -> None:
@@ -22,6 +29,12 @@ def test_help_runs() -> None:
     assert "--include-shadow-eval" in result.stdout
 
 
+def test_dev_extra_declares_local_gate_tools() -> None:
+    pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    dev_deps = set(pyproject["project"]["optional-dependencies"]["dev"])
+    assert {"ruff", "black", "isort", "mypy", "pyright"}.issubset(dev_deps)
+
+
 def test_command_list_contains_required_checks() -> None:
     commands = run_regression_gate.build_commands(
         skip_type_checks=False,
@@ -29,18 +42,30 @@ def test_command_list_contains_required_checks() -> None:
         no_cli_smoke=False,
         include_shadow_eval=False,
     )
-    command_lines = {" ".join(cmd) for cmd in commands}
+    command_lines = {_line(cmd) for cmd in commands}
 
-    assert "ruff check ." in command_lines
-    assert "black --check src scripts demo tests" in command_lines
-    assert "isort --check-only --diff src scripts demo tests" in command_lines
-    assert "mypy src --show-error-codes" in command_lines
-    assert "pyright" in command_lines
+    assert "python -m ruff check ." in command_lines or "ruff check ." in command_lines
+    assert (
+        "python -m black --check src scripts demo tests" in command_lines
+        or "black --check src scripts demo tests" in command_lines
+    )
+    assert (
+        "python -m isort --check-only --diff src scripts demo tests" in command_lines
+        or "isort --check-only --diff src scripts demo tests" in command_lines
+    )
+    assert (
+        "python -m mypy src --show-error-codes" in command_lines
+        or "mypy src --show-error-codes" in command_lines
+    )
+    assert any(
+        line == "pyright" or line.startswith("python -m pyright")
+        for line in command_lines
+    )
     assert "python -m pytest -q" in command_lines
     assert "python scripts/check_project_safety.py" in command_lines
     assert "git status --short" in command_lines
     assert any("python -m math_agent.cli solve" in line for line in command_lines)
-    lines = [" ".join(cmd) for cmd in commands]
+    lines = [_line(cmd) for cmd in commands]
     compile_idx = lines.index("python -m compileall src scripts demo tests")
     pytest_idx = lines.index("python -m pytest -q")
     cli_idx = next(
@@ -53,6 +78,22 @@ def test_command_list_contains_required_checks() -> None:
     assert pytest_idx < safety_idx
     assert cli_idx < safety_idx
     assert safety_idx < lines.index("git status --short")
+
+
+def test_quality_tool_cmd_prefers_current_python_module(monkeypatch) -> None:
+    monkeypatch.setattr(
+        run_regression_gate.importlib.util,
+        "find_spec",
+        lambda module: object() if module == "ruff" else None,
+    )
+    monkeypatch.setattr(run_regression_gate.shutil, "which", lambda _: "ruff.exe")
+    assert run_regression_gate.quality_tool_cmd("ruff", "check", ".") == [
+        sys.executable,
+        "-m",
+        "ruff",
+        "check",
+        ".",
+    ]
 
 
 def test_command_list_has_no_real_flag_and_no_dotenv_read() -> None:
@@ -100,3 +141,30 @@ def test_shadow_eval_included_when_enabled() -> None:
 def test_run_regression_gate_does_not_use_shell_true() -> None:
     source = Path("scripts/run_regression_gate.py").read_text(encoding="utf-8")
     assert "shell=True" not in source
+
+
+def test_python_commands_use_current_interpreter() -> None:
+    commands = run_regression_gate.build_commands(
+        skip_type_checks=True,
+        skip_slow=True,
+        no_cli_smoke=False,
+        include_shadow_eval=True,
+    )
+    python_commands = [
+        cmd
+        for cmd in commands
+        if cmd[1:2] == ["-m"] or (len(cmd) > 1 and cmd[1].startswith("scripts/"))
+    ]
+    assert python_commands
+    assert all(cmd[0] == sys.executable for cmd in python_commands)
+
+
+def test_missing_quality_tool_has_actionable_message(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(run_regression_gate.shutil, "which", lambda _: None)
+    try:
+        run_regression_gate.run_command(1, 1, ["ruff", "check", "."])
+    except SystemExit as exc:
+        assert exc.code == 127
+    output = capsys.readouterr().out
+    assert "Missing local quality tool 'ruff'" in output
+    assert "python -m pip install -e .[dev]" in output

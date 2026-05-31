@@ -41,6 +41,20 @@ def test_submission_checklist_exists_and_required_terms() -> None:
     assert "pytest -q" in text
 
 
+def test_readme_and_lagent_doc_expose_alignment_evidence() -> None:
+    readme = _read("README.md")
+    lagent = _read("docs/lagent_alignment.md")
+    for text in [readme, lagent]:
+        assert "Planner" in text
+        assert "Solver" in text
+        assert "Verifier" in text
+        assert "Tool Observation" in text
+        assert "Agent message" in text
+        assert "Action observation" in text
+    assert "stable runtime" in readme.lower()
+    assert "Reviewer Checklist" in lagent
+
+
 def test_no_fabricated_official_112_completion_claim() -> None:
     docs = [
         "docs/final_report.md",

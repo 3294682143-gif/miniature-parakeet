@@ -26,6 +26,18 @@ EXCLUDED_DIR_NAMES = {
     "node_modules",
 }
 
+BINARY_SUFFIXES = {
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".ico",
+    ".pdf",
+    ".zip",
+    ".gz",
+}
+
 
 def run_cmd(
     cmd: list[str], timeout: int = 15, cwd: Path | None = None
@@ -94,7 +106,12 @@ def iter_tracked_files(root: Path) -> list[Path]:
 
 
 def _count_file_lines(path: Path) -> int:
+    if path.suffix.lower() in BINARY_SUFFIXES:
+        return 0
     try:
+        sample = path.read_bytes()[:2048]
+        if b"\0" in sample:
+            return 0
         with path.open("r", encoding="utf-8", errors="ignore") as f:
             return sum(1 for _ in f)
     except OSError:

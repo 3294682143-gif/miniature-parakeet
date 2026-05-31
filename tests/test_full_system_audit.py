@@ -19,6 +19,22 @@ def test_registry_required_fields() -> None:
         assert set(fsa.REQUIRED_FIELDS).issubset(item.keys())
 
 
+def test_binary_assets_do_not_inflate_line_count(tmp_path: Path) -> None:
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "assets/logo.png").write_bytes(b"\x89PNG\r\n\x1a\n\x00binary")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src/app.py").write_text("print('ok')\n", encoding="utf-8")
+    counts = fsa.count_lines(tmp_path)
+    assert counts["total_code_lines"] == 1
+    assert counts["by_module"]["assets"] == 0
+
+
+def test_fail_on_risk_treats_skipped_checks_as_risk() -> None:
+    quality = [fsa.CheckResult("ruff", ["ruff"], 127, "SKIPPED", "command not found")]
+    smoke = [fsa.CheckResult("smoke", ["python"], 0, "PASS", "ok")]
+    assert fsa.has_gate_risk(quality, smoke) is True
+
+
 def test_skip_slow_outputs_and_constraints(tmp_path: Path) -> None:
     out = tmp_path / "audit"
     result = subprocess.run(

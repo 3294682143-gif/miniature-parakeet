@@ -107,18 +107,20 @@ class InternS1Client:
                 if 400 <= resp.status_code < 500:
                     raise ValueError(f"HTTP {resp.status_code}")
                 resp.raise_for_status()
-                data = resp.json()
-                return str(data["choices"][0]["message"]["content"])
-            except requests.Timeout as exc:
+                try:
+                    data = resp.json()
+                    content = data["choices"][0]["message"]["content"]
+                except (KeyError, IndexError, TypeError, ValueError) as exc:
+                    raise ValueError(
+                        "invalid_response: response JSON is not chat-completions compatible"
+                    ) from exc
+                return str(content)
+            except requests.Timeout:
                 if attempt >= attempts:
-                    raise ValueError("timeout: request timed out") from exc
-            except requests.RequestException as exc:
+                    raise ValueError("timeout: request timed out") from None
+            except requests.RequestException:
                 if attempt >= attempts:
-                    raise ValueError("unknown_error: network request failed") from exc
+                    raise ValueError("unknown_error: network request failed") from None
             except ValueError:
                 raise
-            except (KeyError, IndexError, TypeError, ValueError) as exc:
-                raise ValueError(
-                    "invalid_response: response JSON is not chat-completions compatible"
-                ) from exc
         raise ValueError("unknown_error: request failed after retries")

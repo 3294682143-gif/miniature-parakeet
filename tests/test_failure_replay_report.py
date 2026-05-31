@@ -78,10 +78,18 @@ def test_failure_replay_report_builds_rows_and_files(tmp_path: Path) -> None:
     failure_rows = build_failure_rows(results, answers, traces)
     assert [row["question_id"] for row in failure_rows] == ["bad"]
     assert failure_rows[0]["category"] == "answer_mismatch"
+    assert failure_rows[0]["question"] == "2+2"
+    assert failure_rows[0]["final_answer"]["value"] == "4"
+    assert failure_rows[0]["verifier_reason"] == "ok"
+    assert failure_rows[0]["suggested_fix_category"] == "solver_prompt_or_tool_routing"
+    assert failure_rows[0]["review_bucket"] == "prompt_reasoning_or_tool_routing"
 
     out = tmp_path / "failure.md"
     write_failure_report(results, out, answers, traces)
-    assert "Failure Replay Report" in out.read_text(encoding="utf-8")
+    report_text = out.read_text(encoding="utf-8")
+    assert "Failure Replay Report" in report_text
+    assert "suggested_fix_category" in report_text
+    assert "review_bucket" in report_text
     assert out.with_suffix(".json").exists()
 
 
@@ -160,3 +168,6 @@ def test_failure_replay_uses_proof_validity_mode(tmp_path: Path) -> None:
     assert [row["question_id"] for row in failure_rows] == ["proof_bad"]
     assert failure_rows[0]["category"] == "proof_verifier_failed"
     assert failure_rows[0]["evaluation_mode"] == "proof_validity"
+    assert failure_rows[0]["proof_risk_flags"]
+    assert failure_rows[0]["suggested_fix_category"] == "proof_prompt_rubric_repair"
+    assert failure_rows[0]["review_bucket"] == "proof_too_shallow_or_invalid"
