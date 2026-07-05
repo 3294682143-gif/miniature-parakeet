@@ -19,7 +19,7 @@ class ProblemParse(BaseModel):
 class ToolTrace(BaseModel):
     tool: Literal["python", "sympy", "none"]
     purpose: str
-    status: Literal["success", "fail", "skipped"]
+    status: Literal["success", "fail", "skipped", "no_match"]
     summary: str
 
 
@@ -136,7 +136,7 @@ class ToolCallRecord(BaseModel):
     tool_name: str
     parameters: dict[str, Any] = Field(default_factory=dict)
     result_summary: str = ""
-    status: Literal["success", "fail", "skipped"]
+    status: Literal["success", "fail", "skipped", "no_match"]
     latency_seconds: float | None = None
     error: str | None = None
 
