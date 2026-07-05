@@ -95,5 +95,7 @@ def safe_json_dump(data: dict[str, Any], path: str | Path) -> bool:
 def write_trace(trace: dict, trace_dir: str | Path, question_id: str) -> Path:
     trace_path = ensure_dir(trace_dir) / f"{question_id}.json"
     if not safe_json_dump(trace, trace_path):
-        _logger.warning("write_trace failed for question_id=%s at %s", question_id, trace_path)
+        _logger.warning(
+            "write_trace failed for question_id=%s at %s", question_id, trace_path
+        )
     return trace_path

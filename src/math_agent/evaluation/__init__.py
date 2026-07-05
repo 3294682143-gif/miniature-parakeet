@@ -38,7 +38,9 @@ from .metrics import (
     summarize_by_difficulty,
     summarize_by_domain,
 )
-from .metrics import exact_match as exact_match  # normalized exact match (backward-compat)
+from .metrics import (
+    exact_match as exact_match,
+)  # normalized exact match (backward-compat)
 from .metrics import render_markdown_report as render_metrics_markdown_report
 from .proof_review import (
     build_proof_review_rows,

@@ -38,7 +38,10 @@ def _mask_sensitive(value: Any) -> Any:
         return [_mask_sensitive(v) for v in value]
     if isinstance(value, str):
         lowered = value.lower()
-        if any(lowered.startswith(p) for p in _SENSITIVE_PREFIXES) or "bearer " in lowered:
+        if (
+            any(lowered.startswith(p) for p in _SENSITIVE_PREFIXES)
+            or "bearer " in lowered
+        ):
             return "[REDACTED]"
     return value
 

@@ -25,10 +25,16 @@ def render_failure_debug_report(report: DebuggerReport) -> str:
         f"- total: {report.total}",
         f"- failed_count: {report.failed_count}",
         f"- pass_count: {report.pass_count}",
-        _render_counter_table("2. Failure Category Counts", report.failure_category_counts),
+        _render_counter_table(
+            "2. Failure Category Counts", report.failure_category_counts
+        ),
         _render_counter_table("3. Domain Failure Counts", report.domain_failure_counts),
-        _render_counter_table("4. Difficulty Failure Counts", report.difficulty_failure_counts),
-        _render_counter_table("5. Answer Type Failure Counts", report.answer_type_failure_counts),
+        _render_counter_table(
+            "4. Difficulty Failure Counts", report.difficulty_failure_counts
+        ),
+        _render_counter_table(
+            "5. Answer Type Failure Counts", report.answer_type_failure_counts
+        ),
         "## 6. Failure Clusters",
     ]
     lines.extend(

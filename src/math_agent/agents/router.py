@@ -305,7 +305,9 @@ class Router:
         try:
             prompts = load_prompts(self.prompt_config_path)
         except FileNotFoundError:
-            _logger.warning("Router prompt config not found: %s", self.prompt_config_path)
+            _logger.warning(
+                "Router prompt config not found: %s", self.prompt_config_path
+            )
             return None
         try:
             system_template = get_prompt(prompts, "router_system")
@@ -362,15 +364,14 @@ class Router:
                 return problem_type, hits
 
         equation_hits: list[str] = []
-        if "=" in text and any(
-            k in text
-            for k in ["solve", "解方程", "求解"]
-        ):
+        if "=" in text and any(k in text for k in ["solve", "解方程", "求解"]):
             equation_hits.append("equation-intent")
         if "=" in text and re.search(r"[a-z]\s*=", text):
             equation_hits.append("single-var-equation")
         if equation_hits:
-            if any(k in text for k in ["solve:", "solve the", "solve ", "解方程", "求解"]):
+            if any(
+                k in text for k in ["solve:", "solve the", "solve ", "解方程", "求解"]
+            ):
                 if "x**2" in text or "x^2" in text:
                     return "quadratic_equation", equation_hits
                 return "linear_equation", equation_hits

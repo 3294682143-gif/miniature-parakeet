@@ -1076,7 +1076,10 @@ def _run_tool_assist(
             None,
             None,
             ToolTrace(
-                tool="python", purpose="tool assist", status="fail", summary=f"TOOL_CRASH: {exc}"
+                tool="python",
+                purpose="tool assist",
+                status="fail",
+                summary=f"TOOL_CRASH: {exc}",
             ),
         )
     return (
@@ -1372,7 +1375,7 @@ class MathAgentPipeline:
                         verification = Verification(
                             method="tool_override",
                             passed=True,
-                            notes=f"Tool result ({tool_final}) differs from LLM answer ({final}); using tool result."
+                            notes=f"Tool result ({tool_final}) differs from LLM answer ({final}); using tool result.",
                         )
                     else:
                         verification = tvf
@@ -1390,7 +1393,9 @@ class MathAgentPipeline:
             rounds = 0
             while not verification.passed and rounds < self.max_refine_rounds:
                 rounds += 1
-                current = self.refiner_agent.refine(question, current, verification.notes)
+                current = self.refiner_agent.refine(
+                    question, current, verification.notes
+                )
                 refined = _extract_final_answer_non_proof(draft, current, None)
                 final = refined or final
                 verification = self.verifier_agent.verify(
@@ -1493,12 +1498,16 @@ class MathAgentPipeline:
         finally:
             trace_payload["finished_at"] = now_iso()
             trace_payload["latency_seconds"] = time.perf_counter() - started_perf
-            trace_payload["final_result"] = sanitize_protocol_metadata(result.model_dump())
+            trace_payload["final_result"] = sanitize_protocol_metadata(
+                result.model_dump()
+            )
             if self.save_trace:
                 try:
                     write_trace(trace_payload, self.trace_dir, qid)
                 except Exception:
-                    trace_payload.setdefault("warnings", []).append("trace_write_failed")
+                    trace_payload.setdefault("warnings", []).append(
+                        "trace_write_failed"
+                    )
         return result
 
 

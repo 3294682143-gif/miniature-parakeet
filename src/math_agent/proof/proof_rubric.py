@@ -32,7 +32,18 @@ class ProofRubricScore:
 
 
 _LEGACY_ASSUMPTION = ("假设", "设", "令", "假定")
-_LEGACY_CHAIN = ("因为", "由于", "因此", "所以", "故", "推出", "则", "从而", "由此", "可得")
+_LEGACY_CHAIN = (
+    "因为",
+    "由于",
+    "因此",
+    "所以",
+    "故",
+    "推出",
+    "则",
+    "从而",
+    "由此",
+    "可得",
+)
 _LEGACY_CONCLUSION = (
     "证毕",
     "已证",
@@ -187,9 +198,7 @@ def score_proof_candidate(
     has_conclusion = _has_any(low, conclusion_words) or _has_any(
         text, _LEGACY_CONCLUSION
     )
-    has_claim = (
-        _has_any(low, claim_words) or _has_any(text, _LEGACY_CLAIM)
-    )
+    has_claim = _has_any(low, claim_words) or _has_any(text, _LEGACY_CLAIM)
     uses_symbols = bool(re.search(r"[=<>≤≥∈∉⊂⊆∩∪∑√^]|\b\d+\b|=>|->", text))
     has_quantifier = _has_any(low, quantifier_words) or _has_any(
         text, _LEGACY_QUANTIFIER

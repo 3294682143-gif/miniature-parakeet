@@ -152,7 +152,9 @@ class InternS1Client:
                     raise TimeoutError("timeout: request timed out") from None
             except requests.RequestException:
                 if attempt >= attempts:
-                    raise NetworkError("unknown_error: network request failed") from None
+                    raise NetworkError(
+                        "unknown_error: network request failed"
+                    ) from None
             except InternS1Error:
                 raise
         raise NetworkError("unknown_error: request failed after retries")

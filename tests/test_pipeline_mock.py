@@ -77,7 +77,8 @@ def test_refiner_called_when_verifier_fails(monkeypatch):
     monkeypatch.setattr("math_agent.pipeline.verifier.Verifier.verify", fake_verify)
     monkeypatch.setattr(
         "math_agent.pipeline.refiner.Refiner.refine",
-        lambda self, q, d, v: state.__setitem__("refine", state["refine"] + 1) or "\\boxed{2}",
+        lambda self, q, d, v: state.__setitem__("refine", state["refine"] + 1)
+        or "\\boxed{2}",
     )
     out = MathAgentPipeline(mock=False, max_refine_rounds=1).solve("1+1=?", "q3")
     assert state["refine"] == 1

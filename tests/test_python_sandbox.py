@@ -31,4 +31,7 @@ def test_sympy_works() -> None:
     result = run_python_code(
         "from sympy import symbols\nx=symbols('x')\nprint((x+x).expand())"
     )
-    assert result["status"] in {"blocked", "error"}  # sympy removed from allowed imports
+    assert result["status"] in {
+        "blocked",
+        "error",
+    }  # sympy removed from allowed imports

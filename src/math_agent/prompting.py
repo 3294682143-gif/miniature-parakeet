@@ -59,6 +59,4 @@ def render_prompt(template: str, **kwargs) -> str:
         missing_var = exc.args[0]
         raise KeyError(f"Missing variable for prompt rendering: {missing_var}") from exc
     except Exception as exc:
-        raise ValueError(
-            f"Failed to render prompt template: {exc}"
-        ) from exc
+        raise ValueError(f"Failed to render prompt template: {exc}") from exc

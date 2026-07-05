@@ -62,7 +62,9 @@ def sanitize_boxed(value: str) -> str:
     boxed = extract_boxed_answer(raw)
     candidate = boxed if boxed else raw
     candidate = candidate.strip().strip("` ")
-    while candidate.startswith("$$") and candidate.endswith("$$") and len(candidate) > 4:
+    while (
+        candidate.startswith("$$") and candidate.endswith("$$") and len(candidate) > 4
+    ):
         candidate = candidate[2:-2].strip()
     while candidate.startswith("$") and candidate.endswith("$") and len(candidate) > 2:
         candidate = candidate[1:-1].strip()
@@ -174,7 +176,10 @@ def _proof_prefix(value: str, lang: str) -> str:
             return value
         return f"已证明：{value}"
     else:
-        if value.lower().startswith("proved") or value == "The proposition has been proved.":
+        if (
+            value.lower().startswith("proved")
+            or value == "The proposition has been proved."
+        ):
             return value
         return f"Proved: {value}"
 

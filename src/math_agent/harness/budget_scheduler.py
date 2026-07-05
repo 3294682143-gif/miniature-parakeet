@@ -98,7 +98,8 @@ def infer_domain(route_info: Any = None, question: str | None = None) -> str:
     info = (
         route_info
         if isinstance(route_info, dict)
-        else getattr(route_info, "model_dump", getattr(route_info, "__dict__", {})) or {}
+        else getattr(route_info, "model_dump", getattr(route_info, "__dict__", {}))
+        or {}
     )
     domain = str(info.get("domain", "") or "").strip().lower()
     if domain:
@@ -214,9 +215,7 @@ def allocate_budget(
 
     base_candidates = int(base.get("max_candidates", 1))
     if requested_candidate_count is None:
-        clamped = clamp_candidate_count(
-            base_candidates, budget_name, domain, config
-        )
+        clamped = clamp_candidate_count(base_candidates, budget_name, domain, config)
         base["max_candidates"] = max(1, min(base_candidates, clamped))
     else:
         clamped = clamp_candidate_count(

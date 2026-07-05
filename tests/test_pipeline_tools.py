@@ -141,5 +141,8 @@ def test_enable_tools_calculus_geometry_probability_combinatorics():
     for idx, (question, expected) in enumerate(cases):
         result = pipeline.solve(question, f"det_{idx}")
         assert result.status == "success"
-        assert expected in result.final_answer.value or result.final_answer.value == expected
+        assert (
+            expected in result.final_answer.value
+            or result.final_answer.value == expected
+        )
         assert result.verification.passed is True

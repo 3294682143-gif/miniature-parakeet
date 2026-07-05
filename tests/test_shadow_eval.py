@@ -3,7 +3,9 @@ from __future__ import annotations
 import subprocess
 import sys
 
-from math_agent.evaluation.error_taxonomy import classify_failure_taxonomy as classify_failure
+from math_agent.evaluation.error_taxonomy import (
+    classify_failure_taxonomy as classify_failure,
+)
 from math_agent.evaluation.metrics import (
     compute_dirty_boxed_rate,
     compute_missing_final_rate,

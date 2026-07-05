@@ -109,7 +109,9 @@ def trace_to_lagent_messages(trace: dict[str, Any]) -> list[dict[str, Any]]:
                 "role": "user",
                 "sender": "question",
                 "content": _short_text(question),
-                "formatted": _truncate_formatted({"question_id": trace.get("question_id", "unknown")}),
+                "formatted": _truncate_formatted(
+                    {"question_id": trace.get("question_id", "unknown")}
+                ),
             }
         )
 

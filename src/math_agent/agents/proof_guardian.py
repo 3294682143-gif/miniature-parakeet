@@ -93,9 +93,13 @@ def check_proof_structure(question: str, solution_steps: Any) -> Verification:
         issues.append("possible_circular_reasoning")
     if re.search(r"\bboxed\s*\{", text) and len(text) > 200:
         boxed_content = re.search(r"\bboxed\s*\{([^}]*)\}", text)
-        if boxed_content and re.match(r"^[\d\s\+\-\*/\.,\^\(\)]+$", boxed_content.group(1).strip()):
+        if boxed_content and re.match(
+            r"^[\d\s\+\-\*/\.,\^\(\)]+$", boxed_content.group(1).strip()
+        ):
             issues.append("boxed_not_required_for_proof")
-    if re.search(r"\b\d+[\+\-\*/]\d+", q) and ("证明" in q or "prove" in q.lower() or "show that" in q.lower()):
+    if re.search(r"\b\d+[\+\-\*/]\d+", q) and (
+        "证明" in q or "prove" in q.lower() or "show that" in q.lower()
+    ):
         issues.append("proof_misread_as_numeric")
     if re.search(r"final_answer\.value\s*=\s*['\"]\s*['\"]", text):
         issues.append("final_answer_value_empty")
@@ -118,7 +122,12 @@ def proof_final_answer_policy(result):
 
     boxed = ""
     value = (final_answer.value or "").strip()
-    has_chinese = bool(re.search(r"[一-鿿]", str(result.question_id) if hasattr(result, 'question_id') else ""))
+    has_chinese = bool(
+        re.search(
+            r"[一-鿿]",
+            str(result.question_id) if hasattr(result, "question_id") else "",
+        )
+    )
     if not value:
         value = "已证" if has_chinese else "Proved"
     if len(value) > 80:

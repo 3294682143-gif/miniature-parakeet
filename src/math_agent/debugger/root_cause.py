@@ -151,8 +151,7 @@ def _refine_by_error_message(
 
     # Empty response
     if any(
-        token in msg_lower
-        for token in ("empty", "blank", "null", "none", "missing")
+        token in msg_lower for token in ("empty", "blank", "null", "none", "missing")
     ):
         return RootCauseInfo(
             category=category,

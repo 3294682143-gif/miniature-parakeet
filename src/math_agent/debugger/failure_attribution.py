@@ -108,9 +108,7 @@ def load_shadow_results(path: Path | str) -> list[FailureCase]:
 def _is_failure(case: FailureCase) -> bool:
     r = case.raw
     # When expected_answer is None, skip exact_match check (no gold to compare against)
-    exact_match_fail = (
-        case.expected_answer is not None and not case.exact_match
-    )
+    exact_match_fail = case.expected_answer is not None and not case.exact_match
     return (
         exact_match_fail
         or case.failure_category != "ok"
@@ -212,7 +210,7 @@ def select_representatives(
     if needed > 0:
         picked.extend(remaining[:needed])
 
-    return picked[:max(0, limit)]
+    return picked[: max(0, limit)]
 
 
 def build_debugger_report(cases: list[FailureCase]) -> DebuggerReport:

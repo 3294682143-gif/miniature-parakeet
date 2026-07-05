@@ -6,7 +6,10 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from math_agent.evaluation.error_taxonomy import FailureCategory, classify_failure_taxonomy
+from math_agent.evaluation.error_taxonomy import (
+    FailureCategory,
+    classify_failure_taxonomy,
+)
 from math_agent.evaluation.metrics import (
     compute_dirty_boxed_rate,
     compute_failure_counts,

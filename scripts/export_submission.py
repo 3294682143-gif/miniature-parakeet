@@ -125,7 +125,9 @@ SECRET_PATTERNS = [
     re.compile(r"sk-[a-zA-Z0-9]{20,}", re.IGNORECASE),
     re.compile(r"Bearer\s+[a-zA-Z0-9_\-\.]{20,}", re.IGNORECASE),
     re.compile(r"api_key\s*[:=]\s*['\"]?[a-zA-Z0-9_\-]{16,}['\"]?", re.IGNORECASE),
-    re.compile(r"INTERNS1_API_KEY\s*[:=]\s*['\"]?[a-zA-Z0-9_\-]{16,}['\"]?", re.IGNORECASE),
+    re.compile(
+        r"INTERNS1_API_KEY\s*[:=]\s*['\"]?[a-zA-Z0-9_\-]{16,}['\"]?", re.IGNORECASE
+    ),
     re.compile(r"Authorization\s*[:=]\s*['\"]?Bear", re.IGNORECASE),
 ]
 
@@ -139,7 +141,9 @@ def _scan_trace_file_for_secrets(file_path: Path) -> list[str]:
     for line_no, line in enumerate(content.splitlines(), start=1):
         for pattern in SECRET_PATTERNS:
             if pattern.search(line):
-                findings.append(f"{file_path}:{line_no}: potential secret matched pattern {pattern.pattern!r}")
+                findings.append(
+                    f"{file_path}:{line_no}: potential secret matched pattern {pattern.pattern!r}"
+                )
                 break
     return findings
 
@@ -154,7 +158,9 @@ def _scan_trace_dir_for_secrets(trace_dir: Path) -> list[str]:
         fname = path.name.lower()
         if fname.startswith("."):
             continue
-        if fname.endswith((".zip", ".gz", ".png", ".jpg", ".jpeg", ".pdf", ".bin", ".pkl", ".pt")):
+        if fname.endswith(
+            (".zip", ".gz", ".png", ".jpg", ".jpeg", ".pdf", ".bin", ".pkl", ".pt")
+        ):
             continue
         findings.extend(_scan_trace_file_for_secrets(path))
     return findings
