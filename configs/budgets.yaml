@@ -1,3 +1,4 @@
+# NOTE: Budget config is used by budget_scheduler.allocate_budget() in harness layer.
 easy:
   max_candidates: 1
   max_refine_rounds: 0

@@ -50,7 +50,7 @@ def normalize_candidate_answer(
             risk_flags=["schema_invalid"],
         )
 
-    value = (model.final_answer_value or "").strip()
+    value = str(model.final_answer_value or "").strip()
     normalized = ""
     if value:
         try:
@@ -65,8 +65,8 @@ def normalize_candidate_answer(
 
     dirty_payload = {
         "final_answer": {
-            "value": model.final_answer_value or "",
-            "boxed": model.final_answer_boxed or "",
+            "value": str(model.final_answer_value or ""),
+            "boxed": str(model.final_answer_boxed or ""),
         },
     }
     dirty_flags = detect_dirty_final_answer(dirty_payload)
@@ -137,12 +137,12 @@ def score_candidate(
 
     flags = set(_safe_risk_flags(candidate))
     penalties = {
-        "missing_final": 0.35,
-        "empty_value": 0.25,
-        "dirty_boxed": 0.25,
-        "boxed_42_fallback": 0.40,
-        "markdown_in_final": 0.20,
-        "schema_invalid": 0.30,
+        "missing_final": 0.15,
+        "empty_value": 0.10,
+        "dirty_boxed": 0.10,
+        "boxed_42_fallback": 0.15,
+        "markdown_in_final": 0.05,
+        "schema_invalid": 0.12,
     }
     for k, v in penalties.items():
         if k in flags:

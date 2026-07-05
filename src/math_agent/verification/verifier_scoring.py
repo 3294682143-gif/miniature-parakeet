@@ -68,7 +68,7 @@ def score_candidate(
     if "schema_invalid" in flags:
         fs -= 0.3
     fs = _clamp(fs)
-    cs = 0.8 if n else 0.0
+    cs = 0.5 if n else 0.0
     if (
         expected_answer is not None
         and n

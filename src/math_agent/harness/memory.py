@@ -161,9 +161,11 @@ class MemoryHub:
     def _safe_write_json(self, filename: str, payload: dict[str, Any]) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
         path = self.root / filename
-        path.write_text(
+        tmp_path = path.with_suffix(path.suffix + ".tmp")
+        tmp_path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
+        tmp_path.replace(path)
 
     def _safe_write_yaml(self, filename: str, payload: dict[str, Any]) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
@@ -199,17 +201,19 @@ class MemoryHub:
 
     @staticmethod
     def _is_sensitive_key(key: str) -> bool:
+        _SENSITIVE_TOKENS = (
+            "api_key",
+            "authorization",
+            "bearer",
+            ".env",
+            "password",
+            "passwd",
+            "private_key",
+        )
         lower = key.lower()
         return any(
-            token in lower
-            for token in (
-                "api_key",
-                "authorization",
-                "bearer",
-                ".env",
-                "secret",
-                "token",
-            )
+            lower == t or lower.endswith(f"_{t}") or lower.startswith(f"{t}_")
+            for t in _SENSITIVE_TOKENS
         )
 
     @staticmethod

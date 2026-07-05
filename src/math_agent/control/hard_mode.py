@@ -98,6 +98,8 @@ def build_hard_mode_policy(
 
 
 def should_enable_proof_guardian(policy: HardModePolicy, answer_type: str) -> bool:
+    if policy.level == "strict" and policy.proof_guardian:
+        return True
     answer_type_norm = (answer_type or "").strip().lower()
     return policy.proof_guardian and answer_type_norm == "proof"
 
@@ -116,6 +118,8 @@ def validate_policy(policy: HardModePolicy) -> list[str]:
         errors.append(f"invalid verifier_level: {policy.verifier_level}")
     if not policy.enabled and policy.level != "off":
         errors.append("disabled hard mode must use level 'off'")
+    if policy.enabled and policy.level == "off":
+        errors.append("enabled hard mode should not use level 'off'")
     return errors
 
 

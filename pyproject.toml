@@ -7,7 +7,7 @@ name = "interns1-math-agent"
 version = "0.1.0"
 description = "Mock-first math agent scaffold for Intern-S1 style competition"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
   "pydantic",
   "pyyaml",

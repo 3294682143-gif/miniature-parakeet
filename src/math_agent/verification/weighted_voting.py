@@ -67,13 +67,16 @@ def weighted_vote(
         key=lambda kv: (
             kv[1]["weight"],
             kv[1]["top_score"],
-            sorted(kv[1]["candidate_ids"])[0],
         ),
         reverse=True,
     )
     top_key, top = items[0]
     tie = len(items) > 1 and abs(items[0][1]["weight"] - items[1][1]["weight"]) < 1e-12
-    selected_id = sorted(top["candidate_ids"])[0]
+    score_map = {s.candidate_id: s.final_score for s in scores}
+    selected_id = max(
+        top["candidate_ids"],
+        key=lambda cid: score_map.get(cid, 0.0),
+    )
     total = sum(v["weight"] for v in valid.values())
     return WeightedVoteDecision(
         selected_id,

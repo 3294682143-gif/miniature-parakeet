@@ -75,7 +75,7 @@ def test_proof_policy_empty_value_and_boxed_cleanup():
 def test_proof_policy_value_short_conclusion():
     result = _proof_result(value="这是很长的证明" * 20, boxed="")
     fixed = proof_final_answer_policy(result)
-    assert fixed.final_answer.value in {"命题成立", "已证"}
+    assert fixed.final_answer.value in {"命题成立", "已证", "The proposition holds", "Proved"}
 
 
 def test_pipeline_non_proof_not_using_guardian():

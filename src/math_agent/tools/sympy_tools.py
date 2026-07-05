@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, cast
+from typing import Any
 
 from sympy import (  # type: ignore[import-untyped]
     Eq,
@@ -21,7 +21,6 @@ from sympy.parsing.sympy_parser import (  # type: ignore[import-untyped]
 
 _TRANSFORMS = standard_transformations + (implicit_multiplication_application,)
 _LOCAL_SYMBOLS = {"e": sympify("E"), "E": sympify("E")}
-_SYMPIFY_ANY = cast(Any, sympify)
 
 
 def _parse_math_expr(expr: str):
@@ -30,7 +29,7 @@ def _parse_math_expr(expr: str):
 
 def simplify_expression(expr: str) -> str:
     try:
-        return str(simplify(sympify(expr)))
+        return str(simplify(_parse_math_expr(expr)))
     except Exception as exc:
         return f"ERROR: unable to simplify expression ({exc})"
 
@@ -87,8 +86,8 @@ def choose(n: str | int, k: str | int) -> str:
 
 def check_equivalent(expr1: str, expr2: str) -> bool:
     try:
-        lhs = cast(Any, _SYMPIFY_ANY(expr1, locals=_LOCAL_SYMBOLS))
-        rhs = cast(Any, _SYMPIFY_ANY(expr2, locals=_LOCAL_SYMBOLS))
+        lhs = _parse_math_expr(expr1)
+        rhs = _parse_math_expr(expr2)
         return bool(simplify(lhs - rhs) == 0)
     except Exception:
         return False
@@ -96,8 +95,8 @@ def check_equivalent(expr1: str, expr2: str) -> bool:
 
 def numeric_compare(a: str, b: str, tol: float = 1e-6) -> bool:
     try:
-        av = float(cast(Any, _SYMPIFY_ANY(a, locals=_LOCAL_SYMBOLS)).evalf())
-        bv = float(cast(Any, _SYMPIFY_ANY(b, locals=_LOCAL_SYMBOLS)).evalf())
+        av = float(_parse_math_expr(a).evalf())
+        bv = float(_parse_math_expr(b).evalf())
         return abs(av - bv) <= tol
     except Exception:
         return False

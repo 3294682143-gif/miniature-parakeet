@@ -56,7 +56,7 @@ def build_verifier_routing_plan(
         verifier_level=verifier_level,
         route=route,
         require_strict_checks=require_strict_checks,
-        allow_repair=True,
+        allow_repair=runtime_config.allow_repair,
         proof_guardian=proof_guardian,
         notes=notes,
     )

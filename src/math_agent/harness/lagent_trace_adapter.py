@@ -37,19 +37,38 @@ def _short_text(value: Any, limit: int = 600) -> str:
     return text if len(text) <= limit else text[: limit - 3] + "..."
 
 
+def _truncate_formatted(value: Any, max_length: int = 2000) -> Any:
+    """Truncate large formatted dicts to prevent oversized traces."""
+    if isinstance(value, dict):
+        out: dict[str, Any] = {}
+        for k, v in value.items():
+            if isinstance(v, str) and len(v) > max_length:
+                out[k] = v[:max_length] + "...[truncated]"
+            elif isinstance(v, list) and len(v) > 50:
+                out[k] = v[:50] + ["...[truncated]"]
+            elif isinstance(v, dict):
+                out[k] = _truncate_formatted(v, max_length)
+            else:
+                out[k] = v
+        return out
+    return value
+
+
 def agent_step_to_lagent_message(step: AgentStep) -> dict[str, Any]:
     return sanitize_protocol_metadata(
         {
             "role": "assistant",
             "sender": step.agent_name,
             "content": step.output_summary or step.input_summary,
-            "formatted": {
-                "step_id": step.step_id,
-                "role": step.role,
-                "status": step.status,
-                "risk_flags": list(step.risk_flags),
-                "metadata": dict(step.metadata),
-            },
+            "formatted": _truncate_formatted(
+                {
+                    "step_id": step.step_id,
+                    "role": step.role,
+                    "status": step.status,
+                    "risk_flags": list(step.risk_flags),
+                    "metadata": dict(step.metadata),
+                }
+            ),
         }
     )
 
@@ -69,12 +88,14 @@ def tool_call_to_lagent_message(
             "content": _short_text(
                 payload.get("result_summary") or payload.get("summary") or ""
             ),
-            "formatted": {
-                "status": payload.get("status", "unknown"),
-                "parameters": payload.get("parameters", {}),
-                "latency_seconds": payload.get("latency_seconds"),
-                "error": payload.get("error"),
-            },
+            "formatted": _truncate_formatted(
+                {
+                    "status": payload.get("status", "unknown"),
+                    "parameters": payload.get("parameters", {}),
+                    "latency_seconds": payload.get("latency_seconds"),
+                    "error": payload.get("error"),
+                }
+            ),
         }
     )
 
@@ -88,7 +109,7 @@ def trace_to_lagent_messages(trace: dict[str, Any]) -> list[dict[str, Any]]:
                 "role": "user",
                 "sender": "question",
                 "content": _short_text(question),
-                "formatted": {"question_id": trace.get("question_id", "unknown")},
+                "formatted": _truncate_formatted({"question_id": trace.get("question_id", "unknown")}),
             }
         )
 
@@ -100,11 +121,13 @@ def trace_to_lagent_messages(trace: dict[str, Any]) -> list[dict[str, Any]]:
                     "role": "assistant",
                     "sender": "router",
                     "content": _short_text(route_info),
-                    "formatted": {
-                        "domain": route_info.get("domain"),
-                        "problem_type": route_info.get("problem_type"),
-                        "recommended_solver": route_info.get("recommended_solver"),
-                    },
+                    "formatted": _truncate_formatted(
+                        {
+                            "domain": route_info.get("domain"),
+                            "problem_type": route_info.get("problem_type"),
+                            "recommended_solver": route_info.get("recommended_solver"),
+                        }
+                    ),
                 }
             )
         )
@@ -121,7 +144,7 @@ def trace_to_lagent_messages(trace: dict[str, Any]) -> list[dict[str, Any]]:
                         f"model={call.get('model', 'unknown')} "
                         f"status={call.get('status', 'unknown')}"
                     ),
-                    "formatted": dict(call),
+                    "formatted": _truncate_formatted(dict(call)),
                 }
             )
         )
@@ -142,11 +165,13 @@ def trace_to_lagent_messages(trace: dict[str, Any]) -> list[dict[str, Any]]:
                     "role": "assistant",
                     "sender": "formatter",
                     "content": _short_text(value),
-                    "formatted": {
-                        "status": final_result.get("status"),
-                        "verification": final_result.get("verification"),
-                        "final_answer": final_answer,
-                    },
+                    "formatted": _truncate_formatted(
+                        {
+                            "status": final_result.get("status"),
+                            "verification": final_result.get("verification"),
+                            "final_answer": final_answer,
+                        }
+                    ),
                 }
             )
         )

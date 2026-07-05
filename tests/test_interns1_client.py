@@ -3,7 +3,13 @@ from __future__ import annotations
 import pytest
 import requests
 
-from math_agent.clients.interns1_client import InternS1Client
+from math_agent.clients.interns1_client import (
+    InternS1Client,
+    MissingConfigError,
+    AuthenticationError,
+    InvalidResponseError,
+    InternS1Error,
+)
 
 
 class DummyResponse:
@@ -35,13 +41,13 @@ def test_chat_returns_stable_string_in_mock_mode() -> None:
 
 def test_real_mode_missing_api_key_raises() -> None:
     client = InternS1Client(api_key=None, base_url="https://example.com", mock=False)
-    with pytest.raises(ValueError, match="api_key"):
+    with pytest.raises(MissingConfigError, match="api_key"):
         client.chat(messages=[{"role": "user", "content": "x"}])
 
 
 def test_real_mode_missing_base_url_raises() -> None:
     client = InternS1Client(api_key="dummy", base_url=None, mock=False)
-    with pytest.raises(ValueError, match="base_url"):
+    with pytest.raises(MissingConfigError, match="base_url"):
         client.chat(messages=[{"role": "user", "content": "x"}])
 
 
@@ -56,7 +62,7 @@ def test_error_message_does_not_include_api_key(
     monkeypatch.setattr("requests.post", _post)
 
     client = InternS1Client(api_key=secret, base_url="https://example.com", mock=False)
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(AuthenticationError) as exc:
         client.chat(messages=[{"role": "user", "content": "x"}])
     assert secret not in str(exc.value)
 
@@ -72,7 +78,7 @@ def test_network_error_does_not_chain_sensitive_request(
     monkeypatch.setattr("requests.post", _post)
 
     client = InternS1Client(api_key=secret, base_url="https://example.com", mock=False)
-    with pytest.raises(ValueError, match="network request failed") as exc:
+    with pytest.raises(InternS1Error, match="network request failed") as exc:
         client.chat(messages=[{"role": "user", "content": "x"}])
     assert secret not in str(exc.value)
     assert exc.value.__cause__ is None
@@ -172,7 +178,7 @@ def test_4xx_should_not_retry(monkeypatch: pytest.MonkeyPatch) -> None:
     client = InternS1Client(
         api_key="dummy", base_url="https://example.com", mock=False, max_retries=3
     )
-    with pytest.raises(ValueError, match="HTTP 400"):
+    with pytest.raises(InternS1Error, match="HTTP 400"):
         client.chat(messages=[{"role": "user", "content": "q"}])
     assert calls["count"] == 1
 
@@ -205,7 +211,7 @@ def test_invalid_response_shape_is_classified(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr("requests.post", _post)
 
     client = InternS1Client(api_key="dummy", base_url="https://example.com", mock=False)
-    with pytest.raises(ValueError, match="invalid_response"):
+    with pytest.raises(InvalidResponseError, match="invalid_response"):
         client.chat(messages=[{"role": "user", "content": "q"}])
 
 
@@ -220,5 +226,5 @@ def test_invalid_json_response_is_classified(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr("requests.post", _post)
 
     client = InternS1Client(api_key="dummy", base_url="https://example.com", mock=False)
-    with pytest.raises(ValueError, match="invalid_response"):
+    with pytest.raises(InvalidResponseError, match="invalid_response"):
         client.chat(messages=[{"role": "user", "content": "q"}])

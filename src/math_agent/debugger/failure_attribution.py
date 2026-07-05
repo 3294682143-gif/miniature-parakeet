@@ -107,8 +107,12 @@ def load_shadow_results(path: Path | str) -> list[FailureCase]:
 
 def _is_failure(case: FailureCase) -> bool:
     r = case.raw
+    # When expected_answer is None, skip exact_match check (no gold to compare against)
+    exact_match_fail = (
+        case.expected_answer is not None and not case.exact_match
+    )
     return (
-        (case.expected_answer is not None and not case.exact_match)
+        exact_match_fail
         or case.failure_category != "ok"
         or case.status in {"fail", "exception", "timeout"}
         or r.get("json_valid") is False
@@ -147,11 +151,68 @@ def cluster_failures(cases: list[FailureCase]) -> list[FailureCluster]:
     return out
 
 
+def cluster_failures_by_domain(cases: list[FailureCase]) -> list[FailureCluster]:
+    """Secondary clustering: group by domain first, then by failure_category."""
+    grouped: dict[str, dict[str, list[FailureCase]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
+    for c in cases:
+        grouped[c.domain][c.failure_category].append(c)
+    out: list[FailureCluster] = []
+    for domain, cat_map in sorted(grouped.items()):
+        for cat_key, cat_group in sorted(
+            cat_map.items(), key=lambda kv: (-len(kv[1]), kv[0])
+        ):
+            info = infer_root_cause(cat_group[0])
+            out.append(
+                FailureCluster(
+                    key=f"{domain}/{cat_key}",
+                    count=len(cat_group),
+                    case_ids=[g.id for g in cat_group],
+                    domains=dict(Counter(g.domain for g in cat_group)),
+                    difficulties=dict(Counter(g.difficulty for g in cat_group)),
+                    answer_types=dict(Counter(g.answer_type for g in cat_group)),
+                    representative_ids=[g.id for g in cat_group[:3]],
+                    severity=infer_severity(cat_group[0]),
+                    suggested_owner=info.owner,
+                    suggested_next_action=info.action,
+                )
+            )
+    return out
+
+
 def select_representatives(
     cases: list[FailureCase], limit: int = 10
 ) -> list[FailureCase]:
-    ranked = sorted(cases, key=lambda c: (infer_severity(c), c.failure_category, c.id))
-    return ranked[: max(0, limit)]
+    """Select diverse representatives, preferring distinct failure categories
+    and domains, and cases with longer error messages (more signal)."""
+    seen_categories: set[str] = set()
+    seen_domains: set[str] = set()
+    picked: list[FailureCase] = []
+    remaining: list[FailureCase] = []
+
+    for c in sorted(
+        cases,
+        key=lambda c: (
+            len(c.error_message) if c.error_message else 0,
+            c.failure_category,
+        ),
+        reverse=True,
+    ):
+        cat = c.failure_category
+        dom = c.domain
+        if cat not in seen_categories or dom not in seen_domains:
+            seen_categories.add(cat)
+            seen_domains.add(dom)
+            picked.append(c)
+        else:
+            remaining.append(c)
+
+    needed = max(0, limit) - len(picked)
+    if needed > 0:
+        picked.extend(remaining[:needed])
+
+    return picked[:max(0, limit)]
 
 
 def build_debugger_report(cases: list[FailureCase]) -> DebuggerReport:

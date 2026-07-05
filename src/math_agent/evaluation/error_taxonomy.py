@@ -16,10 +16,13 @@ class FailureCategory:
     TIMEOUT = "timeout"
     EXCEPTION = "exception"
     WRONG_ANSWER = "wrong_answer"
+    MODEL_API_ERROR = "model_api_error"
+    EMPTY_PREDICTION = "empty_prediction"
+    VERIFIER_INCONCLUSIVE = "verifier_inconclusive"
     UNKNOWN = "unknown"
 
 
-def classify_failure(result_like: dict[str, Any]) -> str:
+def classify_failure_taxonomy(result_like: dict[str, Any]) -> str:
     if not result_like.get("json_valid", True):
         return FailureCategory.JSON_INVALID
     if not result_like.get("final_answer_exists", True):
@@ -40,6 +43,12 @@ def classify_failure(result_like: dict[str, Any]) -> str:
         return FailureCategory.TIMEOUT
     if result_like.get("status") == "exception":
         return FailureCategory.EXCEPTION
+    if result_like.get("model_api_error", False):
+        return FailureCategory.MODEL_API_ERROR
+    if not result_like.get("predicted_answer", "").strip():
+        return FailureCategory.EMPTY_PREDICTION
+    if result_like.get("verifier_passed") is None:
+        return FailureCategory.VERIFIER_INCONCLUSIVE
     if (
         result_like.get("expected_answer") not in (None, "")
         and result_like.get("exact_match") is False

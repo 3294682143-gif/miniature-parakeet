@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from math_agent.evaluation.error_taxonomy import FailureCategory, classify_failure
+from math_agent.evaluation.error_taxonomy import FailureCategory, classify_failure_taxonomy
 from math_agent.evaluation.metrics import (
     compute_dirty_boxed_rate,
     compute_failure_counts,
@@ -122,18 +122,46 @@ def load_cases(path: Path | str | None) -> list[ShadowEvalCase]:
 
 
 def _mock_runner(case: ShadowEvalCase, _options: dict[str, Any]) -> dict[str, Any]:
+    ablation_level = _options.get("ablation_level", "off")
     mapping = {
-        "计算 2+3": "5",
-        "解方程 x+1=3": "2",
-        "化简 1/2+1/3": "5/6",
-        "判断 4 是否为偶数": "yes",
+        "calculate 2+3": "5",
+        "solve x+1=3": "2",
+        "simplify 1/2+1/3": "5/6",
+        "is 4 even": "yes",
     }
     if case.answer_type == "proof":
+        if ablation_level == "off":
+            return {
+                "predicted_answer": "Let a=2m,b=2n, then a+b=2(m+n), so it is even.",
+                "proof_partial": False,
+            }
+        if ablation_level == "no_verifier":
+            return {
+                "predicted_answer": "Let a=2m,b=2n, then a+b=2(m+n).",
+                "proof_partial": True,
+                "verifier_passed": None,
+            }
+        if ablation_level == "no_tools":
+            return {
+                "predicted_answer": "Even + even = even.",
+                "proof_partial": True,
+                "verifier_passed": False,
+            }
+
+    base = mapping.get(case.question.casefold(), "mock-answer")
+    if ablation_level == "off":
+        return {"predicted_answer": base}
+    if ablation_level == "no_verifier":
+        return {"predicted_answer": base, "verifier_passed": None}
+    if ablation_level == "no_tools":
+        return {"predicted_answer": base, "tool_used": False, "tool_error": True}
+    if ablation_level == "no_formatter":
         return {
-            "predicted_answer": "设 a=2m,b=2n，则 a+b=2(m+n)，故为偶数。",
-            "proof_partial": False,
+            "predicted_answer": base,
+            "dirty_boxed": True,
+            "final_answer_exists": False,
         }
-    return {"predicted_answer": mapping.get(case.question, "mock-answer")}
+    return {"predicted_answer": base}
 
 
 def run_shadow_eval(
@@ -174,7 +202,7 @@ def run_shadow_eval(
             res.exact_match = exact_match(res.predicted_answer, case.expected_answer)
             payload = asdict(res)
             payload.update(rr)
-            res.failure_category = classify_failure(payload)
+            res.failure_category = classify_failure_taxonomy(payload)
         except Exception as exc:  # noqa: BLE001
             res = ShadowEvalResult(
                 id=case.id,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import sys
 import zipfile
@@ -120,6 +121,45 @@ def _zip_directory(source_dir: Path, zip_path: Path) -> None:
             zf.write(path, arcname=str(rel))
 
 
+SECRET_PATTERNS = [
+    re.compile(r"sk-[a-zA-Z0-9]{20,}", re.IGNORECASE),
+    re.compile(r"Bearer\s+[a-zA-Z0-9_\-\.]{20,}", re.IGNORECASE),
+    re.compile(r"api_key\s*[:=]\s*['\"]?[a-zA-Z0-9_\-]{16,}['\"]?", re.IGNORECASE),
+    re.compile(r"INTERNS1_API_KEY\s*[:=]\s*['\"]?[a-zA-Z0-9_\-]{16,}['\"]?", re.IGNORECASE),
+    re.compile(r"Authorization\s*[:=]\s*['\"]?Bear", re.IGNORECASE),
+]
+
+
+def _scan_trace_file_for_secrets(file_path: Path) -> list[str]:
+    findings: list[str] = []
+    try:
+        content = file_path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return findings
+    for line_no, line in enumerate(content.splitlines(), start=1):
+        for pattern in SECRET_PATTERNS:
+            if pattern.search(line):
+                findings.append(f"{file_path}:{line_no}: potential secret matched pattern {pattern.pattern!r}")
+                break
+    return findings
+
+
+def _scan_trace_dir_for_secrets(trace_dir: Path) -> list[str]:
+    findings: list[str] = []
+    for path in sorted(trace_dir.rglob("*")):
+        if path.is_dir():
+            continue
+        if not path.is_file():
+            continue
+        fname = path.name.lower()
+        if fname.startswith("."):
+            continue
+        if fname.endswith((".zip", ".gz", ".png", ".jpg", ".jpeg", ".pdf", ".bin", ".pkl", ".pt")):
+            continue
+        findings.extend(_scan_trace_file_for_secrets(path))
+    return findings
+
+
 def _print_warning(msg: str) -> None:
     print(f"WARNING: {msg}", file=sys.stderr)
 
@@ -158,6 +198,13 @@ def main() -> int:
         print("ERROR: high-risk sensitive content detected:", file=sys.stderr)
         for rel_path, risk in findings:
             print(f"- {risk}: {rel_path}", file=sys.stderr)
+        return 3
+
+    trace_secret_findings = _scan_trace_dir_for_secrets(traces)
+    if trace_secret_findings:
+        print("ERROR: secrets detected in trace files:", file=sys.stderr)
+        for f in trace_secret_findings:
+            print(f"- {f}", file=sys.stderr)
         return 3
 
     if out_dir.exists():

@@ -32,6 +32,14 @@ _LONG_TEXT_TOKENS = (
     "由此可得",
     "首先",
     "其次",
+    "Step 1",
+    "Step 2",
+    "Proof:",
+    "Therefore",
+    "First",
+    "Second",
+    "Hence",
+    "Thus",
 )
 
 
@@ -54,8 +62,14 @@ def sanitize_boxed(value: str) -> str:
     boxed = extract_boxed_answer(raw)
     candidate = boxed if boxed else raw
     candidate = candidate.strip().strip("` ")
-    if candidate.startswith("$") and candidate.endswith("$") and len(candidate) > 2:
+    while candidate.startswith("$$") and candidate.endswith("$$") and len(candidate) > 4:
+        candidate = candidate[2:-2].strip()
+    while candidate.startswith("$") and candidate.endswith("$") and len(candidate) > 2:
         candidate = candidate[1:-1].strip()
+    if candidate.startswith("\\(") and candidate.endswith("\\)") and len(candidate) > 4:
+        candidate = candidate[2:-2].strip()
+    if candidate.startswith("\\[") and candidate.endswith("\\]") and len(candidate) > 4:
+        candidate = candidate[2:-2].strip()
     if _is_long_markdown(candidate):
         return ""
     if "\\boxed" in candidate:
@@ -143,6 +157,28 @@ def _minimal_failure_result(payload: dict[str, Any]) -> SolveResult:
     )
 
 
+def _detect_language(text: str) -> str:
+    """Return 'zh' if text contains Chinese characters, 'en' otherwise."""
+    if not text:
+        return "en"
+    for ch in text:
+        if "一" <= ch <= "鿿":
+            return "zh"
+    return "en"
+
+
+def _proof_prefix(value: str, lang: str) -> str:
+    """Build language-appropriate prefix for proof final answers."""
+    if lang == "zh":
+        if value.startswith("已证明") or value == "命题已完成证明。":
+            return value
+        return f"已证明：{value}"
+    else:
+        if value.lower().startswith("proved") or value == "The proposition has been proved.":
+            return value
+        return f"Proved: {value}"
+
+
 def proof_safe_finalize(result: dict | SolveResult) -> SolveResult:
     model = (
         result
@@ -156,8 +192,8 @@ def proof_safe_finalize(result: dict | SolveResult) -> SolveResult:
     if not value or _is_long_markdown(value):
         source = "\n".join(model.visible_solution_steps)
         value = extract_answer_by_patterns(source) or "命题已完成证明。"
-        if not value.startswith("已证明") and value != "命题已完成证明。":
-            value = f"已证明：{value}"
+        lang = _detect_language(value)
+        value = _proof_prefix(value, lang)
     status = model.status
     if status == "fail" and value:
         status = "partial"

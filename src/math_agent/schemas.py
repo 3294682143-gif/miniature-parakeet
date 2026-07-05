@@ -36,6 +36,7 @@ class Verification(BaseModel):
         "substitution",
         "logic_review",
         "self_review",
+        "tool_override",
         "none",
     ]
     passed: bool
@@ -56,6 +57,10 @@ class SolveResult(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     status: Literal["success", "partial", "fail"]
     error: str | None = None
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.error is not None:
+            self.error = sanitize_protocol_metadata({"error": self.error})["error"]
 
 
 # compatibility alias for older imports
@@ -103,6 +108,11 @@ def sanitize_protocol_metadata(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def to_jsonable(model: BaseModel | dict[str, Any]) -> dict[str, Any]:
+    """Convert a Pydantic model or dict to a JSON-safe dict.
+
+    When used in the trace path, prefer sanitize_protocol_metadata() to
+    strip sensitive keys before serialization.
+    """
     if isinstance(model, BaseModel):
         return model.model_dump()
     return sanitize_protocol_metadata(model)

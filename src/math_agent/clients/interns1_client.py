@@ -7,6 +7,38 @@ from typing import Any, cast
 import requests
 
 
+class InternS1Error(Exception):
+    """Base exception for InternS1 client errors."""
+
+
+class AuthenticationError(InternS1Error):
+    """Raised on 401/403 authentication failures."""
+
+
+class RateLimitError(InternS1Error):
+    """Raised on 429 rate-limit responses."""
+
+
+class ServerError(InternS1Error):
+    """Raised on 5xx server errors after retries exhausted."""
+
+
+class InvalidResponseError(InternS1Error):
+    """Raised when the response JSON is not chat-completions compatible."""
+
+
+class TimeoutError(InternS1Error):
+    """Raised when a request times out after retries exhausted."""
+
+
+class NetworkError(InternS1Error):
+    """Raised when a network-level request failure occurs after retries exhausted."""
+
+
+class MissingConfigError(InternS1Error):
+    """Raised when required configuration (API key, base URL) is missing."""
+
+
 def _positive_int(value: str | None, default: int) -> int:
     if value is None or value.strip() == "":
         return default
@@ -44,7 +76,7 @@ class InternS1Client:
 
     def _build_chat_completions_url(self) -> str:
         if not self.base_url:
-            raise ValueError(
+            raise MissingConfigError(
                 "missing_base_url: INTERNS1_BASE_URL is required in --real mode"
             )
         normalized = self.base_url.rstrip("/")
@@ -56,11 +88,11 @@ class InternS1Client:
 
     def _validate_real_mode_config(self) -> None:
         if not self.api_key:
-            raise ValueError(
+            raise MissingConfigError(
                 "missing_api_key: INTERNS1_API_KEY is required in --real mode"
             )
         if not self.base_url:
-            raise ValueError(
+            raise MissingConfigError(
                 "missing_base_url: INTERNS1_BASE_URL is required in --real mode"
             )
 
@@ -96,31 +128,31 @@ class InternS1Client:
                     timeout=self.timeout,
                 )
                 if resp.status_code in {401, 403}:
-                    raise ValueError("auth_error: unauthorized (401/403)")
+                    raise AuthenticationError("auth_error: unauthorized (401/403)")
                 if resp.status_code == 429:
-                    raise ValueError("rate_limit: HTTP 429")
+                    raise RateLimitError("rate_limit: HTTP 429")
                 if 500 <= resp.status_code < 600:
                     if attempt < attempts:
-                        time.sleep(0.1)
+                        time.sleep(0.1 * (2 ** (attempt - 1)))
                         continue
-                    raise ValueError(f"server_error: HTTP {resp.status_code}")
+                    raise ServerError(f"server_error: HTTP {resp.status_code}")
                 if 400 <= resp.status_code < 500:
-                    raise ValueError(f"HTTP {resp.status_code}")
+                    raise InternS1Error(f"HTTP {resp.status_code}")
                 resp.raise_for_status()
                 try:
                     data = resp.json()
                     content = data["choices"][0]["message"]["content"]
                 except (KeyError, IndexError, TypeError, ValueError) as exc:
-                    raise ValueError(
+                    raise InvalidResponseError(
                         "invalid_response: response JSON is not chat-completions compatible"
                     ) from exc
                 return str(content)
             except requests.Timeout:
                 if attempt >= attempts:
-                    raise ValueError("timeout: request timed out") from None
+                    raise TimeoutError("timeout: request timed out") from None
             except requests.RequestException:
                 if attempt >= attempts:
-                    raise ValueError("unknown_error: network request failed") from None
-            except ValueError:
+                    raise NetworkError("unknown_error: network request failed") from None
+            except InternS1Error:
                 raise
-        raise ValueError("unknown_error: request failed after retries")
+        raise NetworkError("unknown_error: request failed after retries")

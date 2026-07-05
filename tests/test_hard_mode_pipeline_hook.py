@@ -148,5 +148,5 @@ def test_cli_strict_no_trace_and_status_success(tmp_path: Path) -> None:
 def test_runtime_config_candidate_budget_plan_consistent() -> None:
     cfg = build_runtime_config(build_hard_mode_policy(True, "strict"))
     plan = build_candidate_budget_plan(cfg)
-    assert plan.requested_budget == cfg.candidate_budget
+    assert plan.requested_budget == cfg.effective_candidate_budget  # uses effective, not raw candidate
     assert plan.effective_budget == cfg.effective_candidate_budget

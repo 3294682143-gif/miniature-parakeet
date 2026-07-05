@@ -24,7 +24,7 @@ def _validate_real_mode_or_raise(real: bool) -> None:
 def _load_resume_rows(
     output_path: Path, retry_failed: bool
 ) -> tuple[list[str], set[str], set[str]]:
-    if not output_path.exists():
+    if not output_path.exists() or not output_path.is_file():
         return [], set(), set()
     kept_lines: list[str] = []
     skip_ids: set[str] = set()
@@ -57,7 +57,7 @@ def _read_trace_budget(trace_dir: str | Path, question_id: str) -> dict[str, int
         return {"model_calls": 0, "tool_calls": 0, "trace_found": 0}
     try:
         trace = json.loads(trace_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, OSError):
         return {"model_calls": 0, "tool_calls": 0, "trace_found": 0}
     model_calls = trace.get("model_calls", [])
     tool_calls = trace.get("tool_calls", [])
@@ -171,7 +171,6 @@ def cmd_batch(args: argparse.Namespace) -> int:
                 result = make_failure_result(
                     question_id=qid, question=question, error_message=str(exc)
                 )
-                item_started = time.perf_counter()
                 stats["error_count"] = _int_stat(stats, "error_count") + 1
             fout.write(result.model_dump_json(ensure_ascii=False) + "\n")
             elapsed = time.perf_counter() - item_started

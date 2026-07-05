@@ -94,6 +94,8 @@ def _clean_extracted_answer(raw: str) -> str:
     candidate = candidate.replace("**", "").strip()
     if "。" in candidate:
         candidate = candidate.split("。", 1)[0].strip()
+    if ". " in candidate:
+        candidate = candidate.split(". ", 1)[0].strip()
     candidate = re.sub(r"^\$+\s*(.*?)\s*\$+$", r"\1", candidate)
     candidate = candidate.strip("` ").strip()
     candidate = re.sub(r"\s+", " ", candidate)
@@ -105,8 +107,14 @@ def _clean_extracted_answer(raw: str) -> str:
 def _replace_latex_fractions(value: str) -> str:
     text = value
     for command in ("dfrac", "frac"):
-        pattern = re.compile(rf"\\{command}\s*\{{([^{{}}]+)\}}\s*\{{([^{{}}]+)\}}")
         while True:
+            pattern = re.compile(
+                rf"\\{command}\s*\{{"
+                r"((?:[^{}]|\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\})*)"
+                r"\}}\s*\{{"
+                r"((?:[^{}]|\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\})*)"
+                r"\}}"
+            )
             updated = pattern.sub(
                 lambda m: f"{m.group(1).strip()}/{m.group(2).strip()}",
                 text,
@@ -120,7 +128,8 @@ def _replace_latex_fractions(value: str) -> str:
 def _compact_math_spacing(value: str) -> str:
     text = re.sub(r"\s*([=+\-*/,\[\]\(\)])\s*", r"\1", value.strip())
     text = re.sub(r"\s+", " ", text)
-    if re.search(r"[=+\-*/\[\]\(\)\d]", text):
+    word_count = len(text.split())
+    if word_count <= 3 and re.search(r"[=+\-*/\[\]\(\)\d]", text):
         text = text.replace(" ", "")
     return text
 
@@ -158,6 +167,7 @@ def normalize_latex(text: str) -> str:
     value = value.replace("\\cdot", "*").replace("\\times", "*")
     value = value.replace("\\pi", "pi").replace("π", "pi")
     value = value.replace("^", "**")
+    value = re.sub(r"\*\*\{\s*([^{}]+?)\s*\}", r"**(\1)", value)
     value = value.replace("\\", "")
     return value.strip()
 

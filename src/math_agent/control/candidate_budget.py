@@ -37,17 +37,13 @@ def build_candidate_budget_plan(
     strategy = "single"
     notes: list[str] = []
 
+    requested_budget = max(1, runtime_config.effective_candidate_budget)
     if level == "light":
-        requested_budget = 2
         strategy = "budget_preview"
     elif level == "standard":
-        requested_budget = 3
         strategy = "budget_preview"
     elif level == "strict":
-        requested_budget = 5
         strategy = "capped_budget_preview"
-    else:
-        requested_budget = max(1, runtime_config.effective_candidate_budget)
 
     effective_budget = min(requested_budget, max_budget)
     if level == "strict" and requested_budget > effective_budget:

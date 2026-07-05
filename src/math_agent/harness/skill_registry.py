@@ -68,7 +68,7 @@ class SkillRegistry:
             if ":" in line:
                 candidate, rest = line.split(":", 1)
                 key = candidate.strip()
-                if key in fields and line.lstrip() == line:
+                if key in fields:
                     flush()
                     current_key = key
                     value = rest.strip()

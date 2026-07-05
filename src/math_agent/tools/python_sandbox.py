@@ -17,12 +17,22 @@ _BLOCK_PATTERNS = [
     r"\beval\s*\(",
     r"\bexec\s*\(",
     r"__import__",
+    r"\bcompile\b",
+    r"\bgetattr\b",
+    r"__builtins__",
+    r"__class__",
+    r"__subclasses__",
+    r"__globals__",
+    r"\bbreakpoint\b",
+    r"\bctypes\b",
+    r"\bsignal\b",
+    r"\bdel\s+",
     r"\bpip\b",
     r"\bcurl\b",
     r"\bwget\b",
 ]
 
-_ALLOWED_IMPORTS = {"math", "fractions", "statistics", "sympy"}
+_ALLOWED_IMPORTS = {"math", "fractions", "statistics"}
 
 
 def _is_blocked(code: str) -> bool:

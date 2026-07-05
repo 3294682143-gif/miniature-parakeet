@@ -4,6 +4,8 @@ from typing import Any, Protocol
 
 
 class ChatClient(Protocol):
+    model: str
+
     def chat(
         self,
         messages: list[dict[str, Any]],
