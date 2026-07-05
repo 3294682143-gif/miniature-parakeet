@@ -26,22 +26,26 @@ from .metrics import (
     compute_missing_final_rate,
     compute_trace_coverage_rate,
     evaluate_results,
+)
+from .metrics import (
+    exact_match as exact_match,  # normalized exact match (backward-compat)
+)
+from .metrics import (
     explanation_quality_for_result,
     load_answer_records,
     load_answers,
     load_jsonl,
-    normalized_exact_match,
     normalize_answer,
+    normalized_exact_match,
     proof_evaluation_hit,
     proof_failure_category,
     proof_quality_score,
+)
+from .metrics import render_markdown_report as render_metrics_markdown_report
+from .metrics import (
     summarize_by_difficulty,
     summarize_by_domain,
 )
-from .metrics import (
-    exact_match as exact_match,
-)  # normalized exact match (backward-compat)
-from .metrics import render_markdown_report as render_metrics_markdown_report
 from .proof_review import (
     build_proof_review_rows,
     proof_review_feedback,
@@ -54,12 +58,14 @@ from .shadow_eval import (
     ShadowEvalResult,
     ShadowEvalSummary,
     load_cases,
+)
+from .shadow_eval import render_markdown_report as render_shadow_eval_markdown_report
+from .shadow_eval import (
     run_shadow_eval,
     summarize_results,
     write_jsonl,
     write_summary,
 )
-from .shadow_eval import render_markdown_report as render_shadow_eval_markdown_report
 
 __all__ = [
     # error_taxonomy

@@ -4,11 +4,11 @@ import pytest
 import requests
 
 from math_agent.clients.interns1_client import (
-    InternS1Client,
-    MissingConfigError,
     AuthenticationError,
-    InvalidResponseError,
+    InternS1Client,
     InternS1Error,
+    InvalidResponseError,
+    MissingConfigError,
 )
 
 
