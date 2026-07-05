@@ -119,7 +119,9 @@ def _replace_latex_fractions(value: str) -> str:
                 brace_start += 1
             if brace_start >= len(text) or text[brace_start] != "{":
                 # Skip this occurrence — maybe a false positive
-                text = text[:pos] + text[pos + 1:]  # remove one backslash to avoid infinite loop
+                text = (
+                    text[:pos] + text[pos + 1 :]
+                )  # remove one backslash to avoid infinite loop
                 continue
             # Find matching closing brace for numerator
             num_result = _extract_braced_content(text, brace_start)
@@ -139,7 +141,7 @@ def _replace_latex_fractions(value: str) -> str:
             denominator, denom_end = denom_result
             # Replace the fraction with inline form
             replacement = f"{numerator.strip()}/{denominator.strip()}"
-            text = text[:pos] + replacement + text[denom_end + 1:]
+            text = text[:pos] + replacement + text[denom_end + 1 :]
     return text
 
 
