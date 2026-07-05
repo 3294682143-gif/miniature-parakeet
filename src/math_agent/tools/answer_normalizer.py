@@ -94,6 +94,8 @@ def _clean_extracted_answer(raw: str) -> str:
     candidate = candidate.replace("**", "").strip()
     if "。" in candidate:
         candidate = candidate.split("。", 1)[0].strip()
+    if ". " in candidate:
+        candidate = candidate.split(". ", 1)[0].strip()
     candidate = re.sub(r"^\$+\s*(.*?)\s*\$+$", r"\1", candidate)
     candidate = candidate.strip("` ").strip()
     candidate = re.sub(r"\s+", " ", candidate)
@@ -105,22 +107,49 @@ def _clean_extracted_answer(raw: str) -> str:
 def _replace_latex_fractions(value: str) -> str:
     text = value
     for command in ("dfrac", "frac"):
-        pattern = re.compile(rf"\\{command}\s*\{{([^{{}}]+)\}}\s*\{{([^{{}}]+)\}}")
+        prefix = f"\\{command}"
+        # Use balanced brace matching to handle nested fractions
         while True:
-            updated = pattern.sub(
-                lambda m: f"{m.group(1).strip()}/{m.group(2).strip()}",
-                text,
-            )
-            if updated == text:
+            pos = text.find(prefix)
+            if pos < 0:
                 break
-            text = updated
+            # Find the opening brace after the command
+            brace_start = pos + len(prefix)
+            while brace_start < len(text) and text[brace_start].isspace():
+                brace_start += 1
+            if brace_start >= len(text) or text[brace_start] != "{":
+                # Skip this occurrence — maybe a false positive
+                text = (
+                    text[:pos] + text[pos + 1 :]
+                )  # remove one backslash to avoid infinite loop
+                continue
+            # Find matching closing brace for numerator
+            num_result = _extract_braced_content(text, brace_start)
+            if num_result is None:
+                break
+            numerator, num_end = num_result
+            # Find the opening brace for denominator
+            denom_start = num_end + 1
+            while denom_start < len(text) and text[denom_start].isspace():
+                denom_start += 1
+            if denom_start >= len(text) or text[denom_start] != "{":
+                break
+            # Find matching closing brace for denominator
+            denom_result = _extract_braced_content(text, denom_start)
+            if denom_result is None:
+                break
+            denominator, denom_end = denom_result
+            # Replace the fraction with inline form
+            replacement = f"{numerator.strip()}/{denominator.strip()}"
+            text = text[:pos] + replacement + text[denom_end + 1 :]
     return text
 
 
 def _compact_math_spacing(value: str) -> str:
     text = re.sub(r"\s*([=+\-*/,\[\]\(\)])\s*", r"\1", value.strip())
     text = re.sub(r"\s+", " ", text)
-    if re.search(r"[=+\-*/\[\]\(\)\d]", text):
+    word_count = len(text.split())
+    if word_count <= 3 and re.search(r"[=+\-*/\[\]\(\)\d]", text):
         text = text.replace(" ", "")
     return text
 
@@ -158,6 +187,7 @@ def normalize_latex(text: str) -> str:
     value = value.replace("\\cdot", "*").replace("\\times", "*")
     value = value.replace("\\pi", "pi").replace("π", "pi")
     value = value.replace("^", "**")
+    value = re.sub(r"\*\*\{\s*([^{}]+?)\s*\}", r"**(\1)", value)
     value = value.replace("\\", "")
     return value.strip()
 

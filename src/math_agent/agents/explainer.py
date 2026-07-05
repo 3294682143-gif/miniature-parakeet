@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +21,12 @@ class Explainer:
 
     def explain(self, question: str, final_solution: str, final_answer: str) -> str:
         if self.mock:
-            return "提示：先识别题目目标，再按步骤推导并检查最终答案是否满足条件。"
+            has_chinese = bool(re.search(r"[一-鿿]", question))
+            return (
+                "提示：先识别题目目标，再按步骤推导并检查最终答案是否满足条件。"
+                if has_chinese
+                else "Hint: Identify the problem goal, derive step-by-step, and verify the final answer against the conditions."
+            )
 
         try:
             template = get_prompt(self.prompts, "explainer_system")
@@ -34,8 +40,18 @@ class Explainer:
                 ]
             )
         except Exception:
-            return "提示：请回顾关键等式变形，并代回原题检查答案。"
+            has_chinese = bool(re.search(r"[一-鿿]", question))
+            return (
+                "提示：请回顾关键等式变形，并代回原题检查答案。"
+                if has_chinese
+                else "Hint: Review key equation transformations and substitute back to verify the answer."
+            )
 
 
 def run(question: str) -> str:
-    return "提示：先识别题目目标，再按步骤推导并检查最终答案是否满足条件。"
+    has_chinese = bool(re.search(r"[一-鿿]", question))
+    return (
+        "提示：先识别题目目标，再按步骤推导并检查最终答案是否满足条件。"
+        if has_chinese
+        else "Hint: Identify the problem goal, derive step-by-step, and verify the final answer against the conditions."
+    )

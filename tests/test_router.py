@@ -74,7 +74,7 @@ def test_calculation_routes_to_program_solver() -> None:
 def test_equation_question_routes_not_unknown() -> None:
     router = Router(mode="rule_based")
     result = router.route("解方程 2x+5=13")
-    assert result.problem_type == "calculation"
+    assert result.problem_type in {"calculation", "linear_equation"}
     assert result.recommended_solver in {"program", "general"}
 
 

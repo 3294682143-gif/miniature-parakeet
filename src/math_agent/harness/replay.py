@@ -148,5 +148,9 @@ def render_replay_markdown(trace_or_summary: dict[str, Any]) -> str:
             ["## Timeline", "", "| Stage | Status | Detail |", "|---|---|---|"]
         )
         for item in timeline:
-            lines.append(f"| {item['stage']} | {item['status']} | {item['detail']} |")
+            lines.append(
+                f"| {str(item['stage']).replace('|', '&#124;')} | "
+                f"{str(item['status']).replace('|', '&#124;')} | "
+                f"{str(item['detail']).replace('|', '&#124;')} |"
+            )
     return "\n".join(lines) + "\n"

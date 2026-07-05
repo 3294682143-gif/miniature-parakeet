@@ -31,20 +31,31 @@ class ProofRubricScore:
     risk_flags: list[str]
 
 
-_LEGACY_ASSUMPTION = ("璁", "设", "鍋囪", "浠")
-_LEGACY_CHAIN = ("因为", "由于", "因此", "所以", "故", "推出", "鍥", "鎵", "鏁", "鎺")
+_LEGACY_ASSUMPTION = ("假设", "设", "令", "假定")
+_LEGACY_CHAIN = (
+    "因为",
+    "由于",
+    "因此",
+    "所以",
+    "故",
+    "推出",
+    "则",
+    "从而",
+    "由此",
+    "可得",
+)
 _LEGACY_CONCLUSION = (
     "证毕",
     "已证",
     "成立",
     "结论",
-    "璇佹瘯",
-    "宸茶瘉",
-    "鎴愮珛",
-    "缁",
+    "证明完毕",
+    "已证明",
+    "得证",
+    "综上所述",
 )
-_LEGACY_CLAIM = ("证明", "命题", "璇佹槑", "鍛介")
-_LEGACY_QUANTIFIER = ("任意", "存在", "所有", "对任意", "浠绘剰", "瀛樺湪")
+_LEGACY_CLAIM = ("证明", "命题", "求证", "试证")
+_LEGACY_QUANTIFIER = ("任意", "存在", "所有", "对任意", "对所有的", "存在某个")
 
 
 def _has_word(text: str, words: tuple[str, ...]) -> bool:
@@ -187,9 +198,7 @@ def score_proof_candidate(
     has_conclusion = _has_any(low, conclusion_words) or _has_any(
         text, _LEGACY_CONCLUSION
     )
-    has_claim = (
-        has_conclusion or _has_any(low, claim_words) or _has_any(text, _LEGACY_CLAIM)
-    )
+    has_claim = _has_any(low, claim_words) or _has_any(text, _LEGACY_CLAIM)
     uses_symbols = bool(re.search(r"[=<>≤≥∈∉⊂⊆∩∪∑√^]|\b\d+\b|=>|->", text))
     has_quantifier = _has_any(low, quantifier_words) or _has_any(
         text, _LEGACY_QUANTIFIER
@@ -243,7 +252,7 @@ def score_proof_candidate(
         score += 0.06
 
     if contradiction_risk:
-        score -= 0.35
+        score -= 0.15
         risk_flags.append("proof_contradiction_risk")
     if circular_reasoning_risk:
         score -= 0.45

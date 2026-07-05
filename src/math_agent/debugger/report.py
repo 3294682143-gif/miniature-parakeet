@@ -6,6 +6,13 @@ from math_agent.debugger.failure_attribution import DebuggerReport
 from math_agent.debugger.root_cause import infer_root_cause, infer_severity
 
 
+def _render_counter_table(title: str, counter: dict) -> str:
+    lines = [f"## {title}", "", "| Key | Count |", "|---|---:|"]
+    for key, value in sorted(counter.items(), key=lambda kv: (-kv[1], kv[0])):
+        lines.append(f"| {key} | {value} |")
+    return "\n".join(lines)
+
+
 def render_failure_debug_report(report: DebuggerReport) -> str:
     lines = [
         "# Agent Debugger Report",
@@ -18,14 +25,16 @@ def render_failure_debug_report(report: DebuggerReport) -> str:
         f"- total: {report.total}",
         f"- failed_count: {report.failed_count}",
         f"- pass_count: {report.pass_count}",
-        "## 2. Failure Category Counts",
-        str(report.failure_category_counts),
-        "## 3. Domain Failure Counts",
-        str(report.domain_failure_counts),
-        "## 4. Difficulty Failure Counts",
-        str(report.difficulty_failure_counts),
-        "## 5. Answer Type Failure Counts",
-        str(report.answer_type_failure_counts),
+        _render_counter_table(
+            "2. Failure Category Counts", report.failure_category_counts
+        ),
+        _render_counter_table("3. Domain Failure Counts", report.domain_failure_counts),
+        _render_counter_table(
+            "4. Difficulty Failure Counts", report.difficulty_failure_counts
+        ),
+        _render_counter_table(
+            "5. Answer Type Failure Counts", report.answer_type_failure_counts
+        ),
         "## 6. Failure Clusters",
     ]
     lines.extend(

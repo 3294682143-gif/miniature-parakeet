@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+_logger = logging.getLogger(__name__)
 
 _SENSITIVE_KEY_PATTERNS = (
     "api_key",
@@ -84,11 +87,15 @@ def safe_json_dump(data: dict[str, Any], path: str | Path) -> bool:
             json.dumps(sanitized, ensure_ascii=False, indent=2), encoding="utf-8"
         )
         return True
-    except Exception:
+    except Exception as exc:
+        _logger.exception("safe_json_dump failed for %s: %s", path, exc)
         return False
 
 
 def write_trace(trace: dict, trace_dir: str | Path, question_id: str) -> Path:
     trace_path = ensure_dir(trace_dir) / f"{question_id}.json"
-    safe_json_dump(trace, trace_path)
+    if not safe_json_dump(trace, trace_path):
+        _logger.warning(
+            "write_trace failed for question_id=%s at %s", question_id, trace_path
+        )
     return trace_path

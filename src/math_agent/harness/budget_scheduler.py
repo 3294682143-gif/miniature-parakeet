@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+import logging
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -7,6 +9,8 @@ from typing import Any
 import yaml  # type: ignore[import-untyped]
 
 from math_agent.agents.proof_guardian import detect_proof_problem
+
+logger = logging.getLogger(__name__)
 
 _DEFAULT_CONFIG: dict[str, Any] = {
     "easy": {
@@ -76,9 +80,11 @@ def load_budget_config(path: str = "configs/budgets.yaml") -> dict[str, Any]:
     try:
         raw = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
         if isinstance(raw, dict):
-            merged = dict(_DEFAULT_CONFIG)
-            merged.update({k: v for k, v in raw.items() if k != "domain_overrides"})
-            overrides = dict(_DEFAULT_CONFIG["domain_overrides"])
+            merged = copy.deepcopy(_DEFAULT_CONFIG)
+            for budget_name in ("easy", "standard", "hard"):
+                if budget_name in raw and isinstance(raw[budget_name], dict):
+                    merged[budget_name].update(raw[budget_name])
+            overrides = copy.deepcopy(_DEFAULT_CONFIG["domain_overrides"])
             if isinstance(raw.get("domain_overrides"), dict):
                 overrides.update(raw["domain_overrides"])
             merged["domain_overrides"] = overrides
@@ -92,7 +98,8 @@ def infer_domain(route_info: Any = None, question: str | None = None) -> str:
     info = (
         route_info
         if isinstance(route_info, dict)
-        else getattr(route_info, "__dict__", {}) or {}
+        else getattr(route_info, "model_dump", getattr(route_info, "__dict__", {}))
+        or {}
     )
     domain = str(info.get("domain", "") or "").strip().lower()
     if domain:
@@ -187,25 +194,35 @@ def allocate_budget(
         problem_type = str(route_info.get("problem_type", "") or "")
 
     domain_override = config.get("domain_overrides", {}).get(domain, {})
-    for key in [
-        "max_candidates",
-        "max_refine_rounds",
-        "tool_first",
-        "max_model_calls",
-        "timeout_seconds",
-    ]:
-        if key in domain_override:
-            base[key] = domain_override[key]
+    if domain_override:
+        overridden_keys: list[str] = []
+        for key in [
+            "max_candidates",
+            "max_refine_rounds",
+            "tool_first",
+            "max_model_calls",
+            "timeout_seconds",
+        ]:
+            if key in domain_override:
+                overridden_keys.append(key)
+                base[key] = domain_override[key]
+        if overridden_keys:
+            logger.warning(
+                "domain cap override for domain=%s: overrode keys=%s",
+                domain,
+                overridden_keys,
+            )
 
-    clamped = clamp_candidate_count(
-        requested_candidate_count, budget_name, domain, config
-    )
+    base_candidates = int(base.get("max_candidates", 1))
     if requested_candidate_count is None:
-        base_candidates = int(base.get("max_candidates", 1))
+        clamped = clamp_candidate_count(base_candidates, budget_name, domain, config)
         base["max_candidates"] = max(1, min(base_candidates, clamped))
     else:
+        clamped = clamp_candidate_count(
+            requested_candidate_count, budget_name, domain, config
+        )
         base["max_candidates"] = clamped
-    if requested_candidate_count != base["max_candidates"]:
+    if base_candidates != base["max_candidates"]:
         warnings.append(f"candidate_count clamped to {base['max_candidates']}")
         reason_parts.append("candidate clamped by budget/domain limits")
 

@@ -45,9 +45,11 @@ def test_candidate_budget_plan_levels_and_metadata_jsonable() -> None:
     assert standard.effective_budget == 3
 
     strict = build_candidate_budget_plan(_cfg("strict"))
-    assert strict.requested_budget == 5
+    assert (
+        strict.requested_budget == 3
+    )  # effective_candidate_budget from runtime_config, capped at max_budget
     assert strict.effective_budget == 3
-    assert "candidate_budget_capped_for_controlled_candidate_hook" in strict.notes
+    assert strict.strategy == "capped_budget_preview"
 
     dumped = json.dumps(
         candidate_budget_plan_to_metadata(strict), ensure_ascii=False

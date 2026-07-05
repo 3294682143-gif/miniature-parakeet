@@ -95,7 +95,72 @@ P2 = {"wrong_answer", "proof_partial", "unknown"}
 
 def infer_root_cause(case: object) -> RootCauseInfo:
     category = str(getattr(case, "failure_category", "unknown") or "unknown")
-    return ROOT_CAUSE_MAP.get(category, ROOT_CAUSE_MAP["unknown"])
+    error_message = str(getattr(case, "error_message", "") or "")
+
+    if category in ROOT_CAUSE_MAP:
+        base = ROOT_CAUSE_MAP[category]
+    else:
+        base = ROOT_CAUSE_MAP["unknown"]
+
+    return _refine_by_error_message(category, error_message, base)
+
+
+def _refine_by_error_message(
+    category: str, error_message: str, base: RootCauseInfo
+) -> RootCauseInfo:
+    if not error_message:
+        return base
+
+    msg_lower = error_message.casefold()
+
+    # API / network errors
+    if any(
+        token in msg_lower
+        for token in ("timeout", "timed out", "connection", "rate limit", "429", "503")
+    ):
+        return RootCauseInfo(
+            category=category,
+            root_cause="api failure: timeout, rate limit, or connection error",
+            owner="api / runtime",
+            action="check API health, retry policy, and rate limiting",
+        )
+
+    # Token / context window errors
+    if any(
+        token in msg_lower
+        for token in ("context length", "token limit", "max tokens", "truncat")
+    ):
+        return RootCauseInfo(
+            category=category,
+            root_cause="context window or token limit exceeded",
+            owner="prompt / runtime",
+            action="reduce prompt length or increase context budget",
+        )
+
+    # JSON / parse errors
+    if any(
+        token in msg_lower
+        for token in ("json", "parse", "schema", "validation", "decode")
+    ):
+        return RootCauseInfo(
+            category=category,
+            root_cause="output parsing or JSON schema violation",
+            owner="formatter / schema",
+            action="inspect malformed output and strengthen JSON repair",
+        )
+
+    # Empty response
+    if any(
+        token in msg_lower for token in ("empty", "blank", "null", "none", "missing")
+    ):
+        return RootCauseInfo(
+            category=category,
+            root_cause="empty or null model output",
+            owner="model / runtime",
+            action="add fallback for empty responses",
+        )
+
+    return base
 
 
 def infer_severity(case: object) -> str:

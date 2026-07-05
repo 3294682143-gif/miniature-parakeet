@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import re
 import time
+import traceback
 from math import gcd, isqrt
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -36,6 +37,7 @@ from .schemas import (
     ToolTrace,
     Verification,
     make_failure_result,
+    sanitize_protocol_metadata,
 )
 from .tools import sympy_tools
 from .tools.answer_normalizer import (
@@ -68,6 +70,7 @@ VerificationMethod = Literal[
     "substitution",
     "logic_review",
     "self_review",
+    "tool_override",
     "none",
 ]
 
@@ -475,10 +478,26 @@ def _format_sqrt_int(n: int) -> str:
 
 def _crt_two(a: int, m: int, b: int, n: int) -> int | None:
     limit = m * n
-    for x in range(limit):
-        if x % m == a % m and x % n == b % n:
-            return x
-    return None
+    if limit > 10_000_000:
+        return None
+    g = gcd(m, n)
+    if (a - b) % g != 0:
+        return None
+    diff = (b - a) % n
+    m_div_g = m // g
+    n_div_g = n // g
+    _, inv_m, _ = _extended_gcd(m_div_g, n_div_g)
+    inv_m = inv_m % n_div_g
+    k = (diff // g * inv_m) % n_div_g
+    x = a + m * k
+    return x % (m * n_div_g)
+
+
+def _extended_gcd(a: int, b: int) -> tuple[int, int, int]:
+    if b == 0:
+        return a, 1, 0
+    g, x1, y1 = _extended_gcd(b, a % b)
+    return g, y1, x1 - (a // b) * y1
 
 
 def _run_tool_assist(
@@ -1038,7 +1057,7 @@ def _run_tool_assist(
         if (
             problem_type == "calculation"
             or (recommended_solver or "").lower() == "program"
-            or re.fullmatch(r"[\d\s\+\-\*/\(\)\.\^]+", maybe)
+            or (len(maybe) <= 200 and re.fullmatch(r"[\d\s\+\-\*/\(\)\.\^]+", maybe))
         ):
             v = str(_eval_safe_math_expr(maybe.replace("^", "**")))
             return (
@@ -1057,14 +1076,17 @@ def _run_tool_assist(
             None,
             None,
             ToolTrace(
-                tool="python", purpose="tool assist", status="fail", summary=str(exc)
+                tool="python",
+                purpose="tool assist",
+                status="fail",
+                summary=f"TOOL_CRASH: {exc}",
             ),
         )
     return (
         None,
         None,
         ToolTrace(
-            tool="none", purpose="tool assist", status="skipped", summary="fallback"
+            tool="none", purpose="tool assist", status="no_match", summary="fallback"
         ),
     )
 
@@ -1113,6 +1135,9 @@ class MathAgentPipeline:
             self.client, self.prompt_config_path, mock=self.mock
         )
         self.verifier_agent = verifier.Verifier(
+            self.client, self.prompt_config_path, mock=self.mock
+        )
+        self.refiner_agent = refiner.Refiner(
             self.client, self.prompt_config_path, mock=self.mock
         )
 
@@ -1306,13 +1331,15 @@ class MathAgentPipeline:
                         final = ""
 
                 if self.run_mode == "fast":
-                    verification = self.verifier_agent._tool_verify(
-                        draft, final
-                    ) or Verification(
-                        method="self_review",
-                        passed=False,
-                        notes="fast mode: tool verifier fallback failed",
-                    )
+                    tv_result = self.verifier_agent._tool_verify(draft, final)
+                    if tv_result is not None:
+                        verification = tv_result
+                    else:
+                        verification = Verification(
+                            method="self_review",
+                            passed=False,
+                            notes="fast mode: tool verifier fallback failed",
+                        )
                 else:
                     verification = self.verifier_agent.verify(
                         question, draft, final, route_dict
@@ -1328,7 +1355,7 @@ class MathAgentPipeline:
                     )
 
             current = draft
-            if self.enable_tools:
+            if self.enable_tools and not tool_first_done:
                 problem_type = _as_str(route_dict.get("problem_type", ""), "")
                 recommended_solver = _as_str(
                     route_dict.get("recommended_solver", ""), ""
@@ -1343,7 +1370,17 @@ class MathAgentPipeline:
                 if isinstance(tool_calls, list):
                     tool_calls.append(ttrace.model_dump())
                 if tv is not None and tvf is not None:
-                    final, verification, status = str(tv).strip(), tvf, "success"
+                    tool_final = str(tv).strip()
+                    if final and tool_final != final:
+                        verification = Verification(
+                            method="tool_override",
+                            passed=True,
+                            notes=f"Tool result ({tool_final}) differs from LLM answer ({final}); using tool result.",
+                        )
+                    else:
+                        verification = tvf
+                    final = tool_final
+                    status = "success"
                     current = f"工具校验/计算得到最终答案为 \\boxed{{{final}}}。"
             if not _is_proof_problem(
                 _as_str(route_dict.get("problem_type", ""), ""),
@@ -1356,7 +1393,9 @@ class MathAgentPipeline:
             rounds = 0
             while not verification.passed and rounds < self.max_refine_rounds:
                 rounds += 1
-                current = refiner.run(current)
+                current = self.refiner_agent.refine(
+                    question, current, verification.notes
+                )
                 refined = _extract_final_answer_non_proof(draft, current, None)
                 final = refined or final
                 verification = self.verifier_agent.verify(
@@ -1420,6 +1459,8 @@ class MathAgentPipeline:
                     type=final_answer_type, value=final_value, boxed=final_boxed
                 ),
                 verification=verification,
+                # NOTE: explainer.run() is a module-level stub that returns
+                # a fixed hint string; it does not use the client or config.
                 didactic_hint=explainer.run(question),
                 confidence=max(
                     0.0, min(1.0, _as_float(route_dict.get("confidence", 0.5), 0.5))
@@ -1449,19 +1490,24 @@ class MathAgentPipeline:
             result = repaired
             trace_payload["model_calls_count"] = len(trace_payload["model_calls"])
         except Exception as exc:
-            trace_payload["errors"].append(str(exc))
+            tb = traceback.format_exc()
+            trace_payload["errors"].append(f"{exc}\n{tb}")
             result = make_failure_result(
-                question_id=qid, question=question, error_message=str(exc)
+                question_id=qid, question=question, error_message=f"{exc}\n{tb}"
             )
         finally:
             trace_payload["finished_at"] = now_iso()
             trace_payload["latency_seconds"] = time.perf_counter() - started_perf
-            trace_payload["final_result"] = result.model_dump()
+            trace_payload["final_result"] = sanitize_protocol_metadata(
+                result.model_dump()
+            )
             if self.save_trace:
                 try:
                     write_trace(trace_payload, self.trace_dir, qid)
                 except Exception:
-                    pass
+                    trace_payload.setdefault("warnings", []).append(
+                        "trace_write_failed"
+                    )
         return result
 
 
@@ -1475,8 +1521,9 @@ def solve_question(
     run_mode: str = "full",
     hard_mode_policy: HardModePolicy | None = None,
 ):
-    _ = model
+    client = InternS1Client(mock=mock, model=model)
     return MathAgentPipeline(
+        client=client,
         mock=mock,
         enable_tools=enable_tools,
         save_trace=save_trace,

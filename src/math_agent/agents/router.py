@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from pathlib import Path
 
@@ -9,6 +10,8 @@ from pydantic import BaseModel, Field, ValidationError
 from math_agent.clients.interns1_client import InternS1Client
 from math_agent.prompting import get_prompt, load_prompts, render_prompt
 from math_agent.typing import ChatClient
+
+_logger = logging.getLogger(__name__)
 
 
 class RouteInfo(BaseModel):
@@ -27,8 +30,8 @@ class Router:
             "边值",
             "pde",
             "boundary condition",
-            "鍋忓井鍒嗘柟绋",
-            "杈瑰€",
+            "偏微分方程",
+            "边值问题",
         ],
         "ComplexAnalysis": [
             "contour integral",
@@ -36,7 +39,7 @@ class Router:
             "complex analysis",
             "留数",
         ],
-        "Topology": ["topology", "compact", "homeomorphism", "同胚", "鎷撴墤"],
+        "Topology": ["topology", "compact", "homeomorphism", "同胚", "拓扑"],
         "OperationsResearch": [
             "linear program",
             "linear programming",
@@ -59,9 +62,7 @@ class Router:
             "maximize",
             "minimize",
             "constraint",
-            "鏈€澶у寲",
-            "鏈€灏忓寲",
-            "绾挎€",
+            "最优化",
         ],
         "Algebra": [
             "eigenvalue",
@@ -73,7 +74,7 @@ class Router:
             "polynomial",
             "quadratic",
             "linear",
-            "鐭╅樀",
+            "矩阵运算",
         ],
         "Geometry": [
             "geometry",
@@ -90,7 +91,7 @@ class Router:
             "side lengths",
             "right triangle",
             "median",
-            "鍑犱綍",
+            "几何",
         ],
         "Probability": [
             "probability",
@@ -104,8 +105,7 @@ class Router:
             "random variable",
             "expected value",
             "variance",
-            "闅忔満鍙橀噺",
-            "姒傜巼",
+            "概率论",
         ],
         "Combinatorics": ["choose", "combination", "permutation", "arrangement"],
         "NumberTheory": [
@@ -126,8 +126,6 @@ class Router:
             "positive divisors",
             "multiplicative inverse",
             "congruence system",
-            "绱犳暟",
-            "鍚屼綑",
         ],
         "Calculus": [
             "derivative",
@@ -137,9 +135,6 @@ class Router:
             "求导",
             "积分",
             "极限",
-            "瀵兼暟",
-            "绉垎",
-            "鏋侀檺",
         ],
         "Recurrence": [
             "recurrence",
@@ -177,7 +172,7 @@ class Router:
     }
 
     PROBLEM_TYPE_RULES: dict[str, list[str]] = {
-        "proof": ["证明", "prove", "show that", "璇佹槑"],
+        "proof": ["证明", "prove", "show that"],
         "optimization": [
             "maximize",
             "minimize",
@@ -186,9 +181,9 @@ class Router:
             "最小化",
             "约束",
             "最优",
-            "鏈€澶у寲",
-            "鏈€灏忓寲",
-            "鏈€浼",
+            "最优化",
+            "线性规划",
+            "最优解",
         ],
         "calculation": [
             "calculate",
@@ -198,10 +193,9 @@ class Router:
             "计算",
             "求",
             "解方程",
-            "璁＄畻",
-            "姹",
+            "求解",
         ],
-        "conceptual": ["concept", "definition", "explain", "定义", "解释", "瑙ｉ噴"],
+        "conceptual": ["concept", "definition", "explain", "定义", "解释"],
     }
 
     PROGRAM_HINTS = [
@@ -221,10 +215,7 @@ class Router:
         "积分",
         "矩阵",
         "表达式",
-        "璁＄畻",
-        "鏂圭▼",
-        "绉垎",
-        "琛ㄨ揪寮",
+        "计算",
     ]
     TOOL_HINTS = [
         "calculate",
@@ -233,8 +224,6 @@ class Router:
         "evaluate",
         "计算",
         "求解",
-        "璁＄畻",
-        "姹傝В",
     ]
     PROGRAM_TYPES = {
         "calculation",
@@ -315,6 +304,12 @@ class Router:
     def _route_with_llm(self, question: str) -> RouteInfo | None:
         try:
             prompts = load_prompts(self.prompt_config_path)
+        except FileNotFoundError:
+            _logger.warning(
+                "Router prompt config not found: %s", self.prompt_config_path
+            )
+            return None
+        try:
             system_template = get_prompt(prompts, "router_system")
             system_prompt = render_prompt(system_template)
             user_prompt = (
@@ -335,7 +330,6 @@ class Router:
             ValueError,
             TypeError,
             KeyError,
-            FileNotFoundError,
             json.JSONDecodeError,
         ):
             return None
@@ -370,15 +364,14 @@ class Router:
                 return problem_type, hits
 
         equation_hits: list[str] = []
-        if "=" in text and any(
-            k in text
-            for k in ["solve", "解方程", "求解", "解", "瑙ｆ柟绋", "姹傝В", "瑙"]
-        ):
+        if "=" in text and any(k in text for k in ["solve", "解方程", "求解"]):
             equation_hits.append("equation-intent")
         if "=" in text and re.search(r"[a-z]\s*=", text):
             equation_hits.append("single-var-equation")
         if equation_hits:
-            if "solve:" in text or "solve the" in text:
+            if any(
+                k in text for k in ["solve:", "solve the", "solve ", "解方程", "求解"]
+            ):
                 if "x**2" in text or "x^2" in text:
                     return "quadratic_equation", equation_hits
                 return "linear_equation", equation_hits

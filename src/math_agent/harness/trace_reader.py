@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+MAX_TRACE_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
 _SENSITIVE_KEYS = {
     "api_key",
     "apikey",
@@ -16,13 +18,18 @@ _SENSITIVE_KEYS = {
     "refresh_token",
 }
 
+_SENSITIVE_PREFIXES = ("sk-", "bearer ", "api_key", "token:")
+
 
 def _mask_sensitive(value: Any) -> Any:
     if isinstance(value, dict):
         out: dict[str, Any] = {}
         for k, v in value.items():
             key = str(k).lower()
-            if any(s in key for s in _SENSITIVE_KEYS):
+            if any(
+                key == s or key.startswith(s + "_") or key.endswith("_" + s)
+                for s in _SENSITIVE_KEYS
+            ):
                 out[k] = "[REDACTED]"
             else:
                 out[k] = _mask_sensitive(v)
@@ -31,7 +38,10 @@ def _mask_sensitive(value: Any) -> Any:
         return [_mask_sensitive(v) for v in value]
     if isinstance(value, str):
         lowered = value.lower()
-        if "bearer " in lowered or "sk-" in value or "api_key" in lowered:
+        if (
+            any(lowered.startswith(p) for p in _SENSITIVE_PREFIXES)
+            or "bearer " in lowered
+        ):
             return "[REDACTED]"
     return value
 
@@ -45,6 +55,17 @@ def read_trace(path: str | Path) -> dict[str, Any]:
             "error": {
                 "code": "file_not_found",
                 "message": f"trace file not found: {trace_path}",
+            },
+            "trace": None,
+        }
+    file_size = trace_path.stat().st_size
+    if file_size > MAX_TRACE_FILE_SIZE:
+        return {
+            "ok": False,
+            "path": str(trace_path),
+            "error": {
+                "code": "file_too_large",
+                "message": f"trace file size {file_size} exceeds limit {MAX_TRACE_FILE_SIZE}",
             },
             "trace": None,
         }
@@ -91,7 +112,12 @@ def read_trace_dir(trace_dir: str | Path) -> dict[str, Any]:
             "items": [],
         }
 
-    items = [read_trace(p) for p in sorted(root.glob("*.json"))]
+    try:
+        items = [read_trace(p) for p in sorted(root.glob("*.json"))]
+    except KeyboardInterrupt:
+        raise
+    except Exception:
+        items = []
     ok_count = sum(1 for item in items if item["ok"])
     return {
         "ok": True,

@@ -20,6 +20,7 @@ def accuracy(correct: int, total: int) -> float:
 
 
 def _safe_rate(n: int, d: int) -> float:
+    """Return n/d, or 0.0 when denominator is zero."""
     return n / d if d else 0.0
 
 
@@ -169,16 +170,16 @@ def explanation_quality_for_result(result: SolveResult) -> dict[str, object]:
         str(step).strip() for step in result.visible_solution_steps if str(step).strip()
     ]
     hint = (result.didactic_hint or "").strip()
-    hint_norm = hint.lower()
-    combined = " ".join([*steps, hint]).lower()
+    hint_norm = hint.casefold()
+    combined = " ".join([*steps, hint]).casefold()
     template_risk = hint_norm in _EXPLANATION_TEMPLATE_VALUES or any(
         marker in combined for marker in _EXPLANATION_TEMPLATE_MARKERS
     )
     key_idea_present = any(marker in combined for marker in _KEY_IDEA_MARKERS) or any(
         token in combined
         for token in [
-            str(result.problem_type).lower(),
-            str(result.domain).lower(),
+            str(result.problem_type).casefold(),
+            str(result.domain).casefold(),
         ]
         if token and token != "unknown"
     )
@@ -333,7 +334,7 @@ def _trace_budget_metrics(trace_dir: str | Path | None) -> dict[str, object]:
             total_tool_calls += len(tool_calls)
             successful_tool_call = any(
                 isinstance(call, dict)
-                and str(call.get("status", "")).lower() == "success"
+                and str(call.get("status", "")).casefold() == "success"
                 for call in tool_calls
             )
         latency = trace.get("latency_seconds")
@@ -597,12 +598,16 @@ def _render_match_table(title: str, grouped: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _escape_md_path(path: str) -> str:
+    return str(path).replace("`", "\\`")
+
+
 def render_markdown_report(
     metrics: dict, results_path: str, answers_path: str | None = None
 ) -> str:
-    lines = ["# Evaluation Report", "", f"- Results: `{results_path}`"]
+    lines = ["# Evaluation Report", "", f"- Results: `{_escape_md_path(results_path)}`"]
     if answers_path:
-        lines.append(f"- Answers: `{answers_path}`")
+        lines.append(f"- Answers: `{_escape_md_path(answers_path)}`")
     lines.extend(["", "## Core Metrics"])
 
     keys = [
@@ -715,15 +720,24 @@ def render_markdown_report(
 def normalize_answer(text: Any) -> str:
     if text is None:
         return ""
-    return normalize_answer_core(str(text)).lower()
+    return normalize_answer_core(str(text)).casefold()
 
 
 def normalized_exact_match(pred: Any, expected: Any) -> bool:
+    """Normalized exact match: both sides are normalized (case-folded, symbol-stripped)
+    before comparison.  This is stricter than simple normalization but still handles
+    cosmetic differences like whitespace and punctuation."""
     return normalize_answer(pred) == normalize_answer(expected)
 
 
 def exact_match(pred: Any, expected: Any) -> bool:
-    """Backward-compatible shadow-eval exact-match wrapper."""
+    """Backward-compatible shadow-eval exact-match wrapper.
+
+    IMPORTANT: Despite the name, this function performs a *normalized* exact match
+    (both sides are normalised through answer_normalizer before comparison), not a
+    raw string equality check.  For raw string comparison, use
+    `math_agent.evaluation.judge.exact_match`.
+    """
     return normalized_exact_match(pred, expected)
 
 

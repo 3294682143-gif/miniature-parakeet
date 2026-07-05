@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +11,8 @@ from math_agent.prompting import get_prompt, load_prompts, render_prompt
 from math_agent.schemas import Verification
 from math_agent.tools.answer_normalizer import extract_boxed_answers, normalize_answer
 from math_agent.tools.sympy_tools import check_equivalent, numeric_compare
+
+_logger = logging.getLogger(__name__)
 
 
 class Verifier:
@@ -37,7 +41,7 @@ class Verifier:
                 passed=True,
                 notes="Symbolic equivalence passed.",
             )
-        if nd and nf and nf.casefold() in nd.casefold():
+        if nd and nf and _is_whole_value_match(nf, nd):
             return Verification(
                 method="substitution",
                 passed=True,
@@ -82,7 +86,7 @@ class Verifier:
             if tv is not None:
                 return tv
         except Exception:
-            pass
+            _logger.warning("tool verify failed, falling back to LLM")
         try:
             template = get_prompt(self.prompts, "verifier_system")
             system_prompt = render_prompt(
@@ -123,3 +127,14 @@ def _list_parts(value: str) -> list[str]:
         for part in text.strip("[]").split(",")
         if normalize_answer(part)
     ]
+
+
+def _is_whole_value_match(needle: str, haystack: str) -> bool:
+    n = needle.casefold()
+    h = haystack.casefold()
+    if n == h:
+        return True
+    if re.match(r"^[\d.\-+\s*/\^()]+$", n):
+        return False
+    pattern = re.escape(n)
+    return bool(re.search(rf"\b{pattern}\b", h))

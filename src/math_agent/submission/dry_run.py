@@ -149,6 +149,11 @@ def write_dry_run_outputs(
 ) -> None:
     out_dir = Path(config.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    if config.results_name == FORBIDDEN_RESULTS_NAME:
+        raise ValueError(
+            "forbidden_official_results_name: "
+            "dry_run_results.jsonl must not be renamed to official_results.jsonl"
+        )
     results_path = out_dir / config.results_name
     with results_path.open("w", encoding="utf-8") as f:
         for item in item_results:
