@@ -107,21 +107,39 @@ def _clean_extracted_answer(raw: str) -> str:
 def _replace_latex_fractions(value: str) -> str:
     text = value
     for command in ("dfrac", "frac"):
+        prefix = f"\\{command}"
+        # Use balanced brace matching to handle nested fractions
         while True:
-            pattern = re.compile(
-                rf"\\{command}\s*\{{"
-                r"((?:[^{}]|\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\})*)"
-                r"\}}\s*\{{"
-                r"((?:[^{}]|\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\})*)"
-                r"\}}"
-            )
-            updated = pattern.sub(
-                lambda m: f"{m.group(1).strip()}/{m.group(2).strip()}",
-                text,
-            )
-            if updated == text:
+            pos = text.find(prefix)
+            if pos < 0:
                 break
-            text = updated
+            # Find the opening brace after the command
+            brace_start = pos + len(prefix)
+            while brace_start < len(text) and text[brace_start].isspace():
+                brace_start += 1
+            if brace_start >= len(text) or text[brace_start] != "{":
+                # Skip this occurrence — maybe a false positive
+                text = text[:pos] + text[pos + 1:]  # remove one backslash to avoid infinite loop
+                continue
+            # Find matching closing brace for numerator
+            num_result = _extract_braced_content(text, brace_start)
+            if num_result is None:
+                break
+            numerator, num_end = num_result
+            # Find the opening brace for denominator
+            denom_start = num_end + 1
+            while denom_start < len(text) and text[denom_start].isspace():
+                denom_start += 1
+            if denom_start >= len(text) or text[denom_start] != "{":
+                break
+            # Find matching closing brace for denominator
+            denom_result = _extract_braced_content(text, denom_start)
+            if denom_result is None:
+                break
+            denominator, denom_end = denom_result
+            # Replace the fraction with inline form
+            replacement = f"{numerator.strip()}/{denominator.strip()}"
+            text = text[:pos] + replacement + text[denom_end + 1:]
     return text
 
 

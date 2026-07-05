@@ -20,8 +20,8 @@ def accuracy(correct: int, total: int) -> float:
 
 
 def _safe_rate(n: int, d: int) -> float:
-    """Return n/d, or -1.0 when denominator is zero (signalling undefined)."""
-    return n / d if d else -1.0
+    """Return n/d, or 0.0 when denominator is zero."""
+    return n / d if d else 0.0
 
 
 def load_jsonl(path: str | Path) -> tuple[list[dict], int]:
