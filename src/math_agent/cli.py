@@ -146,6 +146,7 @@ def cmd_batch(args: argparse.Namespace) -> int:
                 continue
             stats["input_count"] = _int_stat(stats, "input_count") + 1
             raw = {}
+            item_started = time.perf_counter()
             try:
                 raw = json.loads(line)
                 q = MathQuestion.model_validate(raw)
