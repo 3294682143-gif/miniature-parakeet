@@ -57,3 +57,9 @@ def classify_failure(result_like: dict[str, Any]) -> str:
     if result_like.get("status") in {"ok", "success"}:
         return FailureCategory.OK
     return FailureCategory.UNKNOWN
+
+
+def classify_failure_taxonomy(result_like: dict[str, Any]) -> str:
+    """Backward-compatible name for callers using the taxonomy terminology."""
+
+    return classify_failure(result_like)

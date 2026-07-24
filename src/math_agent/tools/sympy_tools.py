@@ -55,7 +55,9 @@ def _run_isolated_without_capacity_guard(operation: str, arguments: list[Any]) -
         raise ValueError("request exceeds the safe size limit")
 
     worker = Path(__file__).with_name("sympy_worker.py")
-    creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    creationflags = (
+        int(getattr(subprocess, "CREATE_NO_WINDOW", 0)) if os.name == "nt" else 0
+    )
     process: subprocess.Popen[bytes] | None = None
     job: WindowsJobLimits | None = None
     try:

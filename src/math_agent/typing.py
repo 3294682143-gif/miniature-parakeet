@@ -4,7 +4,8 @@ from typing import Any, Protocol
 
 
 class ChatClient(Protocol):
-    model: str
+    @property
+    def model(self) -> str: ...
 
     def chat(
         self,

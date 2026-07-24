@@ -323,7 +323,7 @@ class MemoryHub:
                 if os.name == "nt":
                     import msvcrt
 
-                    msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+                    msvcrt.locking(handle.fileno(), int(getattr(msvcrt, "LK_LOCK")), 1)
                 else:
                     fcntl = importlib.import_module("fcntl")
                     getattr(fcntl, "flock")(handle.fileno(), getattr(fcntl, "LOCK_EX"))
@@ -334,7 +334,9 @@ class MemoryHub:
                     if os.name == "nt":
                         import msvcrt
 
-                        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                        msvcrt.locking(
+                            handle.fileno(), int(getattr(msvcrt, "LK_UNLCK")), 1
+                        )
                     else:
                         fcntl = importlib.import_module("fcntl")
                         getattr(fcntl, "flock")(

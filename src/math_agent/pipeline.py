@@ -89,13 +89,13 @@ class _StageTracingClient:
     def __getattr__(self, name: str) -> Any:
         return getattr(self._delegate, name)
 
+    @property
+    def model(self) -> str:
+        value = getattr(self._delegate, "model", "")
+        return value if isinstance(value, str) else ""
+
     def chat(self, messages: list[dict[str, Any]], *args: Any, **kwargs: Any) -> str:
-        model_value = getattr(self._delegate, "model", "")
-        model = (
-            model_value
-            if isinstance(model_value, str) and model_value
-            else "unspecified"
-        )
+        model = self.model or "unspecified"
         prompt_chars = sum(
             len(message.get("content", ""))
             for message in messages

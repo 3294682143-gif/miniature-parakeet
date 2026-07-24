@@ -38,7 +38,7 @@ class WindowsJobLimits:
         if not self.handle:
             return
         try:
-            ctypes.windll.kernel32.CloseHandle(self.handle)
+            getattr(ctypes, "windll").kernel32.CloseHandle(self.handle)
         finally:
             self.handle = 0
 

@@ -411,7 +411,9 @@ def _run_isolated_http_without_capacity_guard(
     if len(encoded) > MAX_HTTP_WORKER_REQUEST_BYTES:
         return {"ok": False, "error": "invalid_request"}
     worker = Path(__file__).with_name("http_worker.py")
-    creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    creationflags = (
+        int(getattr(subprocess, "CREATE_NO_WINDOW", 0)) if os.name == "nt" else 0
+    )
     process: subprocess.Popen[bytes] | None = None
     job: WindowsJobLimits | None = None
     deadline = time.monotonic() + float(wall_timeout)

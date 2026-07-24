@@ -1,20 +1,11 @@
+from typing import TYPE_CHECKING
+
 from .error_taxonomy import FailureCategory, classify_failure_taxonomy
 from .failure_report import (
     build_failure_rows,
     classify_failure_report,
     render_failure_report,
     write_failure_report,
-)
-from .hard_mode_ablation import (
-    HardModeAblationConfig,
-    HardModeAblationReport,
-    HardModeRunResult,
-    build_ablation_config,
-    compare_ablation_runs,
-    render_hard_mode_ablation_report,
-    run_hard_mode_ablation,
-    run_single_level_ablation,
-    write_hard_mode_ablation_outputs,
 )
 from .judge import exact_match as exact_match_judge
 from .judge import normalized_match, numeric_match, symbolic_match
@@ -66,6 +57,44 @@ from .shadow_eval import (
     write_jsonl,
     write_summary,
 )
+
+_HARD_MODE_EXPORTS = {
+    "HardModeAblationConfig",
+    "HardModeAblationReport",
+    "HardModeRunResult",
+    "build_ablation_config",
+    "compare_ablation_runs",
+    "render_hard_mode_ablation_report",
+    "run_hard_mode_ablation",
+    "run_single_level_ablation",
+    "write_hard_mode_ablation_outputs",
+}
+
+if TYPE_CHECKING:
+    from .hard_mode_ablation import (
+        HardModeAblationConfig,
+        HardModeAblationReport,
+        HardModeRunResult,
+        build_ablation_config,
+        compare_ablation_runs,
+        render_hard_mode_ablation_report,
+        run_hard_mode_ablation,
+        run_single_level_ablation,
+        write_hard_mode_ablation_outputs,
+    )
+
+
+def __getattr__(name: str):
+    """Load debugger-dependent hard-mode exports only after package init."""
+
+    if name in _HARD_MODE_EXPORTS:
+        from . import hard_mode_ablation
+
+        value = getattr(hard_mode_ablation, name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     # error_taxonomy
