@@ -8,33 +8,45 @@ from typing import Any, Callable
 
 from dotenv import load_dotenv
 
+if __package__ in {None, ""}:
+    from _repo_bootstrap import prefer_repo_source
+
+    prefer_repo_source()
+
 from math_agent.control.hard_mode import build_hard_mode_policy
 from math_agent.evaluation.failure_report import write_failure_report
 from math_agent.evaluation.metrics import evaluate_results, render_markdown_report
 from math_agent.evaluation.proof_review import write_proof_review_pack
+from math_agent.harness.trace_reader import read_trace
+from math_agent.io_utils import load_bounded_jsonl, path_is_within, paths_alias
+from math_agent.logging_utils import (
+    atomic_text_write,
+    ensure_dir,
+    safe_text_write,
+    trace_path_for_question,
+)
 from math_agent.pipeline import solve_question
 from math_agent.schemas import MathQuestion
 
+MAX_BENCHMARK_ITEMS = 1_000
+MAX_RESULT_LINE_CHARS = 1_000_000
+MAX_RESULTS_CHARS = 64 * 1024 * 1024
+
 
 def _load_questions(path: str | Path, limit: int | None = None) -> list[MathQuestion]:
-    questions: list[MathQuestion] = []
-    for line in Path(path).read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        questions.append(MathQuestion.model_validate_json(line))
-        if limit is not None and len(questions) >= limit:
-            break
-    return questions
+    rows, _ = load_bounded_jsonl(path, require_objects=True)
+    selected = rows if limit is None else rows[:limit]
+    return [MathQuestion.model_validate(row) for row in selected]
 
 
 def _read_trace_counts(trace_dir: Path, question_id: str) -> dict[str, int]:
-    path = trace_dir / f"{question_id}.json"
+    path = trace_path_for_question(trace_dir, question_id)
     if not path.exists():
         return {"model_calls": 0, "tool_calls": 0, "trace_found": 0}
-    try:
-        trace = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
+    loaded = read_trace(path)
+    if loaded.get("ok") is not True or not isinstance(loaded.get("trace"), dict):
         return {"model_calls": 0, "tool_calls": 0, "trace_found": 0}
+    trace = loaded["trace"]
     model_calls = trace.get("model_calls")
     tool_calls = trace.get("tool_calls")
     return {
@@ -62,9 +74,9 @@ def _write_eval_artifacts(
     failure_report_path: Path,
 ) -> dict:
     metrics = evaluate_results(results_path, answers_path, trace_dir)
-    report_path.write_text(
+    safe_text_write(
         render_markdown_report(metrics, str(results_path), answers_path),
-        encoding="utf-8",
+        report_path,
     )
     write_failure_report(
         results_path=results_path,
@@ -87,8 +99,8 @@ def _run_label(
 ) -> dict:
     label_dir = out_dir / label
     trace_dir = label_dir / "traces"
-    label_dir.mkdir(parents=True, exist_ok=True)
-    trace_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(label_dir)
+    ensure_dir(trace_dir)
     results_path = label_dir / "results.jsonl"
     report_path = label_dir / "evaluation_report.md"
     failure_report_path = label_dir / "failure_replay_report.md"
@@ -117,36 +129,45 @@ def _run_label(
     status_counts: dict[str, int] = {}
     mode_counts: dict[str, int] = {}
     started = time.perf_counter()
-    with results_path.open("w", encoding="utf-8") as fout:
-        for idx, question in enumerate(questions):
-            run_mode = mode_for_index(idx)
-            item_started = time.perf_counter()
-            result = solve_question(
-                question,
-                mock=not real,
-                enable_tools=enable_tools,
-                save_trace=True,
-                trace_dir=trace_dir,
-                run_mode=run_mode,
-                hard_mode_policy=hard_policy,
-            )
-            elapsed = time.perf_counter() - item_started
-            fout.write(result.model_dump_json(ensure_ascii=False) + "\n")
-            status_counts[result.status] = status_counts.get(result.status, 0) + 1
-            mode_counts[run_mode] = mode_counts.get(run_mode, 0) + 1
-            stats["total_elapsed_seconds"] = (
-                _float_stat(stats, "total_elapsed_seconds") + elapsed
-            )
-            counts = _read_trace_counts(trace_dir, result.question_id)
-            stats["total_model_calls"] = (
-                _int_stat(stats, "total_model_calls") + counts["model_calls"]
-            )
-            stats["total_tool_calls"] = (
-                _int_stat(stats, "total_tool_calls") + counts["tool_calls"]
-            )
-            stats["trace_found_count"] = (
-                _int_stat(stats, "trace_found_count") + counts["trace_found"]
-            )
+    result_lines: list[str] = []
+    total_result_chars = 0
+    for idx, question in enumerate(questions):
+        run_mode = mode_for_index(idx)
+        item_started = time.perf_counter()
+        result = solve_question(
+            question,
+            mock=not real,
+            enable_tools=enable_tools,
+            save_trace=True,
+            trace_dir=trace_dir,
+            run_mode=run_mode,
+            hard_mode_policy=hard_policy,
+        )
+        elapsed = time.perf_counter() - item_started
+        result_line = result.model_dump_json(ensure_ascii=False) + "\n"
+        total_result_chars += len(result_line)
+        if (
+            len(result_line) > MAX_RESULT_LINE_CHARS
+            or total_result_chars > MAX_RESULTS_CHARS
+        ):
+            raise ValueError("result output exceeds the safe size limit")
+        result_lines.append(result_line)
+        status_counts[result.status] = status_counts.get(result.status, 0) + 1
+        mode_counts[run_mode] = mode_counts.get(run_mode, 0) + 1
+        stats["total_elapsed_seconds"] = (
+            _float_stat(stats, "total_elapsed_seconds") + elapsed
+        )
+        counts = _read_trace_counts(trace_dir, result.question_id)
+        stats["total_model_calls"] = (
+            _int_stat(stats, "total_model_calls") + counts["model_calls"]
+        )
+        stats["total_tool_calls"] = (
+            _int_stat(stats, "total_tool_calls") + counts["tool_calls"]
+        )
+        stats["trace_found_count"] = (
+            _int_stat(stats, "trace_found_count") + counts["trace_found"]
+        )
+    atomic_text_write("".join(result_lines), results_path)
 
     stats["wall_elapsed_seconds"] = time.perf_counter() - started
     stats["average_elapsed_seconds"] = (
@@ -174,9 +195,7 @@ def _run_label(
         1 for row in proof_review_rows if row.get("manual_review_recommended")
     )
     stats["proof_manual_review_pack"] = str(proof_review_path)
-    stats_path.write_text(
-        json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    safe_text_write(json.dumps(stats, ensure_ascii=False, indent=2), stats_path)
     return stats
 
 
@@ -205,8 +224,29 @@ def main() -> int:
     parser.add_argument("--hard-mode-levels", default="off,strict")
     args = parser.parse_args()
 
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    if (
+        not 1 <= args.limit <= MAX_BENCHMARK_ITEMS
+        or not 0 <= args.ab_limit <= MAX_BENCHMARK_ITEMS
+    ):
+        parser.error(
+            f"--limit must be 1..{MAX_BENCHMARK_ITEMS} and "
+            f"--ab-limit must be 0..{MAX_BENCHMARK_ITEMS}"
+        )
+    out_dir = Path(args.out_dir).absolute()
+    ensure_dir(out_dir)
+    protected_inputs = [Path(args.input)]
+    if args.answers:
+        protected_inputs.append(Path(args.answers))
+    planned_outputs = [
+        out_dir / "benchmark_summary.json",
+        out_dir / "mixed_official_like" / "results.jsonl",
+    ]
+    if any(path_is_within(source, out_dir) for source in protected_inputs) or any(
+        paths_alias(source, output)
+        for source in protected_inputs
+        for output in planned_outputs
+    ):
+        parser.error("output paths must not alias input files")
     questions = _load_questions(args.input, args.limit)
     pattern = _parse_csv(args.mode_pattern) or ["fast"]
     runs: dict[str, Any] = {}
@@ -245,9 +285,7 @@ def main() -> int:
                 )
 
     summary_path = out_dir / "benchmark_summary.json"
-    summary_path.write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    safe_text_write(json.dumps(summary, ensure_ascii=False, indent=2), summary_path)
     print(f"summary={summary_path}")
     return 0
 

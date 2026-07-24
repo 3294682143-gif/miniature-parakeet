@@ -7,6 +7,14 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+if __package__ in {None, ""}:
+    from _repo_bootstrap import prefer_repo_source
+
+    prefer_repo_source()
+
+from math_agent.logging_utils import safe_text_write
+from math_agent.security import safe_exception_text
+
 EXCLUDED_DIR_NAMES = {
     ".git",
     "__pycache__",
@@ -58,7 +66,12 @@ def run_cmd(
             "stderr": result.stderr.strip(),
         }
     except (subprocess.SubprocessError, OSError) as exc:
-        return {"ok": False, "returncode": -1, "stdout": "", "stderr": str(exc)}
+        return {
+            "ok": False,
+            "returncode": -1,
+            "stdout": "",
+            "stderr": safe_exception_text(exc),
+        }
 
 
 def get_git_info(root: Path) -> dict[str, Any]:
@@ -492,7 +505,7 @@ def main() -> int:
     )
 
     if args.output:
-        args.output.write_text(output, encoding="utf-8")
+        safe_text_write(output, args.output)
     else:
         print(output)
 

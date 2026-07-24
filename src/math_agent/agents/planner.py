@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from math_agent.prompting import get_prompt, load_prompts, render_prompt
+from math_agent.io_utils import strict_json_loads
+from math_agent.prompting import freeze_prompts, get_prompt, load_prompts, render_prompt
 
 
 def _fallback_plan(question: str, route_info: dict) -> dict:
@@ -30,11 +31,14 @@ class Planner:
         client: Any,
         prompt_config_path: str | Path = "configs/prompts.yaml",
         mock: bool = True,
+        prompts: Mapping[str, Any] | None = None,
     ) -> None:
         self.client = client
         self.prompt_config_path = Path(prompt_config_path)
         self.mock = mock
-        self.prompts = load_prompts(self.prompt_config_path)
+        self.prompts = freeze_prompts(
+            prompts if prompts is not None else load_prompts(self.prompt_config_path)
+        )
 
     def plan(self, question: str, route_info: dict) -> dict:
         if self.mock:
@@ -50,7 +54,7 @@ class Planner:
             ]
         )
         try:
-            data = json.loads(reply)
+            data = strict_json_loads(reply)
             if isinstance(data, dict):
                 return data
         except Exception:

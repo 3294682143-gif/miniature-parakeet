@@ -1,10 +1,19 @@
+from hashlib import sha256
+from pathlib import Path
+
+import pytest
+
 from math_agent.pipeline import (
     MathAgentPipeline,
+    _crt_two,
+    _eval_safe_math_expr,
     _extract_final_answer_non_proof,
     _extract_proof_conclusion,
+    _proof_fallback_review,
+    _run_tool_assist,
     extract_boxed_answer,
 )
-from math_agent.schemas import SolveResult, Verification
+from math_agent.schemas import SolveResult, ToolTrace, Verification
 
 
 def test_extract_boxed_answer():
@@ -15,6 +24,108 @@ def test_pipeline_mock_success_and_schema():
     result = MathAgentPipeline(mock=True).solve("1+1=?", "q1")
     assert isinstance(result, SolveResult)
     assert result.status == "success"
+
+
+def test_pipeline_prompt_profile_hashes_the_same_immutable_snapshot(
+    tmp_path: Path,
+) -> None:
+    original = Path("configs/prompts.yaml").read_bytes()
+    prompt_path = tmp_path / "prompts.yaml"
+    prompt_path.write_bytes(original)
+    pipeline = MathAgentPipeline(
+        mock=True,
+        save_trace=False,
+        prompt_config_path=prompt_path,
+    )
+    old_digest = sha256(original).hexdigest()
+    prompt_path.write_bytes(original + b"\n# changed after construction\n")
+    new_digest = sha256(prompt_path.read_bytes()).hexdigest()
+
+    profile = pipeline.execution_profile()
+    result = pipeline.solve("2+3", "prompt-snapshot")
+
+    assert old_digest != new_digest
+    assert profile["prompt_config_sha256"] == old_digest
+    assert result.execution_fingerprint == pipeline.execution_fingerprint("2+3")
+    assert pipeline.planner_agent.prompts == pipeline.solver_agent.prompts
+    assert pipeline.planner_agent.prompts == pipeline.verifier_agent.prompts
+    with pytest.raises(TypeError):
+        pipeline.solver_agent.prompts["solver_system"] = "mutated"
+
+
+def test_pipeline_arithmetic_and_tool_helpers_enforce_resource_limits():
+    with pytest.raises(ValueError):
+        _eval_safe_math_expr("9**1000000000")
+    with pytest.raises(ValueError):
+        _eval_safe_math_expr("+".join("1" for _ in range(300)))
+
+    value = _crt_two(2, 1_000_000_007, 3, 1_000_000_009)
+    assert value is not None
+    assert value % 1_000_000_007 == 2
+    assert value % 1_000_000_009 == 3
+
+    answer, verification, trace = _run_tool_assist(
+        "Euler phi(999999999999999999)", "number_theory", "program"
+    )
+    assert answer is None
+    assert verification is None
+    assert trace.status == "fail"
+
+    answer, verification, trace = _run_tool_assist(
+        "Given gcd(2,4)=2, calculate 10+1.", "calculation", "program"
+    )
+    assert answer is None
+    assert verification is None
+    assert trace.status == "skipped"
+
+
+def test_proof_fallback_never_overrides_explicit_verifier_rejection():
+    rejected = Verification(
+        method="logic_review",
+        passed=False,
+        notes="logical contradiction detected",
+    )
+    keyword_spam = (
+        "assume therefore proof conclusion qed "
+        "assume therefore proof conclusion qed "
+        "assume therefore proof conclusion qed"
+    )
+
+    reviewed = _proof_fallback_review(
+        keyword_spam,
+        {"problem_type": "proof"},
+        rejected,
+        "proof",
+        "Proved: claim",
+        "",
+    )
+
+    assert reviewed is rejected
+
+
+def test_proof_fallback_never_upgrades_non_json_verifier_failure():
+    rejected = Verification(
+        method="self_review",
+        passed=False,
+        notes="Verifier fallback: non-JSON or invalid JSON response.",
+    )
+    false_proof = (
+        "Let x=1. Since x=1, therefore x=2. This proves the theorem. "
+        "Let x=1 again; since the premise is repeated, therefore the false "
+        "conclusion follows."
+    )
+
+    reviewed = _proof_fallback_review(
+        false_proof,
+        {"problem_type": "proof"},
+        rejected,
+        "proof",
+        "Proved: x=2",
+        "",
+    )
+
+    assert reviewed is rejected
+    assert reviewed.passed is False
 
 
 def test_pipeline_calls_all_agents(monkeypatch):
@@ -76,12 +187,121 @@ def test_refiner_called_when_verifier_fails(monkeypatch):
 
     monkeypatch.setattr("math_agent.pipeline.verifier.Verifier.verify", fake_verify)
     monkeypatch.setattr(
-        "math_agent.pipeline.refiner.run",
-        lambda x: state.__setitem__("refine", state["refine"] + 1) or "\\boxed{2}",
+        "math_agent.pipeline.refiner.Refiner.refine",
+        lambda self, q, draft, feedback: state.__setitem__(
+            "refine", state["refine"] + 1
+        )
+        or "\\boxed{2}",
     )
     out = MathAgentPipeline(mock=False, max_refine_rounds=1).solve("1+1=?", "q3")
     assert state["refine"] == 1
     assert out.verification.passed is True
+
+
+@pytest.mark.parametrize("value", [-1, 4, 10**12, True, 1.5, float("inf")])
+def test_pipeline_rejects_unbounded_refine_rounds(value) -> None:
+    with pytest.raises(ValueError, match="max_refine_rounds"):
+        MathAgentPipeline(max_refine_rounds=value)
+
+
+def test_failed_tool_diagnostic_cannot_be_upgraded(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "math_agent.pipeline._run_tool_assist",
+        lambda *args, **kwargs: (
+            "999",
+            Verification(method="numeric_check", passed=False, notes="failed"),
+            ToolTrace(tool="sympy", purpose="test", status="fail", summary="failed"),
+        ),
+    )
+    pipeline = MathAgentPipeline(mock=False, enable_tools=True, max_refine_rounds=0)
+    monkeypatch.setattr(
+        pipeline.verifier_agent,
+        "verify",
+        lambda *args, **kwargs: Verification(
+            method="self_review", passed=True, notes="independent"
+        ),
+    )
+
+    result = pipeline.solve("What is 2+2?", "failed-tool")
+
+    assert result.final_answer.value != "999"
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Compute gcd(8,12) and gcd(9,15)",
+        "Compute 12 choose 2 and 10 choose 3",
+        "Compute Euler phi of 12 and Euler phi of 15",
+        "Find the remainder when 7 is divided by 5 and the remainder when 8 is divided by 3",
+    ],
+)
+def test_repeated_tool_targets_are_not_marked_as_single_answer(question: str) -> None:
+    answer, verification, trace = _run_tool_assist(question, "calculation", "program")
+
+    assert answer is None
+    assert verification is None
+    assert trace.status == "skipped"
+
+
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        ("Compute 2+3", "5"),
+        ("Calculate 2+3", "5"),
+        ("What is 2+3?", "5"),
+        ("Solve 2x+5=13", "x=4"),
+        ("solve x+1=3", "x=2"),
+        ("Solve the equation 2*x+5=13", "x=4"),
+        ("Compute log base 2.9 of 8.41", "2"),
+    ],
+)
+def test_common_english_tool_requests_are_parsed_without_command_words(
+    question: str, expected: str
+) -> None:
+    answer, verification, trace = _run_tool_assist(question, "calculation", "program")
+
+    assert answer is not None and expected in answer
+    assert verification is not None and verification.passed is True
+    assert trace.status == "success"
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Find the slope of the line through (1,2) and (1,5)",
+        "Find the y-intercept of y=1/x",
+        "A right triangle has legs 0 and 5. Compute its inradius",
+        "Compute log base 1 of 2",
+    ],
+)
+def test_undefined_or_degenerate_tool_results_never_pass(question: str) -> None:
+    _, verification, trace = _run_tool_assist(question, "calculation", "program")
+
+    assert verification is None or verification.passed is False
+    assert trace.status != "success"
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Find the slope of the line through (1,2) and (1,5)",
+        "Find the y-intercept of y=1/x",
+        "A right triangle has legs 0 and 5. Compute its inradius",
+        "Compute log base 1 of 2",
+        "Compute gcd(8,12) and gcd(9,15)",
+        "Prove that 1=0.",
+    ],
+)
+def test_mock_pipeline_never_certifies_unchecked_or_undefined_answers(
+    question: str,
+) -> None:
+    result = MathAgentPipeline(
+        mock=True, enable_tools=True, run_mode="tool-first", max_refine_rounds=0
+    ).solve(question, "mock-unchecked")
+
+    assert result.status != "success"
+    assert result.verification.passed is False
 
 
 def test_non_proof_prefers_boxed_and_not_long_markdown(monkeypatch):
@@ -141,7 +361,7 @@ def test_proof_conclusion_header_then_next_line_content():
     )
 
 
-def test_proof_long_text_non_json_verifier_uses_fallback_success(monkeypatch):
+def test_proof_long_text_non_json_verifier_stays_partial(monkeypatch):
     class DummyRoute:
         domain = "SetLogic"
         problem_type = "proof"
@@ -171,13 +391,10 @@ def test_proof_long_text_non_json_verifier_uses_fallback_success(monkeypatch):
     monkeypatch.setattr("math_agent.pipeline.explainer.run", lambda q: "hint")
 
     out = MathAgentPipeline(mock=False).solve("证明A∩B是A的子集", "proof_ok")
-    assert out.status == "success"
-    assert out.verification.passed is True
-    assert out.verification.method == "logic_review"
-    assert (
-        out.verification.notes
-        == "Proof structure detected; accepted by proof fallback review."
-    )
+    assert out.status == "partial"
+    assert out.verification.passed is False
+    assert out.verification.method == "self_review"
+    assert out.verification.notes.startswith("Verifier fallback: non-JSON")
 
 
 def test_proof_short_hollow_text_stays_partial(monkeypatch):
@@ -213,7 +430,7 @@ def test_proof_short_hollow_text_stays_partial(monkeypatch):
     assert out.verification.passed is False
 
 
-def test_proof_pre009_style_non_json_verifier_accepted(monkeypatch):
+def test_proof_pre009_style_non_json_verifier_stays_partial(monkeypatch):
     class DummyRoute:
         domain = "NumberTheory"
         problem_type = "proof"
@@ -251,12 +468,9 @@ def test_proof_pre009_style_non_json_verifier_accepted(monkeypatch):
     out = MathAgentPipeline(mock=False).solve(
         "证明若 n 是奇数，则 n^2 也是奇数。", "pre_009_number_theory"
     )
-    assert out.status == "success"
+    assert out.status == "partial"
     assert out.final_answer.type == "proof"
     assert out.final_answer.boxed == ""
-    assert out.verification.passed is True
-    assert out.verification.method == "logic_review"
-    assert (
-        out.verification.notes
-        == "Proof structure detected; accepted by proof fallback review."
-    )
+    assert out.verification.passed is False
+    assert out.verification.method == "self_review"
+    assert out.verification.notes.startswith("Verifier fallback: non-JSON")

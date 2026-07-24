@@ -6,14 +6,24 @@ from typing import Iterable
 
 from dotenv import load_dotenv
 
+if __package__ in {None, ""}:
+    from _repo_bootstrap import prefer_repo_source
+
+    prefer_repo_source()
+
 from math_agent.clients.interns1_client import InternS1Client
+from math_agent.security import safe_exception_text
 
 
 def classify_error(exc: Exception) -> str:
-    msg = str(exc)
+    msg = safe_exception_text(exc)
     for key in [
         "missing_api_key",
         "missing_base_url",
+        "missing_allowed_hosts",
+        "invalid_allowed_hosts",
+        "disallowed_host",
+        "capacity_error",
         "auth_error",
         "rate_limit",
         "timeout",
@@ -80,12 +90,13 @@ def main(argv: Iterable[str] | None = None) -> int:
         )
         return 0
     except Exception as exc:
+        message = safe_exception_text(exc)
         _print(
             {
                 "ok": False,
                 "mode": "mock" if mock else "real",
                 "error_type": classify_error(exc),
-                "message": str(exc),
+                "message": message,
             }
         )
         return 1

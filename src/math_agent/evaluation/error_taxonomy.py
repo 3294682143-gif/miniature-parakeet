@@ -15,11 +15,16 @@ class FailureCategory:
     PROOF_PARTIAL = "proof_partial"
     TIMEOUT = "timeout"
     EXCEPTION = "exception"
+    MALFORMED_JSON = "malformed_json"
+    STATUS_FAIL = "status_fail"
+    STATUS_PARTIAL = "status_partial"
     WRONG_ANSWER = "wrong_answer"
     UNKNOWN = "unknown"
 
 
 def classify_failure(result_like: dict[str, Any]) -> str:
+    if result_like.get("failure_category") == FailureCategory.MALFORMED_JSON:
+        return FailureCategory.MALFORMED_JSON
     if not result_like.get("json_valid", True):
         return FailureCategory.JSON_INVALID
     if not result_like.get("final_answer_exists", True):
@@ -28,6 +33,14 @@ def classify_failure(result_like: dict[str, Any]) -> str:
         return FailureCategory.DIRTY_BOXED
     if result_like.get("boxed_42_fallback", False):
         return FailureCategory.BOXED_42_FALLBACK
+    if result_like.get("status") == "exception":
+        return FailureCategory.EXCEPTION
+    if result_like.get("timeout", False):
+        return FailureCategory.TIMEOUT
+    if result_like.get("status") == "fail":
+        return FailureCategory.STATUS_FAIL
+    if result_like.get("status") == "partial":
+        return FailureCategory.STATUS_PARTIAL
     if result_like.get("tool_error", False):
         return FailureCategory.TOOL_ERROR
     if result_like.get("verifier_passed") is False:
@@ -36,10 +49,6 @@ def classify_failure(result_like: dict[str, Any]) -> str:
         return FailureCategory.FORMATTER_REPAIR_FAILED
     if result_like.get("proof_partial", False):
         return FailureCategory.PROOF_PARTIAL
-    if result_like.get("timeout", False):
-        return FailureCategory.TIMEOUT
-    if result_like.get("status") == "exception":
-        return FailureCategory.EXCEPTION
     if (
         result_like.get("expected_answer") not in (None, "")
         and result_like.get("exact_match") is False

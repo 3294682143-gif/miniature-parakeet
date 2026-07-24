@@ -7,12 +7,21 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+if __package__ in {None, ""}:
+    from _repo_bootstrap import prefer_repo_source
+
+    prefer_repo_source()
+
 from math_agent.harness.lagent_trace_adapter import lagent_alignment_evidence_table
+from math_agent.io_utils import load_bounded_json
+from math_agent.logging_utils import safe_text_write
+from math_agent.security import redact_sensitive_data, redact_sensitive_text
 
 OFFICIAL_WARNING = (
     "This is NOT official evaluation. Do not claim official hidden-set accuracy "
     "from this report."
 )
+MAX_REPORT_INPUT_BYTES = 16 * 1024 * 1024
 
 
 def _read_json(path: str | Path | None, default: Any) -> Any:
@@ -22,13 +31,13 @@ def _read_json(path: str | Path | None, default: Any) -> Any:
     if not p.exists():
         return default
     try:
-        return json.loads(p.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
+        return load_bounded_json(p, max_bytes=MAX_REPORT_INPUT_BYTES)
+    except (OSError, UnicodeError, ValueError):
         return default
 
 
 def _cell(value: Any) -> str:
-    text = "" if value is None else str(value)
+    text = redact_sensitive_text("" if value is None else str(value))
     return text.replace("|", "\\|").replace("\n", " ") or "missing"
 
 
@@ -36,12 +45,29 @@ def _metric(summary: dict[str, Any], key: str) -> Any:
     return summary.get(key, "missing") if summary else "missing"
 
 
+def _safe_int(value: Any) -> int:
+    try:
+        if isinstance(value, bool):
+            return 0
+        if isinstance(value, (int, float, str)):
+            return int(value)
+    except (TypeError, ValueError, OverflowError):
+        pass
+    return 0
+
+
 def _real_api_status(summary: dict[str, Any]) -> str:
     if not summary:
         return "missing"
-    if int(summary.get("total_model_calls") or 0) <= 0:
+    if _safe_int(summary.get("total_model_calls")) <= 0:
         return "blocked_or_not_executed"
-    if int(summary.get("fail_count") or 0) > 0:
+    if (
+        summary.get("gate_passed") is not True
+        or summary.get("evaluation_integrity_ok") is not True
+        or _safe_int(summary.get("fail_count")) > 0
+        or _safe_int(summary.get("partial_count")) > 0
+        or _safe_int(summary.get("failure_count")) > 0
+    ):
         return "needs_failure_closure"
     return "passed"
 
@@ -68,7 +94,7 @@ def _render_metrics(summary: dict[str, Any]) -> list[str]:
     return lines
 
 
-def _render_domain_rows(rows: list[dict[str, Any]]) -> list[str]:
+def _render_domain_rows(rows: list[Any]) -> list[str]:
     lines = [
         "| Domain | Samples | Pass | Partial | Fail | Proof Risks | Model Calls | Tool Calls | Failures |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---|",
@@ -77,27 +103,32 @@ def _render_domain_rows(rows: list[dict[str, Any]]) -> list[str]:
         lines.append("| missing | 0 | 0 | 0 | 0 | 0 | 0 | 0 | missing |")
         return lines
     for row in rows:
-        failures = ", ".join(str(x) for x in row.get("failure_question_ids", []))
+        safe_row = row if isinstance(row, dict) else {}
+        failure_values = safe_row.get("failure_question_ids", [])
+        if not isinstance(failure_values, (list, tuple, set)):
+            failure_values = []
+        failures = ", ".join(str(x) for x in failure_values)
         lines.append(
             "| {domain} | {sample_count} | {pass_count} | {partial_count} | {fail_count} | {proof_risk_count} | {model_calls} | {tool_calls} | {failures} |".format(
-                domain=_cell(row.get("domain")),
-                sample_count=_cell(row.get("sample_count")),
-                pass_count=_cell(row.get("pass_count")),
-                partial_count=_cell(row.get("partial_count")),
-                fail_count=_cell(row.get("fail_count")),
-                proof_risk_count=_cell(row.get("proof_risk_count")),
-                model_calls=_cell(row.get("model_calls")),
-                tool_calls=_cell(row.get("tool_calls")),
+                domain=_cell(safe_row.get("domain")),
+                sample_count=_cell(safe_row.get("sample_count")),
+                pass_count=_cell(safe_row.get("pass_count")),
+                partial_count=_cell(safe_row.get("partial_count")),
+                fail_count=_cell(safe_row.get("fail_count")),
+                proof_risk_count=_cell(safe_row.get("proof_risk_count")),
+                model_calls=_cell(safe_row.get("model_calls")),
+                tool_calls=_cell(safe_row.get("tool_calls")),
                 failures=_cell(failures or "none"),
             )
         )
     return lines
 
 
-def _render_failure_buckets(rows: list[dict[str, Any]]) -> list[str]:
+def _render_failure_buckets(rows: list[Any]) -> list[str]:
     counts = Counter(
         str(row.get("review_bucket") or row.get("suggested_fix_category") or "unknown")
         for row in rows
+        if isinstance(row, dict)
     )
     lines = ["| Review Bucket | Count |", "|---|---:|"]
     if not counts:
@@ -150,6 +181,10 @@ def _render_gate_environment(report: dict[str, Any]) -> list[str]:
         f"| ready_for_real_api_gate | {_cell(report.get('ready_for_real_api_gate'))} |",
     ]
     missing_tools = report.get("missing_dev_tools") or []
+    if isinstance(missing_tools, str):
+        missing_tools = [missing_tools]
+    elif not isinstance(missing_tools, (list, tuple, set)):
+        missing_tools = []
     lines.append(f"| missing_dev_tools | {_cell(', '.join(missing_tools) or 'none')} |")
     real_api_raw = report.get("real_api")
     real_api: dict[str, Any] = real_api_raw if isinstance(real_api_raw, dict) else {}
@@ -162,12 +197,14 @@ def _render_gate_environment(report: dict[str, Any]) -> list[str]:
 def _gate_environment_status(report: dict[str, Any]) -> str:
     if not report:
         return "missing"
-    if report.get("ready_for_regression_gate") and report.get(
-        "ready_for_real_api_gate"
+    if (
+        report.get("ready_for_regression_gate") is True
+        and report.get("ready_for_real_api_gate") is True
     ):
         return "ready"
-    if report.get("ready_for_real_api_env") and not report.get(
-        "ready_for_real_api_gate"
+    if (
+        report.get("ready_for_real_api_env") is True
+        and report.get("ready_for_real_api_gate") is not True
     ):
         return "needs_real_api_preflight"
     return "needs_setup"
@@ -180,8 +217,17 @@ def render_final_submission_report(
     failure_rows: list[dict[str, Any]],
     gate_environment: dict[str, Any] | None = None,
 ) -> str:
+    sanitized_summary = redact_sensitive_data(real_api_summary)
+    real_api_summary = sanitized_summary if isinstance(sanitized_summary, dict) else {}
+    sanitized_dashboard = redact_sensitive_data(domain_dashboard)
+    domain_dashboard = (
+        sanitized_dashboard if isinstance(sanitized_dashboard, list) else []
+    )
+    sanitized_failures = redact_sensitive_data(failure_rows)
+    failure_rows = sanitized_failures if isinstance(sanitized_failures, list) else []
+    sanitized_gate = redact_sensitive_data(gate_environment or {})
+    gate_environment = sanitized_gate if isinstance(sanitized_gate, dict) else {}
     real_status = _real_api_status(real_api_summary)
-    gate_environment = gate_environment or {}
     gate_status = _gate_environment_status(gate_environment)
     generated_at = datetime.now(UTC).isoformat(timespec="seconds")
     sections = [
@@ -294,24 +340,23 @@ def main() -> int:
         gate_environment=gate_environment,
     )
     report_path = out_dir / "final_submission_report.md"
-    report_path.write_text(report, encoding="utf-8")
+    safe_text_write(report, report_path)
     inputs_path = out_dir / "final_submission_report_inputs.json"
-    inputs_path.write_text(
-        json.dumps(
-            {
-                "real_api_summary": args.real_api_summary,
-                "domain_dashboard": args.domain_dashboard,
-                "failure_report": args.failure_report,
-                "gate_environment": args.gate_environment,
-                "real_api_status": _real_api_status(real_api_summary),
-                "gate_environment_status": _gate_environment_status(gate_environment),
-            },
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
+    sanitized_inputs = redact_sensitive_data(
+        {
+            "real_api_summary": args.real_api_summary,
+            "domain_dashboard": args.domain_dashboard,
+            "failure_report": args.failure_report,
+            "gate_environment": args.gate_environment,
+            "real_api_status": _real_api_status(real_api_summary),
+            "gate_environment_status": _gate_environment_status(gate_environment),
+        }
     )
-    print(f"report={report_path}")
+    safe_text_write(
+        json.dumps(sanitized_inputs, ensure_ascii=False, indent=2),
+        inputs_path,
+    )
+    print(f"report={redact_sensitive_text(str(report_path))}")
     print(f"real_api_status={_real_api_status(real_api_summary)}")
     if args.fail_on_missing_real_api and _real_api_status(real_api_summary) in {
         "missing",

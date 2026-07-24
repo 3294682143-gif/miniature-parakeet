@@ -13,18 +13,20 @@ from math_agent.schemas import CandidateAnswer
 
 
 def _c(cid: str, ans: str, verifier: float, conf: float, **kwargs) -> CandidateAnswer:
-    return CandidateAnswer(
-        candidate_id=cid,
-        source="mock",
-        answer_type=kwargs.get("answer_type", "number"),
-        final_answer_value=ans,
-        final_answer_boxed=kwargs.get("boxed", f"\\boxed{{{ans}}}" if ans else ""),
-        normalized_answer="",
-        confidence=conf,
-        verifier_score=verifier,
-        risk_score=kwargs.get("risk_score", 0.0),
-        risk_flags=kwargs.get("risk_flags", []),
-    )
+    payload = {
+        "candidate_id": cid,
+        "source": "mock",
+        "answer_type": kwargs.get("answer_type", "number"),
+        "final_answer_value": ans,
+        "final_answer_boxed": kwargs.get("boxed", f"\\boxed{{{ans}}}" if ans else ""),
+        "normalized_answer": "",
+        "confidence": conf,
+        "verifier_score": verifier,
+        "verification_passed": kwargs.get("verification_passed", True),
+        "risk_score": kwargs.get("risk_score", 0.0),
+        "risk_flags": kwargs.get("risk_flags", []),
+    }
+    return CandidateAnswer(**payload)
 
 
 def test_cluster_same_answers():
@@ -88,6 +90,70 @@ def test_close_gap_need_more_verification():
     assert res.need_more_verification is True
 
 
+def test_explicit_verifier_failure_cannot_win():
+    failed = _c("failed", "5", 1.0, 1.0, verification_passed=False)
+    passed = _c("passed", "6", 0.6, 0.6, verification_passed=True)
+
+    result = select_best_candidate([failed, passed])
+    failed_only = select_best_candidate([failed])
+    serialized = select_best_candidate([failed.model_dump(), passed.model_dump()])
+
+    assert result.selected_candidate_id == "passed"
+    assert serialized.selected_candidate_id == "passed"
+    assert "verifier_failed_candidate_excluded" in result.issues
+    assert failed_only.selected_candidate_id is None
+    assert "no_valid_candidate" in failed_only.issues
+
+
+def test_missing_verifier_result_cannot_win():
+    model = CandidateAnswer(
+        candidate_id="missing-model",
+        source="mock",
+        answer_type="number",
+        final_answer_value="999",
+        verifier_score=1.0,
+        confidence=1.0,
+    )
+    raw = {
+        "candidate_id": "missing-raw",
+        "source": "mock",
+        "answer_type": "number",
+        "final_answer_value": "999",
+        "verifier_score": 1.0,
+        "confidence": 1.0,
+    }
+
+    for result in (select_best_candidate([model]), select_best_candidate([raw])):
+        assert result.selected_candidate_id is None
+        assert result.need_more_verification is True
+        assert "verifier_failed_candidate_excluded" in result.issues
+
+
+def test_equal_scores_use_candidate_id_not_input_order():
+    a = _c("a", "5", 0.8, 0.8)
+    b = _c("b", "6", 0.8, 0.8)
+
+    forward = select_best_candidate([a, b])
+    reverse = select_best_candidate([b, a])
+
+    assert forward.selected_candidate_id == "a"
+    assert reverse.selected_candidate_id == "a"
+
+
+def test_duplicate_candidate_ids_fail_closed_independent_of_input_order():
+    x5 = _c("x", "5", 0.2, 0.2)
+    x6 = _c("x", "6", 0.2, 0.2)
+    y6 = _c("y", "6", 0.2, 0.2)
+
+    forward = select_best_candidate([x5, x6, y6])
+    reverse = select_best_candidate([x6, x5, y6])
+
+    for result in (forward, reverse):
+        assert result.selected_candidate_id is None
+        assert result.need_more_verification is True
+        assert "duplicate_candidate_id" in result.issues
+
+
 def test_empty_candidates_safe_fail():
     res = select_best_candidate([])
     assert res.selected_candidate_id is None
@@ -95,7 +161,12 @@ def test_empty_candidates_safe_fail():
 
 
 def test_bad_dict_not_crash():
-    res = select_best_candidate([{"foo": "bar"}, _c("b", "3", 0.6, 0.6).model_dump()])
+    res = select_best_candidate(
+        [
+            {"foo": "bar"},
+            _c("b", "3", 0.6, 0.6, verification_passed=True).model_dump(),
+        ]
+    )
     assert res.selected_candidate_id == "b"
 
 

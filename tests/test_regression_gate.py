@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import re
 import subprocess
 import sys
 import tomllib
@@ -31,7 +33,10 @@ def test_help_runs() -> None:
 
 def test_dev_extra_declares_local_gate_tools() -> None:
     pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
-    dev_deps = set(pyproject["project"]["optional-dependencies"]["dev"])
+    dev_deps = {
+        re.split(r"[<>=!~;\[]", requirement, maxsplit=1)[0].strip().casefold()
+        for requirement in pyproject["project"]["optional-dependencies"]["dev"]
+    }
     assert {"ruff", "black", "isort", "mypy", "pyright"}.issubset(dev_deps)
 
 
@@ -65,6 +70,10 @@ def test_command_list_contains_required_checks() -> None:
     assert "python scripts/check_project_safety.py" in command_lines
     assert "git status --short" in command_lines
     assert any("python -m math_agent.cli solve" in line for line in command_lines)
+    assert any(
+        "python -m math_agent.cli solve" in line and "--fail-on-non-success" in line
+        for line in command_lines
+    )
     lines = [_line(cmd) for cmd in commands]
     compile_idx = lines.index("python -m compileall src scripts demo tests")
     pytest_idx = lines.index("python -m pytest -q")
@@ -157,6 +166,35 @@ def test_python_commands_use_current_interpreter() -> None:
     ]
     assert python_commands
     assert all(cmd[0] == sys.executable for cmd in python_commands)
+
+
+def test_python_commands_prefer_this_checkout_source() -> None:
+    env = run_regression_gate.command_env([sys.executable, "-m", "math_agent.cli"])
+    assert env is not None
+    first = env["PYTHONPATH"].split(run_regression_gate.os.pathsep)[0]
+    expected = str(Path("src").resolve())
+    assert run_regression_gate.os.path.normcase(
+        first
+    ) == run_regression_gate.os.path.normcase(expected)
+
+
+def test_source_checkout_shim_beats_a_stale_editable_install() -> None:
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import math_agent.cli as m; print(m.__file__)",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    assert Path(proc.stdout.strip()).resolve().is_relative_to(Path("src").resolve())
 
 
 def test_missing_quality_tool_has_actionable_message(monkeypatch, capsys) -> None:

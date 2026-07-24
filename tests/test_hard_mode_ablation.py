@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from math_agent.evaluation.hard_mode_ablation import (
     build_ablation_config,
     render_hard_mode_ablation_report,
@@ -16,6 +18,25 @@ from math_agent.evaluation.hard_mode_ablation import (
 def test_ablation_defaults() -> None:
     cfg = build_ablation_config()
     assert cfg.levels == ["off", "light", "standard", "strict"]
+
+
+def test_ablation_rejects_unsafe_levels_and_unsupported_non_mock() -> None:
+    with pytest.raises(ValueError, match="level"):
+        build_ablation_config(levels=["../escape"])
+    with pytest.raises(ValueError, match="mock"):
+        build_ablation_config(mock=False)
+
+
+def test_zero_limit_runs_zero_cases_and_labels_policy_only_evidence(
+    tmp_path: Path,
+) -> None:
+    report = run_hard_mode_ablation(
+        build_ablation_config(out_dir=str(tmp_path), limit=0)
+    )
+
+    assert report.total_cases == 0
+    assert report.comparison["outcome_comparison_valid"] is False
+    assert report.comparison["execution_effect"] == "policy_metadata_only"
 
 
 def test_run_ablation_and_outputs(tmp_path: Path) -> None:
@@ -54,6 +75,42 @@ def test_level_error_isolated(monkeypatch, tmp_path: Path) -> None:
     cfg = build_ablation_config(out_dir=str(tmp_path))
     report = run_hard_mode_ablation(cfg)
     assert len(report.runs) == 4
+    assert not any(
+        "all levels passed" in recommendation
+        for recommendation in report.recommendation
+    )
+    assert any("failed to execute" in item for item in report.recommendation)
+
+
+def test_broken_exception_rendering_isolated_at_both_ablation_levels(
+    monkeypatch, tmp_path: Path
+) -> None:
+    import math_agent.evaluation.hard_mode_ablation as mod
+
+    class BrokenError(Exception):
+        def __str__(self) -> str:
+            raise RuntimeError("broken conversion")
+
+    monkeypatch.setattr(
+        mod,
+        "run_shadow_eval",
+        lambda *args, **kwargs: (_ for _ in ()).throw(BrokenError()),
+    )
+    single = mod.run_single_level_ablation(
+        level="off",
+        cases=[],
+        out_dir=tmp_path / "single",
+        include_debugger=False,
+    )
+    assert "message unavailable" in single.summary["error"]
+
+    monkeypatch.setattr(
+        mod,
+        "run_single_level_ablation",
+        lambda *args, **kwargs: (_ for _ in ()).throw(BrokenError()),
+    )
+    report = run_hard_mode_ablation(build_ablation_config(out_dir=str(tmp_path)))
+    assert all("message unavailable" in run.summary["error"] for run in report.runs)
 
 
 def test_cli_help_and_run(tmp_path: Path) -> None:

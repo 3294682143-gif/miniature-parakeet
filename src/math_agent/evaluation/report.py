@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from math_agent.logging_utils import safe_text_write
+
 
 def write_markdown_report(
     summary: Any,
@@ -13,4 +15,4 @@ def write_markdown_report(
 
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(render_markdown_report(summary, results), encoding="utf-8")
+    safe_text_write(render_markdown_report(summary, results), p)

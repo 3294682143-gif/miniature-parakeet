@@ -4,6 +4,12 @@ import argparse
 import json
 import sys
 
+if __package__ in {None, ""}:
+    from _repo_bootstrap import prefer_repo_source
+
+    prefer_repo_source()
+
+from math_agent.security import safe_exception_text
 from math_agent.submission.dry_run import (
     build_dry_run_config,
     command_string,
@@ -32,6 +38,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-trace", action="store_true", default=False)
     p.add_argument("--fail-on-invalid", action="store_true", default=False)
     p.add_argument("--fail-on-missing-final", action="store_true", default=False)
+    p.add_argument("--fail-on-non-success", action="store_true", default=False)
     p.add_argument("--format", choices=["markdown", "json"], default="markdown")
     return p
 
@@ -55,10 +62,14 @@ def main() -> int:
             limit=args.limit,
         )
     except ValueError as exc:
-        print(str(exc), file=sys.stderr)
+        print(safe_exception_text(exc), file=sys.stderr)
         return 2
 
-    summary = run_official_dry_run(config, command=command_string(sys.argv))
+    try:
+        summary = run_official_dry_run(config, command=command_string(sys.argv))
+    except (OSError, ValueError) as exc:
+        print(safe_exception_text(exc), file=sys.stderr)
+        return 2
     if args.format == "json":
         print(json.dumps(summary.__dict__, ensure_ascii=False, indent=2))
     else:
@@ -70,6 +81,13 @@ def main() -> int:
         return 3
     if args.fail_on_missing_final and summary.missing_final_count > 0:
         return 4
+    if args.fail_on_non_success and (
+        summary.total == 0
+        or summary.fail_count > 0
+        or summary.success_count != summary.total
+        or (args.limit is not None and summary.total != args.limit)
+    ):
+        return 5
     return 0
 
 

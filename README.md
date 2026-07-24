@@ -30,7 +30,7 @@ P18.5.1 expands the full-system audit into an A-X exhaustive function inventory.
 | Group | Category | What is audited |
 |---|---|---|
 | A | Stable Core / 主解题内核 | `CLI solve`, batch entry, pipeline, schemas, mock mode, real API guard, fast/full/tool-first modes, trace writing hook |
-| B | Tools / 工具求解层 | SymPy/Python tool solver, answer normalization, tool call records, tool error fallback |
+| B | Tools / 工具求解层 | allowlisted SymPy parser, restricted arithmetic AST tool, answer normalization, tool call records, tool error fallback |
 | C | Formatter / JSON 安全层 | Formatter repair, boxed cleanup, dirty-final detection, proof-safe finalize, fallback detection |
 | D | Proof Layer / 证明题保护层 | legacy proof guardian, `ProofRubricScore`, `ProofGuardianDecision`, proof metadata plan, proof demo |
 | E | Skills / 外化技能层 | skill registry and math/formatter/verifier skill files |
@@ -235,7 +235,7 @@ docs/reference_mapping.md
 Install the package in a development environment, then run mock-safe commands first:
 
 ```bash
-python -m math_agent.cli solve --question "计算 2+3" --enable-tools --mode fast --no-trace
+python -m math_agent.cli solve --question "计算 2+3" --enable-tools --mode fast --no-trace --fail-on-non-success
 python -m math_agent.cli solve --question "计算 2+3" --enable-tools --mode fast --hard-mode --hard-mode-level light --no-trace
 ```
 
@@ -297,6 +297,14 @@ python scripts/run_proof_guardian_demo.py --out-dir outputs/proof_guardian_demo_
 python scripts/run_official_dry_run.py --input data/preofficial_sample.jsonl --out-dir outputs/official_dry_run_test --limit 5 --enable-tools --mock --no-trace
 ```
 
+Each traced dry run uses a new `<trace-base>/<run_id>/` directory and binds its
+results to a rechecked input-manifest SHA-256 plus the exact execution profile.
+CLI resume accepts a prior success only when the canonical question, prompt
+snapshot, execution profile, result, and trace evidence all match; legacy or
+incomplete provenance is rerun. The frozen exporter independently validates the
+same bindings, scans every selected text source, and accepts only a canonical ZIP
+with no unmanifested prefix, comments, record gaps, or trailing bytes.
+
 ### Official-style Synthetic Gates
 
 ```bash
@@ -310,7 +318,8 @@ python scripts/build_final_submission_report.py --real-api-summary outputs/real_
 ```
 
 `official_style_*` datasets are synthetic official-style regression data, not official hidden-set data. `run_real_api_sample_gate.py` is an explicit opt-in local audit command; it performs a one-call real API preflight by default so network/auth failures do not masquerade as model failures. Raw traces/results must not be committed.
-The failure rerun command uses the generated failure replay JSON to rerun only fail/partial cases, saving real API tokens while preserving the no-manual-result-editing rule.
+The automatic gate defaults to short-answer samples. `--include-proof` creates a proof review pack and intentionally requires external semantic review instead of auto-certifying proof correctness.
+The failure rerun command uses the generated failure replay JSON to rerun only fail/partial cases, saving real API tokens while preserving the no-manual-result-editing rule; its summary is labeled `failure_subset` and is not a replacement for the full 18-domain gate.
 The gate environment report checks local lint/type tools and real API environment readiness without printing secrets, helping distinguish setup blockers from model or pipeline failures.
 The final submission report builder summarizes gate evidence, real API metrics, failure closure buckets, and lagent alignment without copying raw traces or secrets.
 The canonical synthetic hard-suite generator now writes `data/synthetic_hard_math*.jsonl` by default; any remaining `hard_hidden_*` fixtures are legacy synthetic regression assets and are not official hidden-set data.
@@ -374,25 +383,28 @@ python -m mypy src --show-error-codes
 python -m pyright --pythonpath <path-to-current-python>
 python -m compileall src scripts demo tests
 python -m pytest -q
-python -m math_agent.cli solve --question "计算 2+3" --enable-tools --mode fast --no-trace
+python -m math_agent.cli solve --question "计算 2+3" --enable-tools --mode fast --no-trace --fail-on-non-success
 python scripts/check_project_safety.py
 ```
 
 `run_regression_gate.py` wraps lint, format, import, type, compile, pytest, CLI smoke, cleanup, and safety checks. `run_pre_submit_gate.py` wraps the final local gate: pytest, official-style mock dry-run, cleanup, and safety scan. `full_system_audit.py --fail-on-risk` records pass/fail summaries and exits non-zero on skipped or failed checks. A final evidence report can be assembled from `docs/final_submission_report_template.md` or generated with `scripts/build_final_submission_report.py` after the real sample gate has produced local summaries.
 
-Latest local validation for this working tree (2026-05-30, no real API calls):
+For automation, pass `--fail-on-non-success` to `solve` or `batch`; the default exit-code behavior remains compatible with callers that treat a schema-valid failure result as a completed invocation.
+
+The default pre-submit mock dry run is a structural and safety gate: it fails on
+invalid rows or missing final values, but does not pretend that unsupported mock
+questions were semantically solved. Use `--require-mock-success` only with an
+input set known to be deterministically mock-solvable.
+
+Latest local validation for this working tree (2026-07-11, no real API calls):
 
 | Command | Result | Key output |
 |---|---|---|
-| `python -m pytest --collect-only -q` | PASS | 433 tests collected |
-| `python -m pytest -q` | PASS | 433 passed |
-| `python scripts/run_regression_gate.py` | PASS | ruff, black, isort, mypy, pyright, compileall, pytest, CLI smoke, safety all passed |
-| `python scripts/run_pre_submit_gate.py --dry-run-limit 3` | PASS | 433 passed; official-style mock dry-run PASS; safety PASS |
-| `python scripts/full_system_audit.py --out-dir outputs/full_system_audit --fail-on-risk` | PASS | 8 quality checks PASS; 3 functional smokes PASS |
-| `python scripts/check_gate_environment.py --out-dir outputs/gate_environment` | PASS | ready_for_regression_gate=True; real API gate not run |
-| `python -m streamlit --version` | PASS | Streamlit 1.57.0 |
-| `python scripts/smoke_interns1.py --mock` | PASS | mock response OK |
-| `python scripts/check_project_safety.py` | PASS | no forbidden artifacts detected after cleanup |
+| `python scripts/run_regression_gate.py` | PASS | 919 passed, 3 skipped; provenance, Ruff, Black, isort, mypy, pyright, compileall, CLI smoke, cleanup, safety PASS |
+| `python scripts/run_pre_submit_gate.py --dry-run-limit 3` | PASS | 919 passed, 3 skipped; 3-row structural mock dry-run, cleanup, safety PASS |
+| `python -m pytest -q` | PASS | 919 passed, 3 skipped (inside both final gates) |
+| `python scripts/check_project_safety.py` | PASS | no forbidden or suspected-sensitive artifacts after cleanup |
+| `pip-audit` against runtime/dev hash locks | PASS | no known vulnerabilities in 22 runtime / 82 dev locked packages at audit time |
 
 Windows note: use a UTF-8 capable terminal when reading Chinese logs or docs. If PowerShell displays garbled text, run `chcp 65001` before printing Markdown files.
 
@@ -407,11 +419,43 @@ python scripts/run_pre_submit_gate.py
 - Do not read or commit `.env` content.
 - Do not commit `outputs/`, traces, caches, generated submission bundles, or debug artifacts.
 - Default commands are mock-safe.
-- Real API calls require explicit real / allow-real style gates.
+- Real API calls require explicit real / allow-real style gates plus
+  `INTERNS1_ALLOWED_HOSTS`, a comma-separated exact-host allowlist matching
+  `INTERNS1_BASE_URL`; IP literals, localhost, single-label and private-style
+  hostnames are rejected before the authorization secret reaches the transport.
+  The isolated HTTP worker resolves once, rejects every non-global or mixed
+  address set, pins that result for the HTTPS connection, and authorizes HTTPS
+  port 443 only.
+- The Streamlit app is a local mock-only preview. It uses a server-owned,
+  per-session trace directory and only replays trace IDs enumerated for that
+  session. Questions are limited to 8,192 characters / 32 KiB UTF-8; per-session
+  and whole-service file/byte/TTL ceilings, a 30-solves/minute global window, and
+  bounded new/active-session admission fail closed. It is still not an
+  authenticated public real-API service.
 - Do not place API keys, raw external outputs, or trace excerpts in repository docs.
 - `official_style_*` datasets are synthetic official-style regression data, not official hidden data.
 - `official_results.jsonl` is forbidden in dry-run, demo, audit, and safety workflows.
 - Preview layers do not change default `final_answer` behavior.
+- `python_sandbox` interprets an arithmetic-only AST subset; imports, attributes, loops, definitions, comprehensions, and arbitrary Python bytecode execution are intentionally unavailable. Symbolic work goes through the dedicated allowlisted SymPy tools.
+- SymPy validates numeric exponent nodes before and after bounded recursive
+  normalization of nested exponent trees; normalization has explicit operation
+  and node ceilings and never invokes unrestricted general simplification.
+- Python, SymPy, and HTTP workers share one bounded process budget; overload is
+  rejected instead of spawning an unbounded number of child processes.
+- Project safety checks explicitly reject credential-container suffixes, scan
+  bounded binary content for high-confidence formats, and scan bounded reachable
+  Git commit/tag messages plus text-forced patch history without printing matched
+  content. Test fixtures are scrubbed only for current, explicitly marked files
+  and exact synthetic values.
+- Git history scanning resolves an absolute executable only from explicit PATH
+  directories outside the repository and current working directory. Git children
+  run from that verified executable directory with current-directory executable
+  search disabled; the repository is selected only through `git -C <root>`.
+- Trace directory budgets use descriptor-verified `file_bytes`; redacted display
+  paths are never reused as internal filesystem paths by batch/resume accounting.
+- Generic text/JSON redaction never trusts a hash-looking field name. Only
+  explicit program-owned trace and dry-run artifact writers preserve exact
+  lowercase SHA-256 provenance paths.
 - lagent alignment is an adapter/documentation layer; runtime lagent integration should remain a separate opt-in task.
 - Literature mapping is traceability evidence, not a claim of full paper reproduction.
 

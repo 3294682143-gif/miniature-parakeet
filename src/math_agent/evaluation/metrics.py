@@ -1,17 +1,29 @@
 from __future__ import annotations
 
 import json
+import math
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
 
 from math_agent.evaluation.judge import exact_match as judge_exact_match
-from math_agent.evaluation.judge import normalized_match, numeric_match, symbolic_match
+from math_agent.evaluation.judge import (
+    is_canonical_final_answer,
+    normalized_match,
+    numeric_match,
+    symbolic_match,
+)
 from math_agent.harness.trace_reader import read_trace_dir
+from math_agent.io_utils import load_bounded_jsonl
 from math_agent.proof import ProofRubricScore, score_proof_candidate
-from math_agent.schemas import SolveResult
+from math_agent.schemas import (
+    SolveResult,
+    is_semantically_successful,
+    is_valid_trace_audit_evidence,
+)
 from math_agent.tools.answer_normalizer import normalize_answer as normalize_answer_core
 
 
@@ -23,48 +35,121 @@ def _safe_rate(n: int, d: int) -> float:
     return n / d if d else 0.0
 
 
-def load_jsonl(path: str | Path) -> tuple[list[dict], int]:
+def load_jsonl(path: str | Path) -> tuple[list[Any], int]:
     p = Path(path)
-    if not p.exists() or p.stat().st_size == 0:
+    if not p.exists():
         return [], 0
+    return load_bounded_jsonl(p, tolerate_invalid=True)
 
-    rows: list[dict] = []
-    invalid = 0
-    with p.open("r", encoding="utf-8") as f:
-        for line in f:
-            s = line.strip()
-            if not s:
-                continue
-            try:
-                rows.append(json.loads(s))
-            except json.JSONDecodeError:
-                invalid += 1
-    return rows, invalid
+
+@dataclass(frozen=True)
+class _AnswerDataset:
+    answers: dict[str, str]
+    records: dict[str, dict[str, Any]]
+    duplicate_ids: frozenset[str]
+    json_invalid_count: int
+    schema_invalid_count: int
+    invalid_id_count: int
+    duplicate_row_count: int
+    source_exists: bool
+    source_nonempty: bool
+
+    @property
+    def integrity_ok(self) -> bool:
+        return not (
+            self.json_invalid_count
+            or self.schema_invalid_count
+            or self.invalid_id_count
+            or self.duplicate_ids
+            or not self.source_exists
+            or not self.source_nonempty
+            or not self.records
+        )
+
+
+def _stable_answer_record(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    return min(
+        rows,
+        key=lambda row: json.dumps(
+            row, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ),
+    )
+
+
+def _load_answer_dataset(path: str | Path | None) -> _AnswerDataset:
+    if not path:
+        return _AnswerDataset({}, {}, frozenset(), 0, 0, 0, 0, False, False)
+    source = Path(path)
+    try:
+        source_exists = (
+            source.is_file()
+            and not source.is_symlink()
+            and not getattr(source, "is_junction", lambda: False)()
+        )
+        source_nonempty = source_exists and source.stat().st_size > 0
+    except OSError:
+        source_exists = False
+        source_nonempty = False
+    rows, json_invalid = load_jsonl(path) if source_exists else ([], 0)
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    schema_invalid = 0
+    invalid_id = 0
+    for row in rows:
+        if not isinstance(row, dict):
+            schema_invalid += 1
+            continue
+        raw_qid = row.get("question_id")
+        if not isinstance(raw_qid, str) or not raw_qid.strip():
+            invalid_id += 1
+            continue
+        answer = row.get("answer")
+        evaluation_mode = row.get("evaluation_mode", "short_answer")
+        answer_is_scalar = isinstance(
+            answer, (str, int, float, bool)
+        ) and not isinstance(answer, type(None))
+        if isinstance(answer, float) and not math.isfinite(answer):
+            answer_is_scalar = False
+        if (
+            "answer" not in row
+            or not answer_is_scalar
+            or not str(answer).strip()
+            or not isinstance(evaluation_mode, str)
+            or evaluation_mode
+            not in {"short_answer", "proof_validity", "proof_quality"}
+        ):
+            schema_invalid += 1
+            continue
+        grouped.setdefault(raw_qid.strip(), []).append(row)
+
+    records = {
+        qid: _stable_answer_record(answer_rows) for qid, answer_rows in grouped.items()
+    }
+    answers = {qid: str(row.get("answer", "")) for qid, row in records.items()}
+    duplicate_ids = frozenset(
+        qid for qid, answer_rows in grouped.items() if len(answer_rows) > 1
+    )
+    duplicate_rows = sum(
+        max(0, len(answer_rows) - 1) for answer_rows in grouped.values()
+    )
+    return _AnswerDataset(
+        answers,
+        records,
+        duplicate_ids,
+        json_invalid,
+        schema_invalid,
+        invalid_id,
+        duplicate_rows,
+        source_exists,
+        source_nonempty,
+    )
 
 
 def load_answers(path: str | Path | None) -> dict[str, str]:
-    if not path:
-        return {}
-    rows, _ = load_jsonl(path)
-    answers: dict[str, str] = {}
-    for row in rows:
-        qid = str(row.get("question_id", "")).strip()
-        ans = str(row.get("answer", ""))
-        if qid:
-            answers[qid] = ans
-    return answers
+    return _load_answer_dataset(path).answers
 
 
 def load_answer_records(path: str | Path | None) -> dict[str, dict[str, Any]]:
-    if not path:
-        return {}
-    rows, _ = load_jsonl(path)
-    records: dict[str, dict[str, Any]] = {}
-    for row in rows:
-        qid = str(row.get("question_id", "")).strip()
-        if qid:
-            records[qid] = row
-    return records
+    return _load_answer_dataset(path).records
 
 
 def _match_bucket() -> dict[str, Any]:
@@ -251,17 +336,16 @@ def proof_evaluation_hit(
     answer_row: dict[str, Any] | None = None,
     evaluation_mode: str = "proof_validity",
 ) -> bool:
-    if (
-        result.status != "success"
-        or result.final_answer.type != "proof"
-        or not result.verification.passed
-        or not result.final_answer.value.strip()
-    ):
+    """Never auto-accept free-form proofs from structural/self-review signals alone.
+
+    The rubric remains useful for triage, but semantic correctness is claim-bound and
+    requires an external/manual review that this evaluator does not implement.
+    """
+
+    _ = answer_row, evaluation_mode
+    if not is_semantically_successful(result) or result.final_answer.type != "proof":
         return False
-    score = proof_quality_score(result)
-    return (not score.proof_invalid) and score.score >= _proof_min_score(
-        answer_row, evaluation_mode
-    )
+    return False
 
 
 def _proof_validity_hit(result: SolveResult) -> bool:
@@ -284,19 +368,102 @@ def proof_failure_category(
         return "proof_quality_below_threshold"
     if score.proof_partial:
         return "proof_partial"
-    return "proof_validity_failed"
+    return "proof_manual_review_required"
 
 
-def _trace_budget_metrics(trace_dir: str | Path | None) -> dict[str, object]:
+def _trace_budget_metrics(
+    trace_dir: str | Path | None,
+    eligible_question_ids: set[str] | None = None,
+    eligible_results: dict[str, SolveResult] | None = None,
+) -> dict[str, object]:
     if not trace_dir:
         return {}
     trace_result = read_trace_dir(trace_dir)
+    safe_trace_dir = trace_result.get("trace_dir", "[redacted-path]")
     if not trace_result.get("ok"):
         return {
-            "trace_dir": str(trace_dir),
+            "trace_dir": safe_trace_dir,
             "trace_read_ok": False,
             "trace_error": trace_result.get("error", {}),
         }
+
+    trace_groups: dict[str, list[dict[str, Any]]] = {}
+    unmatched_question_ids: set[str] = set()
+    unmatched_count = 0
+    missing_question_id_count = 0
+    result_question_id_mismatch_ids: set[str] = set()
+    result_question_id_mismatch_count = 0
+    result_content_mismatch_ids: set[str] = set()
+    result_content_mismatch_count = 0
+    provenance_mismatch_ids: set[str] = set()
+    provenance_mismatch_count = 0
+    for item in trace_result.get("items", []):
+        if not isinstance(item, dict) or not item.get("ok"):
+            continue
+        trace = item.get("trace")
+        if not isinstance(trace, dict):
+            continue
+        raw_qid = trace.get("question_id")
+        if not isinstance(raw_qid, str) or not raw_qid.strip():
+            missing_question_id_count += 1
+            continue
+        question_id = raw_qid.strip()
+        if (
+            eligible_question_ids is not None
+            and question_id not in eligible_question_ids
+        ):
+            unmatched_count += 1
+            unmatched_question_ids.add(question_id)
+            continue
+        final_result = trace.get("final_result")
+        if isinstance(final_result, dict) and "question_id" in final_result:
+            final_question_id = final_result.get("question_id")
+            if (
+                not isinstance(final_question_id, str)
+                or final_question_id.strip() != question_id
+            ):
+                result_question_id_mismatch_count += 1
+                result_question_id_mismatch_ids.add(question_id)
+                continue
+        expected_result = (
+            eligible_results.get(question_id) if eligible_results is not None else None
+        )
+        binding_required = bool(
+            expected_result is not None
+            and (
+                expected_result.input_fingerprint
+                or expected_result.execution_fingerprint
+            )
+        )
+        if expected_result is not None and binding_required:
+            try:
+                traced_result = SolveResult.model_validate(final_result, strict=True)
+            except ValidationError:
+                result_content_mismatch_count += 1
+                result_content_mismatch_ids.add(question_id)
+                continue
+            if traced_result.model_dump() != expected_result.model_dump():
+                result_content_mismatch_count += 1
+                result_content_mismatch_ids.add(question_id)
+                continue
+            if not is_valid_trace_audit_evidence(
+                trace,
+                expected_result,
+                expected_real_mode=None,
+            ):
+                provenance_mismatch_count += 1
+                provenance_mismatch_ids.add(question_id)
+                continue
+        trace_groups.setdefault(question_id, []).append(trace)
+
+    duplicate_question_ids = {
+        question_id for question_id, traces in trace_groups.items() if len(traces) > 1
+    }
+    traces_to_measure = [
+        traces[0]
+        for question_id, traces in sorted(trace_groups.items())
+        if question_id not in duplicate_question_ids
+    ]
 
     total_model_calls = 0
     total_tool_calls = 0
@@ -308,12 +475,8 @@ def _trace_budget_metrics(trace_dir: str | Path | None) -> dict[str, object]:
     model_solved_count = 0
     model_verified_count = 0
     tool_override_count = 0
-    for item in trace_result.get("items", []):
-        if not item.get("ok"):
-            continue
-        trace = item.get("trace") or {}
-        if not isinstance(trace, dict):
-            continue
+    model_then_tool_final_count = 0
+    for trace in traces_to_measure:
         trace_count += 1
         model_calls = trace.get("model_calls")
         tool_calls = trace.get("tool_calls")
@@ -343,12 +506,25 @@ def _trace_budget_metrics(trace_dir: str | Path | None) -> dict[str, object]:
         final_result = trace.get("final_result")
         final_status = ""
         verification_method = ""
+        verification_passed = False
+        final_value = ""
+        final_error: Any = None
         if isinstance(final_result, dict):
             final_status = str(final_result.get("status", ""))
+            final_error = final_result.get("error")
+            final_answer = final_result.get("final_answer")
+            if isinstance(final_answer, dict):
+                final_value = str(final_answer.get("value", "")).strip()
             verification = final_result.get("verification")
             if isinstance(verification, dict):
                 verification_method = str(verification.get("method", ""))
-        is_success = final_status == "success"
+                verification_passed = verification.get("passed") is True
+        is_success = bool(
+            final_status == "success"
+            and verification_passed
+            and final_value
+            and final_error is None
+        )
         has_model_solver = "solver" in stages
         has_model_verifier = "verifier" in stages
         if is_success and successful_tool_call and not has_model_solver:
@@ -364,13 +540,56 @@ def _trace_budget_metrics(trace_dir: str | Path | None) -> dict[str, object]:
             and verification_method
             in {"symbolic_check", "numeric_check", "substitution"}
         ):
+            model_then_tool_final_count += 1
+        final_answer_source = str(trace.get("final_answer_source", "")).strip().lower()
+        explicit_override = trace.get(
+            "tool_overrode_model"
+        ) is True or final_answer_source in {"tool_override", "tool_overrode_model"}
+        if (
+            explicit_override
+            and is_success
+            and verification_passed
+            and has_model_solver
+            and successful_tool_call
+        ):
             tool_override_count += 1
 
     return {
-        "trace_dir": str(trace_dir),
+        "trace_dir": safe_trace_dir,
         "trace_read_ok": True,
         "trace_count": trace_count,
+        "trace_eligible_question_id_count": (
+            len(eligible_question_ids)
+            if eligible_question_ids is not None
+            else len(trace_groups)
+        ),
         "trace_error_count": trace_result.get("error_count", 0),
+        "trace_missing_question_id_count": missing_question_id_count,
+        "trace_unmatched_count": unmatched_count,
+        "trace_unmatched_question_ids": sorted(unmatched_question_ids),
+        "trace_duplicate_question_id_count": len(duplicate_question_ids),
+        "trace_duplicate_question_ids": sorted(duplicate_question_ids),
+        "trace_result_question_id_mismatch_count": result_question_id_mismatch_count,
+        "trace_result_question_id_mismatch_ids": sorted(
+            result_question_id_mismatch_ids
+        ),
+        "trace_result_content_mismatch_count": result_content_mismatch_count,
+        "trace_result_content_mismatch_ids": sorted(result_content_mismatch_ids),
+        "trace_provenance_mismatch_count": provenance_mismatch_count,
+        "trace_provenance_mismatch_ids": sorted(provenance_mismatch_ids),
+        "trace_binding_integrity_ok": bool(
+            trace_result.get("error_count", 0) == 0
+            and missing_question_id_count == 0
+            and unmatched_count == 0
+            and not duplicate_question_ids
+            and result_question_id_mismatch_count == 0
+            and result_content_mismatch_count == 0
+            and provenance_mismatch_count == 0
+            and (
+                eligible_question_ids is None
+                or trace_count == len(eligible_question_ids)
+            )
+        ),
         "total_model_calls": total_model_calls,
         "total_tool_calls": total_tool_calls,
         "average_model_calls_per_trace": _safe_rate(total_model_calls, trace_count),
@@ -381,6 +600,7 @@ def _trace_budget_metrics(trace_dir: str | Path | None) -> dict[str, object]:
         "tool_solved_count": tool_solved_count,
         "model_solved_count": model_solved_count,
         "model_verified_count": model_verified_count,
+        "model_then_tool_final_count": model_then_tool_final_count,
         "tool_override_count": tool_override_count,
     }
 
@@ -390,9 +610,25 @@ def evaluate_results(
     answers_path: str | Path | None = None,
     trace_dir: str | Path | None = None,
 ) -> dict:
-    raw_rows, json_invalid = load_jsonl(results_path)
-    answers = load_answers(answers_path)
-    answer_records = load_answer_records(answers_path)
+    results_source = Path(results_path)
+    try:
+        result_source_exists = (
+            results_source.is_file()
+            and not results_source.is_symlink()
+            and not getattr(results_source, "is_junction", lambda: False)()
+        )
+        result_source_nonempty = (
+            result_source_exists and results_source.stat().st_size > 0
+        )
+    except OSError:
+        result_source_exists = False
+        result_source_nonempty = False
+    raw_rows, json_invalid = (
+        load_jsonl(results_source) if result_source_exists else ([], 0)
+    )
+    answer_dataset = _load_answer_dataset(answers_path)
+    answers = answer_dataset.answers
+    answer_records = answer_dataset.records
 
     valid_results: list[SolveResult] = []
     schema_invalid = 0
@@ -401,6 +637,32 @@ def evaluate_results(
             valid_results.append(SolveResult.model_validate(row))
         except ValidationError:
             schema_invalid += 1
+
+    result_groups: dict[str, list[SolveResult]] = {}
+    invalid_question_id_count = 0
+    for candidate_result in valid_results:
+        question_id = str(candidate_result.question_id).strip()
+        if not question_id:
+            invalid_question_id_count += 1
+            continue
+        result_groups.setdefault(question_id, []).append(candidate_result)
+    duplicate_result_ids = {
+        question_id
+        for question_id, results in result_groups.items()
+        if len(results) > 1
+    }
+    duplicate_result_row_count = sum(
+        max(0, len(results) - 1) for results in result_groups.values()
+    )
+    unique_results = {
+        question_id: results[0]
+        for question_id, results in result_groups.items()
+        if len(results) == 1
+    }
+    gold_ids = set(answer_records)
+    unexpected_result_ids = (
+        set(result_groups) - gold_ids if answers_path is not None else set()
+    )
 
     total = len(raw_rows) + json_invalid
     json_valid_count = len(valid_results)
@@ -418,6 +680,8 @@ def evaluate_results(
 
     metrics: dict[str, object] = {
         "total": total,
+        "result_source_exists": result_source_exists,
+        "result_source_nonempty": result_source_nonempty,
         "json_valid_count": json_valid_count,
         "json_valid_rate": _safe_rate(json_valid_count, total),
         "json_invalid_count": total - json_valid_count,
@@ -429,13 +693,40 @@ def evaluate_results(
         "average_confidence": avg_conf,
         "domain_distribution": dict(sorted(domain_counter.items())),
         "problem_type_distribution": dict(sorted(type_counter.items())),
+        "invalid_question_id_count": invalid_question_id_count,
+        "duplicate_result_id_count": len(duplicate_result_ids),
+        "duplicate_result_row_count": duplicate_result_row_count,
+        "duplicate_result_ids": sorted(duplicate_result_ids),
+        "unexpected_result_id_count": len(unexpected_result_ids),
+        "unexpected_result_ids": sorted(unexpected_result_ids),
     }
     metrics.update(_explanation_quality_metrics(valid_results))
 
-    if answers:
+    result_integrity_ok = not (
+        not result_source_exists
+        or not result_source_nonempty
+        or json_invalid
+        or schema_invalid
+        or invalid_question_id_count
+        or duplicate_result_ids
+        or unexpected_result_ids
+    )
+    metrics["result_integrity_ok"] = result_integrity_ok
+
+    eligible_trace_ids = set(unique_results)
+    if answers_path is not None:
+        eligible_trace_ids &= gold_ids - set(answer_dataset.duplicate_ids)
+        missing_result_ids = sorted(gold_ids - set(result_groups))
+        unscorable_result_ids = sorted(
+            gold_ids
+            & set(result_groups)
+            & (duplicate_result_ids | set(answer_dataset.duplicate_ids))
+        )
         exact = normalized = numeric = symbolic = matched_items = 0
-        short_answer_items = 0
-        proof_validity_items = 0
+        short_answer_expected = 0
+        short_answer_covered = 0
+        proof_validity_expected = 0
+        proof_validity_covered = 0
         proof_validity_pass = 0
         proof_quality_sum = 0.0
         proof_complete = 0
@@ -445,44 +736,76 @@ def evaluate_results(
         evaluation_pass = 0
         by_domain: dict[str, dict[str, Any]] = {}
         by_problem_type: dict[str, dict[str, Any]] = {}
-        for r in valid_results:
-            gold = answers.get(r.question_id)
-            if gold is None:
-                continue
-            matched_items += 1
-            pred = r.final_answer.value
-            answer_row = answer_records.get(r.question_id, {})
+        for question_id in sorted(gold_ids):
+            gold = answers[question_id]
+            answer_row = answer_records[question_id]
             eval_mode = str(answer_row.get("evaluation_mode") or "short_answer")
+            result = (
+                unique_results.get(question_id)
+                if question_id not in answer_dataset.duplicate_ids
+                else None
+            )
+            if result is not None:
+                matched_items += 1
             exact_hit = normalized_hit = numeric_hit = symbolic_hit = 0
             proof_hit = 0
             proof_score: ProofRubricScore | None = None
             if _is_proof_eval_mode(eval_mode):
-                proof_validity_items += 1
-                proof_score = proof_quality_score(r)
-                proof_quality_sum += proof_score.score
-                proof_complete += int(proof_score.proof_complete)
-                proof_partial += int(proof_score.proof_partial)
-                proof_invalid += int(proof_score.proof_invalid)
-                proof_risk_counter.update(proof_score.risk_flags)
-                proof_hit = int(proof_evaluation_hit(r, answer_row, eval_mode))
-                proof_validity_pass += proof_hit
-                evaluation_pass += proof_hit
+                proof_validity_expected += 1
+                if result is not None:
+                    proof_validity_covered += 1
+                    proof_score = proof_quality_score(result)
+                    proof_quality_sum += proof_score.score
+                    proof_complete += int(proof_score.proof_complete)
+                    proof_partial += int(proof_score.proof_partial)
+                    proof_invalid += int(proof_score.proof_invalid)
+                    proof_risk_counter.update(proof_score.risk_flags)
+                    proof_hit = int(proof_evaluation_hit(result, answer_row, eval_mode))
+                    proof_validity_pass += proof_hit
+                    evaluation_pass += proof_hit
             else:
-                short_answer_items += 1
-                exact_hit = int(judge_exact_match(pred, gold))
-                normalized_hit = int(normalized_match(pred, gold))
-                numeric_hit = int(numeric_match(pred, gold))
-                symbolic_hit = int(symbolic_match(pred, gold))
-                exact += exact_hit
-                normalized += normalized_hit
-                numeric += numeric_hit
-                symbolic += symbolic_hit
-                evaluation_pass += normalized_hit
+                short_answer_expected += 1
+                if result is not None:
+                    short_answer_covered += 1
+                    result_eligible = bool(
+                        is_semantically_successful(result)
+                        and is_canonical_final_answer(result.final_answer.value)
+                    )
+                    pred = result.final_answer.value
+                    exact_hit = int(result_eligible and judge_exact_match(pred, gold))
+                    normalized_hit = int(
+                        result_eligible and normalized_match(pred, gold)
+                    )
+                    numeric_hit = int(result_eligible and numeric_match(pred, gold))
+                    symbolic_hit = int(
+                        result_eligible
+                        and (
+                            bool(normalized_hit)
+                            or bool(numeric_hit)
+                            or symbolic_match(pred, gold)
+                        )
+                    )
+                    exact += exact_hit
+                    normalized += normalized_hit
+                    numeric += numeric_hit
+                    symbolic += symbolic_hit
+                    evaluation_pass += normalized_hit
 
             groups = [
-                (str(answer_row.get("domain") or r.domain or "unknown"), by_domain),
                 (
-                    str(answer_row.get("problem_type") or r.problem_type or "unknown"),
+                    str(
+                        answer_row.get("domain")
+                        or (result.domain if result is not None else "unknown")
+                        or "unknown"
+                    ),
+                    by_domain,
+                ),
+                (
+                    str(
+                        answer_row.get("problem_type")
+                        or (result.problem_type if result is not None else "unknown")
+                        or "unknown"
+                    ),
                     by_problem_type,
                 ),
             ]
@@ -507,16 +830,43 @@ def evaluate_results(
 
         metrics.update(
             {
+                "gold_unique_count": len(gold_ids),
+                "answer_expected_count": len(gold_ids),
                 "answer_covered_count": matched_items,
-                "short_answer_covered_count": short_answer_items,
-                "proof_validity_covered_count": proof_validity_items,
+                "answer_missing_count": len(missing_result_ids),
+                "answer_unscorable_count": len(unscorable_result_ids),
+                "answer_uncovered_count": len(gold_ids) - matched_items,
+                "answer_coverage_rate": _safe_rate(matched_items, len(gold_ids)),
+                "missing_result_ids": missing_result_ids,
+                "unscorable_result_ids": unscorable_result_ids,
+                "answer_source_exists": answer_dataset.source_exists,
+                "answer_source_nonempty": answer_dataset.source_nonempty,
+                "answer_json_invalid_count": answer_dataset.json_invalid_count,
+                "answer_schema_invalid_count": answer_dataset.schema_invalid_count,
+                "answer_invalid_id_count": answer_dataset.invalid_id_count,
+                "answer_duplicate_id_count": len(answer_dataset.duplicate_ids),
+                "answer_duplicate_row_count": answer_dataset.duplicate_row_count,
+                "answer_duplicate_ids": sorted(answer_dataset.duplicate_ids),
+                "answer_integrity_ok": answer_dataset.integrity_ok,
+                "short_answer_expected_count": short_answer_expected,
+                "short_answer_covered_count": short_answer_covered,
+                "proof_validity_expected_count": proof_validity_expected,
+                "proof_validity_covered_count": proof_validity_covered,
                 "proof_validity_pass_count": proof_validity_pass,
                 "proof_validity_rate": _safe_rate(
-                    proof_validity_pass, proof_validity_items
+                    proof_validity_pass, proof_validity_expected
+                ),
+                "covered_proof_validity_rate": _safe_rate(
+                    proof_validity_pass, proof_validity_covered
                 ),
                 "proof_quality_average": (
-                    proof_quality_sum / proof_validity_items
-                    if proof_validity_items
+                    proof_quality_sum / proof_validity_expected
+                    if proof_validity_expected
+                    else 0.0
+                ),
+                "covered_proof_quality_average": (
+                    proof_quality_sum / proof_validity_covered
+                    if proof_validity_covered
                     else 0.0
                 ),
                 "proof_complete_count": proof_complete,
@@ -524,19 +874,50 @@ def evaluate_results(
                 "proof_invalid_count": proof_invalid,
                 "proof_risk_counts": dict(sorted(proof_risk_counter.items())),
                 "evaluation_pass_count": evaluation_pass,
-                "evaluation_pass_rate": _safe_rate(evaluation_pass, matched_items),
-                "exact_match": _safe_rate(exact, short_answer_items),
-                "normalized_match": _safe_rate(normalized, short_answer_items),
-                "numeric_match": _safe_rate(numeric, short_answer_items),
-                "symbolic_match": _safe_rate(symbolic, short_answer_items),
+                "evaluation_pass_rate": _safe_rate(evaluation_pass, len(gold_ids)),
+                "covered_evaluation_pass_rate": _safe_rate(
+                    evaluation_pass, matched_items
+                ),
+                "exact_match": _safe_rate(exact, short_answer_expected),
+                "normalized_match": _safe_rate(normalized, short_answer_expected),
+                "numeric_match": _safe_rate(numeric, short_answer_expected),
+                "symbolic_match": _safe_rate(symbolic, short_answer_expected),
+                "covered_exact_match": _safe_rate(exact, short_answer_covered),
+                "covered_normalized_match": _safe_rate(
+                    normalized, short_answer_covered
+                ),
+                "covered_numeric_match": _safe_rate(numeric, short_answer_covered),
+                "covered_symbolic_match": _safe_rate(symbolic, short_answer_covered),
                 "answer_match_by_domain": _finalize_match_buckets(by_domain),
                 "answer_match_by_problem_type": _finalize_match_buckets(
                     by_problem_type
                 ),
             }
         )
+        metrics["evaluation_integrity_ok"] = bool(
+            answer_dataset.integrity_ok
+            and result_integrity_ok
+            and matched_items == len(gold_ids)
+        )
+    else:
+        metrics["evaluation_integrity_ok"] = result_integrity_ok
 
-    metrics.update(_trace_budget_metrics(trace_dir))
+    eligible_trace_results = {
+        question_id: unique_results[question_id]
+        for question_id in eligible_trace_ids
+        if question_id in unique_results
+    }
+    trace_metrics = _trace_budget_metrics(
+        trace_dir,
+        eligible_trace_ids,
+        eligible_trace_results,
+    )
+    metrics.update(trace_metrics)
+    if trace_dir:
+        metrics["evaluation_integrity_ok"] = bool(
+            metrics.get("evaluation_integrity_ok") is True
+            and trace_metrics.get("trace_binding_integrity_ok") is True
+        )
     return metrics
 
 
@@ -614,6 +995,11 @@ def render_markdown_report(
         "fail_count",
         "verifier_pass_rate",
         "average_confidence",
+        "result_integrity_ok",
+        "evaluation_integrity_ok",
+        "invalid_question_id_count",
+        "duplicate_result_id_count",
+        "unexpected_result_id_count",
     ]
     for k in keys:
         lines.append(f"- **{k}**: {metrics.get(k)}")
@@ -648,8 +1034,19 @@ def render_markdown_report(
     if "exact_match" in metrics:
         lines.extend(["", "## Answer Matching"])
         for k in [
+            "answer_expected_count",
             "answer_covered_count",
+            "answer_missing_count",
+            "answer_unscorable_count",
+            "answer_coverage_rate",
+            "answer_integrity_ok",
+            "answer_json_invalid_count",
+            "answer_schema_invalid_count",
+            "answer_invalid_id_count",
+            "answer_duplicate_id_count",
+            "short_answer_expected_count",
             "short_answer_covered_count",
+            "proof_validity_expected_count",
             "proof_validity_covered_count",
             "proof_validity_pass_count",
             "proof_validity_rate",
@@ -659,6 +1056,7 @@ def render_markdown_report(
             "proof_invalid_count",
             "evaluation_pass_count",
             "evaluation_pass_rate",
+            "covered_evaluation_pass_rate",
             "exact_match",
             "normalized_match",
             "numeric_match",
@@ -694,11 +1092,15 @@ def render_markdown_report(
                 f"| trace_read_ok | {metrics.get('trace_read_ok')} |",
                 f"| trace_count | {metrics.get('trace_count', 0)} |",
                 f"| trace_error_count | {metrics.get('trace_error_count', 0)} |",
+                f"| trace_missing_question_id_count | {metrics.get('trace_missing_question_id_count', 0)} |",
+                f"| trace_unmatched_count | {metrics.get('trace_unmatched_count', 0)} |",
+                f"| trace_duplicate_question_id_count | {metrics.get('trace_duplicate_question_id_count', 0)} |",
                 f"| total_model_calls | {metrics.get('total_model_calls', 0)} |",
                 f"| total_tool_calls | {metrics.get('total_tool_calls', 0)} |",
                 f"| tool_solved_count | {metrics.get('tool_solved_count', 0)} |",
                 f"| model_solved_count | {metrics.get('model_solved_count', 0)} |",
                 f"| model_verified_count | {metrics.get('model_verified_count', 0)} |",
+                f"| model_then_tool_final_count | {metrics.get('model_then_tool_final_count', 0)} |",
                 f"| tool_override_count | {metrics.get('tool_override_count', 0)} |",
                 f"| average_model_calls_per_trace | {average_model_calls} |",
                 f"| average_tool_calls_per_trace | {average_tool_calls} |",

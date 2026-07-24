@@ -6,6 +6,13 @@ from dataclasses import dataclass
 from math import gcd, isqrt
 from pathlib import Path
 
+if __package__ in {None, ""}:
+    from _repo_bootstrap import prefer_repo_source
+
+    prefer_repo_source()
+
+from math_agent.logging_utils import atomic_text_write
+
 
 @dataclass(frozen=True)
 class HiddenCase:
@@ -634,7 +641,7 @@ def write_cases(
 ) -> None:
     questions_path.parent.mkdir(parents=True, exist_ok=True)
     answers_path.parent.mkdir(parents=True, exist_ok=True)
-    questions_path.write_text(
+    atomic_text_write(
         "\n".join(
             json.dumps(
                 {"question_id": case.question_id, "question": case.question},
@@ -643,9 +650,9 @@ def write_cases(
             for case in cases
         )
         + "\n",
-        encoding="utf-8",
+        questions_path,
     )
-    answers_path.write_text(
+    atomic_text_write(
         "\n".join(
             json.dumps(
                 {
@@ -666,7 +673,7 @@ def write_cases(
             for case in cases
         )
         + "\n",
-        encoding="utf-8",
+        answers_path,
     )
 
 

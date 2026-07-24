@@ -12,7 +12,8 @@ from math_agent.tools.answer_normalizer import normalize_answer, normalize_numbe
 
 def _to_float(value: Any, default: float = 0.0) -> float:
     try:
-        return float(value)
+        parsed = float(value)
+        return parsed if math.isfinite(parsed) else default
     except Exception:
         return default
 
@@ -152,10 +153,15 @@ def score_candidate(
     return max(0.0, min(1.0, score))
 
 
+def _fails_verifier_gate(candidate: CandidateAnswer) -> bool:
+    return candidate.verification_passed is not True
+
+
 def select_best_candidate(
     candidates: list[CandidateAnswer | dict[str, Any]],
 ) -> WeightedVoteResult:
-    normalized = [normalize_candidate_answer(c) for c in candidates]
+    prepared = [(raw, normalize_candidate_answer(raw)) for raw in candidates]
+    normalized = [candidate for _, candidate in prepared]
     if not normalized:
         return WeightedVoteResult(
             selected_candidate_id=None,
@@ -166,27 +172,71 @@ def select_best_candidate(
             cluster_summary=[],
         )
 
-    clusters = cluster_candidates(normalized)
+    candidate_ids = [candidate.candidate_id.strip() for candidate in normalized]
+    if any(not candidate_id for candidate_id in candidate_ids):
+        return WeightedVoteResult(
+            selected_candidate_id=None,
+            selected_answer="",
+            confidence=0.0,
+            need_more_verification=True,
+            issues=["no_valid_candidate", "invalid_candidate_id"],
+            cluster_summary=[],
+        )
+    if len(candidate_ids) != len(set(candidate_ids)):
+        return WeightedVoteResult(
+            selected_candidate_id=None,
+            selected_answer="",
+            confidence=0.0,
+            need_more_verification=True,
+            issues=["no_valid_candidate", "duplicate_candidate_id"],
+            cluster_summary=[],
+        )
+
+    rejected = [
+        candidate for _raw, candidate in prepared if _fails_verifier_gate(candidate)
+    ]
+    eligible = [
+        candidate for _raw, candidate in prepared if not _fails_verifier_gate(candidate)
+    ]
+    exclusion_issues = ["verifier_failed_candidate_excluded"] if rejected else []
+    if not eligible:
+        return WeightedVoteResult(
+            selected_candidate_id=None,
+            selected_answer="",
+            confidence=0.0,
+            need_more_verification=True,
+            issues=["no_valid_candidate", *exclusion_issues],
+            cluster_summary=[],
+        )
+
+    clusters = cluster_candidates(eligible)
     cid_to_cluster = {cid: cl for cl in clusters for cid in cl["candidate_ids"]}
 
     scored: list[tuple[CandidateAnswer, float]] = []
-    for c in normalized:
+    for c in eligible:
         score = score_candidate(c, cid_to_cluster.get(c.candidate_id))
         scored.append((c, score))
 
-    scored.sort(key=lambda x: x[1], reverse=True)
+    scored.sort(
+        key=lambda item: (
+            -item[1],
+            item[0].candidate_id.strip(),
+            (item[0].normalized_answer or "").strip(),
+            item[0].source,
+        )
+    )
     best, best_score = scored[0]
     second_score = scored[1][1] if len(scored) > 1 else 0.0
 
-    issues: list[str] = []
+    issues: list[str] = list(exclusion_issues)
     if best_score <= 0.0 or not (best.normalized_answer or "").strip():
         return WeightedVoteResult(
             selected_candidate_id=None,
             selected_answer="",
             confidence=0.0,
             need_more_verification=True,
-            issues=["no_valid_candidate"],
-            cluster_summary=build_cluster_summary(normalized),
+            issues=["no_valid_candidate", *issues],
+            cluster_summary=build_cluster_summary(eligible),
         )
 
     if best.verifier_score < 0.3:
@@ -201,7 +251,7 @@ def select_best_candidate(
         confidence=max(0.0, min(1.0, best_score)),
         need_more_verification=need_more,
         issues=issues,
-        cluster_summary=build_cluster_summary(normalized),
+        cluster_summary=build_cluster_summary(eligible),
     )
 
 

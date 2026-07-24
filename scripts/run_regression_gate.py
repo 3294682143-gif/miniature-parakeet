@@ -12,7 +12,9 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 if __package__ in {None, ""}:
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    _REPO_ROOT = Path(__file__).resolve().parent.parent
+    sys.path.insert(0, str(_REPO_ROOT / "src"))
+    sys.path.insert(1, str(_REPO_ROOT))
 
 from scripts.clean_transient_artifacts import clean_transient_artifacts
 
@@ -29,6 +31,12 @@ DEV_TOOL_MODULES = {
     "mypy": "mypy",
     "pyright": "pyright",
 }
+PROVENANCE_CHECK = (
+    "from pathlib import Path; import math_agent.cli as module; "
+    "source=(Path.cwd()/'src').resolve(); loaded=Path(module.__file__).resolve(); "
+    "assert loaded.is_relative_to(source), 'math_agent was not loaded from this checkout'; "
+    "print('source_provenance=PASS')"
+)
 
 
 def py_cmd(*args: str) -> list[str]:
@@ -61,6 +69,18 @@ def gate_temp_dir() -> Path | None:
 
 def command_env(command: Sequence[str]) -> dict[str, str] | None:
     env: dict[str, str] | None = None
+    if command and command[0] == sys.executable:
+        env = os.environ.copy()
+        source_root = str(Path(__file__).resolve().parent.parent / "src")
+        existing = env.get("PYTHONPATH", "")
+        entries = [entry for entry in existing.split(os.pathsep) if entry]
+        entries = [
+            entry
+            for entry in entries
+            if os.path.normcase(os.path.abspath(entry))
+            != os.path.normcase(os.path.abspath(source_root))
+        ]
+        env["PYTHONPATH"] = os.pathsep.join([source_root, *entries])
     is_python_module = len(command) >= 3 and command[0] == sys.executable
     is_pyright = is_python_module and command[1:3] == ["-m", "pyright"]
     is_pytest = is_python_module and command[1:3] == ["-m", "pytest"]
@@ -68,7 +88,7 @@ def command_env(command: Sequence[str]) -> dict[str, str] | None:
     if is_pyright:
         node_bin = bundled_node_bin()
         if node_bin is not None:
-            env = os.environ.copy()
+            env = env or os.environ.copy()
             env["PATH"] = str(node_bin) + os.pathsep + env.get("PATH", "")
 
     if is_pytest:
@@ -88,6 +108,7 @@ def build_commands(
     include_shadow_eval: bool,
 ) -> list[list[str]]:
     commands: list[list[str]] = [
+        py_cmd("-c", PROVENANCE_CHECK),
         quality_tool_cmd("ruff", "check", "."),
         quality_tool_cmd("black", "--check", "src", "scripts", "demo", "tests"),
         quality_tool_cmd(
@@ -141,6 +162,7 @@ def build_commands(
                 "--mode",
                 "fast",
                 "--no-trace",
+                "--fail-on-non-success",
             )
         )
 

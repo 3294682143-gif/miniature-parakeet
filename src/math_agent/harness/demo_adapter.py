@@ -7,6 +7,7 @@ from math_agent.harness.memory import MemoryHub
 from math_agent.harness.skill_registry import SkillRegistry
 from math_agent.harness.weighted_voting import select_best_candidate
 from math_agent.schemas import CandidateAnswer
+from math_agent.security import safe_exception_text
 
 
 def _dict_or_empty(value: Any) -> dict[str, Any]:
@@ -121,7 +122,7 @@ def load_demo_skill_summary(question: str, route_info: Any = None) -> dict[str, 
             "skills": [],
             "selected_skill": None,
             "selected_skill_meta": None,
-            "error": str(exc),
+            "error": safe_exception_text(exc),
         }
 
 
@@ -130,7 +131,7 @@ def load_demo_memory_summary() -> dict[str, Any]:
         hub = MemoryHub()
         return {"summary": hub.summarize_memory()}
     except Exception as exc:
-        return {"summary": {}, "error": str(exc)}
+        return {"summary": {}, "error": safe_exception_text(exc)}
 
 
 def build_demo_budget_preview(

@@ -1,3 +1,4 @@
+# safety: allow-secret-fixtures
 from __future__ import annotations
 
 import json
@@ -12,11 +13,13 @@ def test_report_does_not_include_secret_values(monkeypatch) -> None:
     secret = "super-secret-key"
     monkeypatch.setenv("INTERNS1_API_KEY", secret)
     monkeypatch.setenv("INTERNS1_BASE_URL", "https://example.com")
+    monkeypatch.setenv("INTERNS1_ALLOWED_HOSTS", "example.com")
     report = gate_env.build_environment_report(run_preflight=False)
     text = gate_env.render_markdown(report)
     assert secret not in json.dumps(report)
     assert secret not in text
     assert "has_api_key: True" in text
+    assert "has_allowed_hosts: True" in text
     assert report["ready_for_real_api_env"] is True
     assert report["ready_for_real_api_gate"] is False
 

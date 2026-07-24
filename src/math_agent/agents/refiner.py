@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from math_agent.prompting import get_prompt, load_prompts, render_prompt
+from math_agent.prompting import freeze_prompts, get_prompt, load_prompts, render_prompt
 
 
 class Refiner:
@@ -12,11 +13,14 @@ class Refiner:
         client: Any,
         prompt_config_path: str | Path = "configs/prompts.yaml",
         mock: bool = True,
+        prompts: Mapping[str, Any] | None = None,
     ) -> None:
         self.client = client
         self.prompt_config_path = Path(prompt_config_path)
         self.mock = mock
-        self.prompts = load_prompts(self.prompt_config_path)
+        self.prompts = freeze_prompts(
+            prompts if prompts is not None else load_prompts(self.prompt_config_path)
+        )
 
     def refine(
         self, question: str, draft_solution: str, verification_feedback: dict | str

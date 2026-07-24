@@ -7,6 +7,7 @@ from math_agent.agents.proof_guardian import (
     detect_proof_problem,
     proof_final_answer_policy,
 )
+from math_agent.agents.verifier import Verifier
 from math_agent.control.hard_mode import build_hard_mode_policy
 from math_agent.control.pipeline_hook import build_runtime_config
 from math_agent.control.proof_guardian_hook import build_proof_guardian_runtime_plan
@@ -36,7 +37,7 @@ def _proof_result(value: str = "", boxed: str = "") -> SolveResult:
         verification=Verification(method="logic_review", passed=True, notes="ok"),
         didactic_hint="",
         confidence=0.7,
-        status="success",
+        status="success" if value.strip() else "partial",
         error=None,
     )
 
@@ -96,6 +97,25 @@ def test_guardian_error_no_crash(monkeypatch):
     )
     out = v.verify("证明A", "设A", "已证", {"problem_type": "proof"})
     assert out.method in {"self_review", "logic_review"}
+
+
+def test_proof_structure_alone_cannot_pass_real_verification():
+    verifier = Verifier(
+        client=type("InvalidVerifierClient", (), {"chat": lambda *_: "not-json"})(),
+        mock=False,
+    )
+    hollow_proof = "assume 1 = 0. therefore 1 = 0. " "thus the conclusion follows. qed."
+
+    result = verifier.verify(
+        "prove that 1 = 0.",
+        hollow_proof,
+        "the conclusion follows",
+        {"problem_type": "proof"},
+    )
+
+    assert result.passed is False
+    assert result.method == "self_review"
+    assert "Verifier fallback" in result.notes
 
 
 def test_proof_rubric_core():

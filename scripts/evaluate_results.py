@@ -4,7 +4,13 @@ import argparse
 import json
 from pathlib import Path
 
+if __package__ in {None, ""}:
+    from _repo_bootstrap import prefer_repo_source
+
+    prefer_repo_source()
+
 from math_agent.evaluation.metrics import evaluate_results, render_markdown_report
+from math_agent.logging_utils import safe_text_write
 
 
 def main() -> int:
@@ -31,7 +37,7 @@ def main() -> int:
     report = render_markdown_report(metrics, args.results, args.answers)
     report_path = Path(args.report)
     report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text(report, encoding="utf-8")
+    safe_text_write(report, report_path)
     print(f"Markdown report written to: {report_path}")
     return 0
 

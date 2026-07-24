@@ -3,6 +3,11 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+if __package__ in {None, ""}:
+    from _repo_bootstrap import prefer_repo_source
+
+    prefer_repo_source()
+
 from math_agent.evaluation.report import write_markdown_report
 from math_agent.evaluation.shadow_eval import (
     load_cases,
@@ -29,9 +34,7 @@ def main() -> int:
     parser.add_argument("--fail-on-dirty-boxed", action="store_true")
     args = parser.parse_args()
 
-    cases = load_cases(args.input)
-    if args.limit is not None:
-        cases = cases[: args.limit]
+    cases = load_cases(args.input, limit=args.limit)
 
     results = run_shadow_eval(cases, options={"mock": args.mock, "mode": args.mode})
     summary = summarize_results(results)

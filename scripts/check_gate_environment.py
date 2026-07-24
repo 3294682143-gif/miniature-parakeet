@@ -10,9 +10,12 @@ from pathlib import Path
 from typing import Any
 
 if __package__ in {None, ""}:
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    _REPO_ROOT = Path(__file__).resolve().parent.parent
+    sys.path.insert(0, str(_REPO_ROOT / "src"))
+    sys.path.insert(1, str(_REPO_ROOT))
 
 from math_agent.clients.interns1_client import InternS1Client
+from math_agent.logging_utils import safe_text_write
 from scripts.run_real_api_sample_gate import _run_real_preflight
 
 DEV_TOOLS = {
@@ -42,6 +45,7 @@ def inspect_real_api_env(run_preflight: bool) -> dict[str, Any]:
     env = {
         "has_api_key": bool(os.getenv("INTERNS1_API_KEY")),
         "has_base_url": bool(os.getenv("INTERNS1_BASE_URL")),
+        "has_allowed_hosts": bool(os.getenv("INTERNS1_ALLOWED_HOSTS")),
         "has_model": bool(os.getenv("INTERNS1_MODEL")),
         "preflight": "skipped",
         "preflight_message": "",
@@ -61,8 +65,10 @@ def build_environment_report(run_preflight: bool) -> dict[str, Any]:
         if not row["module_available"] and not row["command_path"]
     ]
     real_api = inspect_real_api_env(run_preflight=run_preflight)
-    ready_for_real_api_env = bool(real_api["has_api_key"]) and bool(
-        real_api["has_base_url"]
+    ready_for_real_api_env = (
+        bool(real_api["has_api_key"])
+        and bool(real_api["has_base_url"])
+        and bool(real_api["has_allowed_hosts"])
     )
     return {
         "python": sys.executable,
@@ -105,6 +111,7 @@ def render_markdown(report: dict[str, Any]) -> str:
             "",
             f"- has_api_key: {report['real_api']['has_api_key']}",
             f"- has_base_url: {report['real_api']['has_base_url']}",
+            f"- has_allowed_hosts: {report['real_api']['has_allowed_hosts']}",
             f"- has_model: {report['real_api']['has_model']}",
             f"- preflight: {report['real_api']['preflight']}",
             f"- preflight_message: {report['real_api']['preflight_message'] or 'none'}",
@@ -151,11 +158,9 @@ def main() -> int:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     json_path = out_dir / "gate_environment_report.json"
-    json_path.write_text(
-        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    safe_text_write(json.dumps(report, ensure_ascii=False, indent=2), json_path)
     md_path = out_dir / "gate_environment_report.md"
-    md_path.write_text(render_markdown(report), encoding="utf-8")
+    safe_text_write(render_markdown(report), md_path)
     print(f"report={md_path if args.format == 'markdown' else json_path}")
     print(f"ready_for_regression_gate={report['ready_for_regression_gate']}")
     print(f"ready_for_real_api_gate={report['ready_for_real_api_gate']}")

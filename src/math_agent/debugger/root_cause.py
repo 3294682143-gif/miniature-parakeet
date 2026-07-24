@@ -73,6 +73,24 @@ ROOT_CAUSE_MAP: dict[str, RootCauseInfo] = {
         "runtime / harness",
         "inspect error_message and add regression test",
     ),
+    "malformed_json": RootCauseInfo(
+        "malformed_json",
+        "input result line is not valid JSON",
+        "evaluation harness / serializer",
+        "reject malformed result artifacts and rerun serialization gate",
+    ),
+    "status_fail": RootCauseInfo(
+        "status_fail",
+        "solver or runtime returned an explicit failure status",
+        "runtime / solver",
+        "inspect the structured error and add a regression case",
+    ),
+    "status_partial": RootCauseInfo(
+        "status_partial",
+        "solver returned a partial result",
+        "solver / verifier",
+        "inspect missing completion evidence before finalization",
+    ),
     "wrong_answer": RootCauseInfo(
         "wrong_answer",
         "predicted answer differs from expected answer",
@@ -88,8 +106,22 @@ ROOT_CAUSE_MAP: dict[str, RootCauseInfo] = {
 }
 
 
-P0 = {"json_invalid", "missing_final", "boxed_42_fallback", "exception", "timeout"}
-P1 = {"dirty_boxed", "tool_error", "verifier_failed", "formatter_repair_failed"}
+P0 = {
+    "json_invalid",
+    "malformed_json",
+    "missing_final",
+    "boxed_42_fallback",
+    "exception",
+    "timeout",
+}
+P1 = {
+    "dirty_boxed",
+    "tool_error",
+    "verifier_failed",
+    "formatter_repair_failed",
+    "status_fail",
+    "status_partial",
+}
 P2 = {"wrong_answer", "proof_partial", "unknown"}
 
 

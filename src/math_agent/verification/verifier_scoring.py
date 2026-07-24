@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -22,11 +23,18 @@ class VerifierScore:
     risk_penalty: float
     final_score: float
     passed: bool
+    risk_flags: list[str]
     reasons: list[str]
 
 
 def _clamp(v: float) -> float:
-    return max(0.0, min(1.0, float(v)))
+    try:
+        value = float(v)
+    except (TypeError, ValueError, OverflowError):
+        return 0.0
+    if not math.isfinite(value):
+        return 0.0
+    return max(0.0, min(1.0, value))
 
 
 def _candidate_model(candidate: Any, index: int = 0) -> CandidateAnswer:
@@ -56,6 +64,23 @@ def score_candidate(
     answer_type: str = "text",
     expected_answer: str | None = None,
 ) -> VerifierScore:
+    candidate_mapping = candidate if isinstance(candidate, dict) else None
+    verifier_signal_explicit = isinstance(candidate, CandidateAnswer) or bool(
+        candidate_mapping is not None
+        and (
+            "verifier_score" in candidate_mapping
+            or "verification_passed" in candidate_mapping
+        )
+    )
+    verification_passed_explicit = bool(
+        (
+            isinstance(candidate, CandidateAnswer)
+            and "verification_passed" in candidate.model_fields_set
+        )
+        or (
+            candidate_mapping is not None and "verification_passed" in candidate_mapping
+        )
+    )
     m = _candidate_model(candidate)
     n = (m.normalized_answer or "").strip()
     flags = set(m.risk_flags or [])
@@ -68,21 +93,43 @@ def score_candidate(
     if "schema_invalid" in flags:
         fs -= 0.3
     fs = _clamp(fs)
-    cs = 0.8 if n else 0.0
-    if (
+    cs = _clamp(m.verifier_score) if verifier_signal_explicit else (0.8 if n else 0.0)
+    if verification_passed_explicit and m.verification_passed:
+        cs = max(cs, 1.0)
+    expected_match = bool(
         expected_answer is not None
         and n
         and n == normalize_candidate_answer(expected_answer)
-    ):
-        cs = 1.0
-    method = (m.verification_method or "").lower()
-    ts = (
-        0.8
-        if (
-            m.metadata.get("tool_used") is True or "tool" in method or "sympy" in method
-        )
-        else 0.5
     )
+    if not verifier_signal_explicit and expected_match:
+        cs = 1.0
+    if not verification_passed_explicit:
+        flags.add("verifier_missing")
+        reasons.append("verifier_signal_missing")
+    elif not m.verification_passed:
+        flags.add("verifier_failed")
+        reasons.append("explicit_verifier_failure")
+    method = (m.verification_method or "").lower()
+    tool_used = bool(
+        m.metadata.get("tool_used") is True or "tool" in method or "sympy" in method
+    )
+    tool_status = str(
+        m.metadata.get("tool_status") or m.metadata.get("tool_call_status") or ""
+    ).lower()
+    if not tool_used:
+        ts = 0.5
+    elif tool_status == "success" or (not tool_status and m.verification_passed):
+        ts = 0.8
+    elif (
+        tool_status in {"fail", "failed", "error", "timeout"}
+        or not m.verification_passed
+    ):
+        ts = 0.1
+        flags.add("tool_failed")
+        reasons.append("tool_signal_failed")
+    else:
+        ts = 0.4
+        flags.add("tool_status_unknown")
     ps = 0.5
     if (answer_type or "text").lower() == "proof":
         proof_score = score_proof_candidate(
@@ -101,14 +148,38 @@ def score_candidate(
         "boxed_42_fallback": 0.3,
         "schema_invalid": 0.25,
         "exception": 0.2,
+        "tool_failed": 0.15,
+        "verifier_failed": 0.35,
+        "verifier_missing": 0.35,
     }
     rp = min(0.8, sum(v for k, v in penalties.items() if k in flags))
     final = _clamp(0.4 * fs + 0.3 * cs + 0.15 * ts + 0.15 * ps - rp)
-    passed = final >= 0.5 and bool(n)
+    normalized_level = (verifier_level or "basic").strip().lower()
+    thresholds = {"basic": 0.5, "strong": 0.6, "strict": 0.7}
+    if normalized_level not in thresholds:
+        normalized_level = "basic"
+        flags.add("invalid_verifier_level")
+        reasons.append("invalid_verifier_level_fell_back_to_basic")
+    passed = bool(
+        final >= thresholds[normalized_level]
+        and n
+        and (m.verification_passed is True or expected_match)
+    )
     if not passed:
         reasons.append("score_below_threshold_or_empty_answer")
     return VerifierScore(
-        m.candidate_id, n, verifier_level, fs, cs, ts, ps, rp, final, passed, reasons
+        candidate_id=m.candidate_id,
+        normalized_answer=n,
+        verifier_level=normalized_level,
+        format_score=fs,
+        consistency_score=cs,
+        tool_score=ts,
+        proof_score=ps,
+        risk_penalty=rp,
+        final_score=final,
+        passed=passed,
+        risk_flags=sorted(flags),
+        reasons=reasons,
     )
 
 
@@ -118,9 +189,26 @@ def score_candidates(
     answer_type: str = "text",
     expected_answer: str | None = None,
 ) -> list[VerifierScore]:
+    prepared: list[Any] = []
+    for index, candidate in enumerate(candidates):
+        if isinstance(candidate, dict):
+            payload = dict(candidate)
+            payload.setdefault("candidate_id", f"candidate-{index}")
+            payload.setdefault("source", str(payload.get("source") or "runtime"))
+            prepared.append(payload)
+        elif isinstance(candidate, CandidateAnswer):
+            prepared.append(candidate)
+        else:
+            prepared.append(
+                {
+                    "candidate_id": f"candidate-{index}",
+                    "source": "runtime",
+                    "final_answer_value": str(candidate or ""),
+                }
+            )
     return [
-        score_candidate(c, verifier_level, answer_type, expected_answer)
-        for c in candidates
+        score_candidate(candidate, verifier_level, answer_type, expected_answer)
+        for candidate in prepared
     ]
 
 

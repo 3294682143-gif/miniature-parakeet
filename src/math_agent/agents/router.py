@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping
 from pathlib import Path
 
 from pydantic import BaseModel, Field, ValidationError
 
 from math_agent.clients.interns1_client import InternS1Client
-from math_agent.prompting import get_prompt, load_prompts, render_prompt
+from math_agent.io_utils import strict_json_loads
+from math_agent.prompting import freeze_prompts, get_prompt, load_prompts, render_prompt
 from math_agent.typing import ChatClient
 
 
@@ -25,18 +27,29 @@ class Router:
         "PDE": [
             "偏微分",
             "边值",
+            "边界条件",
             "pde",
             "boundary condition",
             "鍋忓井鍒嗘柟绋",
             "杈瑰€",
         ],
         "ComplexAnalysis": [
+            "复分析",
+            "围道积分",
             "contour integral",
             "residue theorem",
             "complex analysis",
             "留数",
         ],
-        "Topology": ["topology", "compact", "homeomorphism", "同胚", "鎷撴墤"],
+        "Topology": [
+            "拓扑",
+            "紧致",
+            "topology",
+            "compact",
+            "homeomorphism",
+            "同胚",
+            "鎷撴墤",
+        ],
         "OperationsResearch": [
             "linear program",
             "linear programming",
@@ -76,6 +89,16 @@ class Router:
             "鐭╅樀",
         ],
         "Geometry": [
+            "几何",
+            "角",
+            "三角形",
+            "圆",
+            "矩形",
+            "面积",
+            "距离",
+            "坐标",
+            "内切圆",
+            "弦长",
             "geometry",
             "angle",
             "triangle",
@@ -109,6 +132,7 @@ class Router:
         ],
         "Combinatorics": ["choose", "combination", "permutation", "arrangement"],
         "NumberTheory": [
+            "数论",
             "number theory",
             "素数",
             "同余",
@@ -130,6 +154,7 @@ class Router:
             "鍚屼綑",
         ],
         "Calculus": [
+            "微积分",
             "derivative",
             "integral",
             "limit",
@@ -177,7 +202,7 @@ class Router:
     }
 
     PROBLEM_TYPE_RULES: dict[str, list[str]] = {
-        "proof": ["证明", "prove", "show that", "璇佹槑"],
+        "proof": ["证明", "证毕", "prove", "show that", "璇佹槑"],
         "optimization": [
             "maximize",
             "minimize",
@@ -197,6 +222,7 @@ class Router:
             "solve",
             "计算",
             "求",
+            "求值",
             "解方程",
             "璁＄畻",
             "姹",
@@ -270,12 +296,14 @@ class Router:
         mode: str = "rule_based",
         client: ChatClient | None = None,
         prompt_config_path: str | Path = "configs/prompts.yaml",
+        prompts: Mapping[str, object] | None = None,
     ) -> None:
         if mode not in {"rule_based", "llm"}:
             raise ValueError("mode must be one of: rule_based, llm")
         self.mode = mode
         self.client = client or InternS1Client(mock=True)
         self.prompt_config_path = Path(prompt_config_path)
+        self.prompts = freeze_prompts(prompts) if prompts is not None else None
 
     def route(self, question: str) -> RouteInfo:
         if self.mode == "llm":
@@ -314,7 +342,11 @@ class Router:
 
     def _route_with_llm(self, question: str) -> RouteInfo | None:
         try:
-            prompts = load_prompts(self.prompt_config_path)
+            prompts = (
+                self.prompts
+                if self.prompts is not None
+                else load_prompts(self.prompt_config_path)
+            )
             system_template = get_prompt(prompts, "router_system")
             system_prompt = render_prompt(system_template)
             user_prompt = (
@@ -344,10 +376,10 @@ class Router:
     def _extract_json(content: str) -> dict:
         content = content.strip()
         if content.startswith("{") and content.endswith("}"):
-            return json.loads(content)
+            return strict_json_loads(content)
         match = re.search(r"\{[\s\S]*\}", content)
         if match:
-            return json.loads(match.group(0))
+            return strict_json_loads(match.group(0))
         raise ValueError("No JSON object found")
 
     def _detect_domain(self, text: str) -> tuple[str, list[str]]:

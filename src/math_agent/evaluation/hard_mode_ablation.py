@@ -19,6 +19,10 @@ from math_agent.evaluation.shadow_eval import (
     write_jsonl,
     write_summary,
 )
+from math_agent.logging_utils import safe_text_write
+from math_agent.security import safe_exception_text
+
+_ALLOWED_ABLATION_LEVELS = {"off", "light", "standard", "strict"}
 
 
 @dataclass
@@ -52,13 +56,20 @@ class HardModeAblationReport:
 
 
 def build_ablation_config(**kwargs: Any) -> HardModeAblationConfig:
+    raw_levels = kwargs.get("levels") or ["off", "light", "standard", "strict"]
+    levels = list(dict.fromkeys(str(level).strip().lower() for level in raw_levels))
+    if not levels or any(level not in _ALLOWED_ABLATION_LEVELS for level in levels):
+        raise ValueError("invalid hard-mode ablation level")
+    mock = bool(kwargs.get("mock", True))
+    if not mock:
+        raise ValueError("hard-mode ablation currently supports mock mode only")
     return HardModeAblationConfig(
-        levels=kwargs.get("levels") or ["off", "light", "standard", "strict"],
+        levels=levels,
         limit=max(0, int(kwargs.get("limit", 5))),
         input_path=kwargs.get("input_path"),
         include_debugger=bool(kwargs.get("include_debugger", True)),
         out_dir=str(kwargs.get("out_dir", "outputs/hard_mode_ablation")),
-        mock=bool(kwargs.get("mock", True)),
+        mock=mock,
     )
 
 
@@ -101,7 +112,10 @@ def run_single_level_ablation(
             level=level,
             policy=policy,
             result_count=0,
-            summary={"error": f"{type(exc).__name__}: {str(exc)[:200]}", "total": 0},
+            summary={
+                "error": f"{type(exc).__name__}: {safe_exception_text(exc, 200)}",
+                "total": 0,
+            },
             debugger_summary=None,
             output_dir=str(level_out),
         )
@@ -135,26 +149,20 @@ def compare_ablation_runs(runs: list[HardModeRunResult]) -> dict[str, Any]:
                 "p2_action_count": dbg.get("p2_action_count", 0),
             }
         )
-    return {"levels": rows}
+    return {
+        "execution_effect": "policy_metadata_only",
+        "outcome_comparison_valid": False,
+        "levels": rows,
+    }
 
 
 def _build_recommendation(runs: list[HardModeRunResult]) -> list[str]:
-    rec = []
+    rec = [
+        "Current ablation is policy-metadata-only; do not infer level performance deltas."
+    ]
     strict = next((r for r in runs if r.level == "strict"), None)
-    off = next((r for r in runs if r.level == "off"), None)
-    standard = next((r for r in runs if r.level == "standard"), None)
     if strict and (strict.debugger_summary or {}).get("p0_action_count", 0) > 0:
         rec.append("strict level has P0 actions; do not enable strict by default.")
-    if standard and off:
-        if standard.policy.get("require_trace") and standard.policy.get(
-            "proof_guardian"
-        ) != off.policy.get("proof_guardian"):
-            if standard.summary.get("exact_match_count", 0) >= off.summary.get(
-                "exact_match_count", 0
-            ):
-                rec.append(
-                    "standard adds policy controls without mock metric regression; consider controlled CLI hook in P12."
-                )
     if any(
         r.summary.get("missing_final_count", 0) > 0
         or r.summary.get("json_valid_rate", 1) < 1
@@ -173,7 +181,14 @@ def _build_recommendation(runs: list[HardModeRunResult]) -> list[str]:
         for r in runs
     ):
         rec.append("proof_partial appears; prioritize proof_guardian rubric iteration.")
-    if all((r.debugger_summary or {}).get("failed_count", 0) == 0 for r in runs):
+    if any("error" in (run.summary or {}) for run in runs):
+        rec.append("one or more ablation levels failed to execute; fix the run first.")
+    if (
+        runs
+        and all("error" not in (run.summary or {}) for run in runs)
+        and all(int((run.summary or {}).get("total", 0) or 0) > 0 for run in runs)
+        and all((r.debugger_summary or {}).get("failed_count", 0) == 0 for r in runs)
+    ):
         rec.append("all levels passed on current mock set; add harder shadow cases.")
     return rec or [
         "No strong recommendation from current mock/shadow ablation signals."
@@ -181,9 +196,13 @@ def _build_recommendation(runs: list[HardModeRunResult]) -> list[str]:
 
 
 def run_hard_mode_ablation(config: HardModeAblationConfig) -> HardModeAblationReport:
-    cases = load_cases(config.input_path)
-    if config.limit:
-        cases = cases[: config.limit]
+    if not config.mock:
+        raise ValueError("hard-mode ablation currently supports mock mode only")
+    if not config.levels or any(
+        level not in _ALLOWED_ABLATION_LEVELS for level in config.levels
+    ):
+        raise ValueError("invalid hard-mode ablation level")
+    cases = load_cases(config.input_path, limit=config.limit)
     runs = []
     for level in config.levels:
         try:
@@ -202,7 +221,9 @@ def run_hard_mode_ablation(config: HardModeAblationConfig) -> HardModeAblationRe
                     policy=asdict(build_hard_mode_policy(enabled=True, level=level)),
                     result_count=0,
                     summary={
-                        "error": f"{type(exc).__name__}: {str(exc)[:200]}",
+                        "error": (
+                            f"{type(exc).__name__}: {safe_exception_text(exc, 200)}"
+                        ),
                         "total": 0,
                     },
                     debugger_summary=None,
@@ -280,14 +301,15 @@ def write_hard_mode_ablation_outputs(
 ) -> None:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    (out / "hard_mode_ablation_summary.json").write_text(
+    safe_text_write(
         json.dumps(asdict(report), ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
+        out / "hard_mode_ablation_summary.json",
     )
-    (out / "comparison.json").write_text(
+    safe_text_write(
         json.dumps(report.comparison, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
+        out / "comparison.json",
     )
-    (out / "hard_mode_ablation_report.md").write_text(
-        render_hard_mode_ablation_report(report), encoding="utf-8"
+    safe_text_write(
+        render_hard_mode_ablation_report(report),
+        out / "hard_mode_ablation_report.md",
     )

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from math_agent.logging_utils import safe_text_write
+
 from .dry_run import DryRunConfig, DryRunItemResult, DryRunSummary
 
 
@@ -67,4 +69,4 @@ Do not rename dry_run_results.jsonl to official_results.jsonl.
 
 
 def write_report(path: Path | str, text: str) -> None:
-    Path(path).write_text(text, encoding="utf-8")
+    safe_text_write(text, path)

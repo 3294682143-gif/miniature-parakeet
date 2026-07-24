@@ -9,24 +9,26 @@ description = "Mock-first math agent scaffold for Intern-S1 style competition"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-  "pydantic",
-  "pyyaml",
-  "sympy",
-  "typer",
-  "rich",
-  "python-dotenv",
-  "requests",
+  "pydantic>=2.7,<3",
+  "pyyaml>=6,<7",
+  "sympy>=1.13,<2",
+  "typer>=0.12,<1",
+  "rich>=13.7,<16",
+  "python-dotenv>=1,<2",
+  "requests>=2.32,<3",
 ]
 
 [project.optional-dependencies]
 dev = [
-  "pytest",
-  "streamlit",
-  "ruff",
-  "black",
-  "isort",
-  "mypy",
-  "pyright",
+  "pytest>=8,<10",
+  "streamlit>=1.40,<2",
+  "ruff>=0.9,<1",
+  "black>=24,<27",
+  "isort>=5.13,<7",
+  "mypy>=1.14,<2",
+  "pyright>=1.1,<2",
+  "setuptools>=78.1.1,<100",
+  "wheel>=0.45,<1",
 ]
 
 [project.scripts]
@@ -39,5 +41,11 @@ package-dir = {"" = "src"}
 where = ["src"]
 include = ["math_agent*"]
 
+[tool.setuptools.data-files]
+"configs" = ["configs/prompts.yaml"]
+
 [tool.isort]
 profile = "black"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

@@ -2,6 +2,11 @@ from __future__ import annotations
 
 import re
 
+MAX_NORMALIZE_INPUT_CHARS = 8_192
+MAX_EXTRACTION_INPUT_CHARS = 64 * 1024
+MAX_BOXED_ANSWERS = 32
+MAX_FRACTION_REPLACEMENT_PASSES = 128
+
 _ANSWER_PATTERNS = [
     r"final\s*answer\s*[:：]\s*(.+)$",
     r"answer\s*[:：]\s*(.+)$",
@@ -44,7 +49,7 @@ def _extract_braced_content(text: str, open_idx: int) -> tuple[str, int] | None:
 
 
 def extract_boxed_answers(text: str) -> list[str]:
-    if not text:
+    if not text or len(text) > MAX_EXTRACTION_INPUT_CHARS:
         return []
     needle = r"\boxed"
     start = 0
@@ -63,6 +68,8 @@ def extract_boxed_answers(text: str) -> list[str]:
                 cleaned = content.strip().replace("\\\\", "\\")
                 if cleaned:
                     matches.append(cleaned)
+                    if len(matches) >= MAX_BOXED_ANSWERS:
+                        break
                 start = end_pos + 1
                 continue
         start = pos + len(needle)
@@ -77,7 +84,7 @@ def extract_boxed_answer(text: str) -> str | None:
 
 
 def extract_answer_by_patterns(text: str) -> str | None:
-    if not text:
+    if not text or len(text) > MAX_EXTRACTION_INPUT_CHARS:
         return None
     cleaned_text = text.replace("**", "")
     for pattern in _ANSWER_PATTERNS:
@@ -106,7 +113,7 @@ def _replace_latex_fractions(value: str) -> str:
     text = value
     for command in ("dfrac", "frac"):
         pattern = re.compile(rf"\\{command}\s*\{{([^{{}}]+)\}}\s*\{{([^{{}}]+)\}}")
-        while True:
+        for _ in range(MAX_FRACTION_REPLACEMENT_PASSES):
             updated = pattern.sub(
                 lambda m: f"{m.group(1).strip()}/{m.group(2).strip()}",
                 text,
@@ -114,6 +121,8 @@ def _replace_latex_fractions(value: str) -> str:
             if updated == text:
                 break
             text = updated
+        else:
+            return ""
     return text
 
 
@@ -170,15 +179,20 @@ def normalize_number(text: str) -> str:
         value,
     )
     value = re.sub(r"(?<!\d)1\*pi\b", "pi", value)
-    if re.fullmatch(r"[-+]?\d+\.0+", value):
-        return str(int(float(value)))
-    if re.fullmatch(r"[-+]?\d*\.\d+", value):
-        normalized = str(float(value)).rstrip("0").rstrip(".")
-        return normalized if normalized else "0"
+    decimal_match = re.fullmatch(r"(?P<sign>[-+]?)(?P<int>\d*)\.(?P<frac>\d+)", value)
+    if decimal_match:
+        integer = decimal_match.group("int").lstrip("0") or "0"
+        fraction = decimal_match.group("frac").rstrip("0")
+        sign = decimal_match.group("sign")
+        if integer == "0" and not fraction:
+            sign = ""
+        return f"{sign}{integer}" + (f".{fraction}" if fraction else "")
     return value
 
 
 def normalize_answer(text: str) -> str:
+    if not isinstance(text, str) or len(text) > MAX_NORMALIZE_INPUT_CHARS:
+        return ""
     boxed = extract_boxed_answer(text)
     if boxed is not None:
         candidate = boxed
@@ -188,7 +202,6 @@ def normalize_answer(text: str) -> str:
         if extracted is not None:
             candidate = extracted
 
-    candidate = strip_units(candidate)
     candidate = normalize_latex(candidate)
     candidate = _compact_math_spacing(candidate)
     candidate = _insert_implicit_multiplication(candidate)

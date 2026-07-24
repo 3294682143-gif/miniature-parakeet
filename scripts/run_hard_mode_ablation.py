@@ -3,6 +3,11 @@ from __future__ import annotations
 import argparse
 import json
 
+if __package__ in {None, ""}:
+    from _repo_bootstrap import prefer_repo_source
+
+    prefer_repo_source()
+
 from math_agent.evaluation.hard_mode_ablation import (
     build_ablation_config,
     run_hard_mode_ablation,
@@ -25,6 +30,8 @@ def main() -> int:
     parser.add_argument("--fail-on-p0", action="store_true")
     parser.add_argument("--format", choices=["markdown", "json"], default="markdown")
     args = parser.parse_args()
+    if not args.mock:
+        parser.error("--no-mock is unsupported; ablation is local mock evidence only")
 
     cfg = build_ablation_config(
         levels=[x.strip() for x in args.levels.split(",") if x.strip()],

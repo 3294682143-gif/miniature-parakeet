@@ -4,6 +4,12 @@ import argparse
 import json
 from pathlib import Path
 
+if __package__ in {None, ""}:
+    from _repo_bootstrap import prefer_repo_source
+
+    prefer_repo_source()
+
+from math_agent.logging_utils import safe_text_write
 from math_agent.proof import build_proof_guardian_decision, score_proof_candidates
 
 
@@ -27,14 +33,15 @@ def main() -> None:
     scores = score_proof_candidates(candidates)
     decision = build_proof_guardian_decision(scores)
     payload = {"scores": [s.__dict__ for s in scores], "decision": decision.__dict__}
-    (out / "proof_guardian_demo.json").write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+    safe_text_write(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        out / "proof_guardian_demo.json",
     )
-    (out / "proof_guardian_demo.md").write_text(
+    safe_text_write(
         "# Proof Guardian Demo\n\n```json\n"
         + json.dumps(payload, ensure_ascii=False, indent=2)
         + "\n```\n",
-        encoding="utf-8",
+        out / "proof_guardian_demo.md",
     )
 
 

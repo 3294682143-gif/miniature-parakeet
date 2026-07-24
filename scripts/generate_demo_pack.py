@@ -2,6 +2,11 @@ from __future__ import annotations
 
 import argparse
 
+if __package__ in {None, ""}:
+    from _repo_bootstrap import prefer_repo_source
+
+    prefer_repo_source()
+
 from math_agent.evidence import build_demo_evidence_pack, write_demo_evidence_pack
 
 CRITICAL_SOURCES = {"hard_mode_ablation", "official_dry_run"}

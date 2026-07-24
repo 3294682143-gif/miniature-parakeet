@@ -4,6 +4,19 @@ import argparse
 import json
 from pathlib import Path
 
+if __package__ in {None, ""}:
+    from _repo_bootstrap import prefer_repo_source
+
+    prefer_repo_source()
+
+from math_agent.io_utils import (
+    load_bounded_json,
+    load_bounded_jsonl,
+    read_bounded_utf8_text,
+)
+from math_agent.logging_utils import atomic_text_write
+from math_agent.security import safe_exception_text
+
 
 def _read_records(input_path: Path) -> list[dict]:
     suffix = input_path.suffix.lower()
@@ -19,30 +32,15 @@ def _read_records(input_path: Path) -> list[dict]:
 
 
 def _read_jsonl(input_path: Path) -> list[dict]:
-    records: list[dict] = []
-    for idx, raw_line in enumerate(
-        input_path.read_text(encoding="utf-8").splitlines(), start=1
-    ):
-        line = raw_line.strip()
-        if not line:
-            continue
-        try:
-            obj = json.loads(line)
-        except json.JSONDecodeError as exc:
-            raise ValueError(f"Invalid JSONL at line {idx}: {exc.msg}") from exc
-        if not isinstance(obj, dict):
-            raise ValueError(
-                f"Invalid JSONL at line {idx}: each line must be a JSON object"
-            )
-        records.append(obj)
+    records, _ = load_bounded_jsonl(input_path, require_objects=True)
     return records
 
 
 def _read_json(input_path: Path) -> list[dict]:
     try:
-        payload = json.loads(input_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Invalid JSON file: {exc.msg}") from exc
+        payload = load_bounded_json(input_path)
+    except ValueError as exc:
+        raise ValueError("Invalid JSON file") from exc
     if not isinstance(payload, list):
         raise ValueError("Invalid JSON file: root must be a list of objects")
     for idx, item in enumerate(payload, start=1):
@@ -52,7 +50,9 @@ def _read_json(input_path: Path) -> list[dict]:
 
 
 def _read_txt(input_path: Path) -> list[dict]:
-    content = input_path.read_text(encoding="utf-8")
+    content = (
+        read_bounded_utf8_text(input_path).replace("\r\n", "\n").replace("\r", "\n")
+    )
     blocks = [block.strip() for block in content.split("\n\n")]
     return [{"question": block} for block in blocks]
 
@@ -86,10 +86,10 @@ def convert_dataset(input_path: Path, output_path: Path) -> int:
     records = _read_records(input_path)
     normalized = _normalize(records)
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as f:
-        for item in normalized:
-            f.write(json.dumps(item, ensure_ascii=False) + "\n")
+    atomic_text_write(
+        "".join(json.dumps(item, ensure_ascii=False) + "\n" for item in normalized),
+        output_path,
+    )
     return len(normalized)
 
 
@@ -112,7 +112,7 @@ def main() -> None:
     try:
         count = convert_dataset(Path(args.input), Path(args.output))
     except Exception as exc:
-        parser.exit(status=1, message=f"Error: {exc}\n")
+        parser.exit(status=1, message=f"Error: {safe_exception_text(exc)}\n")
     print(f"Converted {count} questions to {args.output}")
 
 

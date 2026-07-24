@@ -2,11 +2,22 @@ from __future__ import annotations
 
 import json
 from collections import Counter, defaultdict
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from math_agent.debugger.root_cause import infer_root_cause, infer_severity
+from math_agent.debugger.root_cause import (
+    ROOT_CAUSE_MAP,
+    infer_root_cause,
+    infer_severity,
+)
+from math_agent.evaluation.error_taxonomy import classify_failure
+from math_agent.io_utils import strict_json_loads
+from math_agent.logging_utils import safe_text_write
+from math_agent.security import redact_sensitive_data, redact_sensitive_text
+
+MAX_SHADOW_RESULTS_BYTES = 64 * 1024 * 1024
+MAX_SHADOW_RESULT_ROWS = 100_000
 
 
 @dataclass
@@ -69,23 +80,58 @@ def _to_case(row: dict[str, Any], idx: int) -> FailureCase:
         difficulty=str(row.get("difficulty", "unknown")),
         answer_type=str(row.get("answer_type", "text")),
         failure_category=str(row.get("failure_category", "unknown")),
-        exact_match=bool(row.get("exact_match", False)),
+        exact_match=row.get("exact_match") is True,
         status=str(row.get("status", "unknown")),
-        error_message=str(row.get("error_message", "")),
+        error_message=redact_sensitive_text(str(row.get("error_message", ""))),
         raw=row,
+    )
+
+
+def _normalize_case(case: FailureCase) -> FailureCase:
+    payload = dict(case.raw)
+    payload.setdefault("expected_answer", case.expected_answer)
+    payload["exact_match"] = case.exact_match
+    payload["status"] = case.status
+    payload["failure_category"] = case.failure_category
+    category = classify_failure(payload)
+    if category == "unknown" and case.failure_category in ROOT_CAUSE_MAP:
+        category = case.failure_category
+    sanitized_raw = redact_sensitive_data(payload)
+    return replace(
+        case,
+        id=redact_sensitive_text(case.id),
+        question=redact_sensitive_text(case.question),
+        expected_answer=(
+            None
+            if case.expected_answer is None
+            else redact_sensitive_text(case.expected_answer)
+        ),
+        predicted_answer=redact_sensitive_text(case.predicted_answer),
+        domain=redact_sensitive_text(case.domain),
+        difficulty=redact_sensitive_text(case.difficulty),
+        answer_type=redact_sensitive_text(case.answer_type),
+        failure_category=category,
+        error_message=redact_sensitive_text(case.error_message),
+        raw=sanitized_raw if isinstance(sanitized_raw, dict) else {},
     )
 
 
 def load_shadow_results(path: Path | str) -> list[FailureCase]:
     rows: list[FailureCase] = []
     p = Path(path)
+    if p.is_symlink() or not p.is_file() or p.stat().st_size > MAX_SHADOW_RESULTS_BYTES:
+        return []
     for idx, line in enumerate(p.read_text(encoding="utf-8").splitlines(), start=1):
+        if idx > MAX_SHADOW_RESULT_ROWS:
+            break
         if not line.strip():
             continue
         try:
-            obj = json.loads(line)
-            rows.append(_to_case(obj if isinstance(obj, dict) else {}, idx))
-        except json.JSONDecodeError as exc:
+            obj = strict_json_loads(line)
+            sanitized = redact_sensitive_data(obj)
+            row = sanitized if isinstance(sanitized, dict) else {}
+            rows.append(_normalize_case(_to_case(row, idx)))
+        except (RecursionError, TypeError, ValueError):
             rows.append(
                 FailureCase(
                     id=f"malformed-{idx:04d}",
@@ -98,8 +144,8 @@ def load_shadow_results(path: Path | str) -> list[FailureCase]:
                     failure_category="malformed_json",
                     exact_match=False,
                     status="fail",
-                    error_message=f"JSONDecodeError: {str(exc)[:120]}",
-                    raw={"line": line},
+                    error_message="JSONDecodeError: invalid JSON line",
+                    raw={"line_number": idx, "failure_category": "malformed_json"},
                 )
             )
     return rows
@@ -120,12 +166,13 @@ def _is_failure(case: FailureCase) -> bool:
 
 
 def filter_failures(cases: list[FailureCase]) -> list[FailureCase]:
-    return [c for c in cases if _is_failure(c)]
+    normalized = [_normalize_case(case) for case in cases]
+    return [case for case in normalized if _is_failure(case)]
 
 
 def cluster_failures(cases: list[FailureCase]) -> list[FailureCluster]:
     grouped: dict[str, list[FailureCase]] = defaultdict(list)
-    for c in cases:
+    for c in (_normalize_case(case) for case in cases):
         grouped[c.failure_category].append(c)
     out: list[FailureCluster] = []
     for key, group in sorted(grouped.items(), key=lambda kv: (-len(kv[1]), kv[0])):
@@ -155,7 +202,8 @@ def select_representatives(
 
 
 def build_debugger_report(cases: list[FailureCase]) -> DebuggerReport:
-    failures = filter_failures(cases)
+    normalized_cases = [_normalize_case(case) for case in cases]
+    failures = filter_failures(normalized_cases)
     clusters = cluster_failures(failures)
     actions: dict[str, set[str]] = {"P0": set(), "P1": set(), "P2": set()}
     for c in failures:
@@ -166,9 +214,9 @@ def build_debugger_report(cases: list[FailureCase]) -> DebuggerReport:
                 f"[{c.failure_category}] owner={info.owner}: {info.action}"
             )
     return DebuggerReport(
-        total=len(cases),
+        total=len(normalized_cases),
         failed_count=len(failures),
-        pass_count=len(cases) - len(failures),
+        pass_count=len(normalized_cases) - len(failures),
         failure_category_counts=dict(Counter(c.failure_category for c in failures)),
         domain_failure_counts=dict(Counter(c.domain for c in failures)),
         difficulty_failure_counts=dict(Counter(c.difficulty for c in failures)),
@@ -192,24 +240,27 @@ def write_debugger_outputs(report: DebuggerReport, out_dir: Path | str) -> None:
     out.mkdir(parents=True, exist_ok=True)
     write_markdown(out / "failure_debug_report.md", render_failure_debug_report(report))
     write_markdown(out / "demo_cases.md", render_demo_case_list(report))
-    (out / "failure_clusters.json").write_text(
-        json.dumps([asdict(c) for c in report.clusters], ensure_ascii=False, indent=2)
-        + "\n",
-        encoding="utf-8",
+    clusters = redact_sensitive_data([asdict(c) for c in report.clusters])
+    safe_text_write(
+        json.dumps(clusters, ensure_ascii=False, indent=2) + "\n",
+        out / "failure_clusters.json",
     )
-    (out / "root_causes.json").write_text(
+    root_causes = redact_sensitive_data(
+        [
+            {
+                **asdict(c),
+                "root_cause": asdict(infer_root_cause(c)),
+                "severity": infer_severity(c),
+            }
+            for c in report.representative_failures
+        ]
+    )
+    safe_text_write(
         json.dumps(
-            [
-                {
-                    **asdict(c),
-                    "root_cause": asdict(infer_root_cause(c)),
-                    "severity": infer_severity(c),
-                }
-                for c in report.representative_failures
-            ],
+            root_causes,
             ensure_ascii=False,
             indent=2,
         )
         + "\n",
-        encoding="utf-8",
+        out / "root_causes.json",
     )

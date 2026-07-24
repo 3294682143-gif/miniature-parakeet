@@ -1,13 +1,18 @@
 from __future__ import annotations
 
-import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 from math_agent.agents.proof_guardian import check_proof_structure, detect_proof_problem
-from math_agent.prompting import get_prompt, load_prompts, render_prompt
+from math_agent.io_utils import strict_json_loads
+from math_agent.prompting import freeze_prompts, get_prompt, load_prompts, render_prompt
 from math_agent.schemas import Verification
-from math_agent.tools.answer_normalizer import extract_boxed_answers, normalize_answer
+from math_agent.tools.answer_normalizer import (
+    extract_answer_by_patterns,
+    extract_boxed_answers,
+    normalize_answer,
+)
 from math_agent.tools.sympy_tools import check_equivalent, numeric_compare
 
 
@@ -17,11 +22,14 @@ class Verifier:
         client: Any,
         prompt_config_path: str | Path = "configs/prompts.yaml",
         mock: bool = True,
+        prompts: Mapping[str, Any] | None = None,
     ) -> None:
         self.client = client
         self.prompt_config_path = Path(prompt_config_path)
         self.mock = mock
-        self.prompts = load_prompts(self.prompt_config_path)
+        self.prompts = freeze_prompts(
+            prompts if prompts is not None else load_prompts(self.prompt_config_path)
+        )
 
     def _tool_verify(
         self, draft_solution: str, final_answer: str
@@ -37,27 +45,26 @@ class Verifier:
                 passed=True,
                 notes="Symbolic equivalence passed.",
             )
-        if nd and nf and nf.casefold() in nd.casefold():
+        draft_boxes = [
+            normalize_answer(value) for value in extract_boxed_answers(draft_solution)
+        ]
+        explicit_answer = extract_answer_by_patterns(draft_solution)
+        normalized_explicit = (
+            normalize_answer(explicit_answer) if explicit_answer is not None else ""
+        )
+        if nf and (nf in draft_boxes or normalized_explicit == nf):
             return Verification(
                 method="substitution",
                 passed=True,
-                notes="Final answer appears in derivation.",
+                notes="Final answer has explicit derivation evidence.",
             )
         final_parts = _list_parts(nf)
         if final_parts:
-            draft_boxes = [
-                normalize_answer(value)
-                for value in extract_boxed_answers(draft_solution)
-            ]
-            draft_text = nd.casefold()
-            if all(
-                part in draft_boxes or part.casefold() in draft_text
-                for part in final_parts
-            ):
+            if all(part in draft_boxes for part in final_parts):
                 return Verification(
                     method="substitution",
                     passed=True,
-                    notes="All final answer components appear in derivation.",
+                    notes="All final answer components are explicitly boxed.",
                 )
         return None
 
@@ -68,21 +75,26 @@ class Verifier:
         final_answer: str,
         route_info: dict | None = None,
     ) -> Verification:
-        if detect_proof_problem(question, route_info):
-            try:
-                return check_proof_structure(question, draft_solution)
-            except Exception:
-                pass
+        is_proof = detect_proof_problem(question, route_info)
         if self.mock:
             return Verification(
                 method="self_review", passed=True, notes="Mock verification passed."
             )
-        try:
-            tv = self._tool_verify(draft_solution, final_answer)
-            if tv is not None:
-                return tv
-        except Exception:
-            pass
+
+        proof_structure: Verification | None = None
+        consistency_diagnostic: Verification | None = None
+        if is_proof:
+            try:
+                proof_structure = check_proof_structure(question, draft_solution)
+                if not proof_structure.passed:
+                    return proof_structure
+            except Exception:
+                proof_structure = None
+        else:
+            try:
+                consistency_diagnostic = self._tool_verify(draft_solution, final_answer)
+            except Exception:
+                pass
         try:
             template = get_prompt(self.prompts, "verifier_system")
             system_prompt = render_prompt(
@@ -93,19 +105,47 @@ class Verifier:
                     {"role": "system", "content": system_prompt},
                     {
                         "role": "user",
-                        "content": f"Final answer: {final_answer}\nRoute info: {route_info}\nReturn JSON with method/passed/notes.",
+                        "content": (
+                            f"Final answer: {final_answer}\n"
+                            f"Route info: {route_info}\n"
+                            "Draft/final consistency is not evidence that the answer "
+                            "solves the question. Independently verify correctness.\n"
+                            "Return JSON with method/passed/notes."
+                        ),
                     },
                 ]
             )
-            data = json.loads(reply)
-            if isinstance(data, dict):
-                return Verification.model_validate(data)
+            data = strict_json_loads(reply)
+            if isinstance(data, dict) and type(data.get("passed")) is bool:
+                independent = Verification.model_validate(data)
+                if independent.passed and consistency_diagnostic is not None:
+                    return Verification(
+                        method=consistency_diagnostic.method,
+                        passed=True,
+                        notes=(
+                            f"Independent verifier passed: {independent.notes} | "
+                            f"Consistency diagnostic: {consistency_diagnostic.notes}"
+                        ),
+                    )
+                return independent
         except Exception:
             pass
         return Verification(
             method="self_review",
             passed=False,
-            notes="Verifier fallback: non-JSON or invalid JSON response.",
+            notes=(
+                "Verifier fallback: non-JSON or invalid JSON response."
+                + (
+                    f" Structural diagnostics: {proof_structure.notes}"
+                    if proof_structure is not None
+                    else ""
+                )
+                + (
+                    f" Consistency diagnostics: {consistency_diagnostic.notes}"
+                    if consistency_diagnostic is not None
+                    else ""
+                )
+            ),
         )
 
 

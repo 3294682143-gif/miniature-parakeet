@@ -27,6 +27,26 @@ def test_domain_recognition(question: str, expected_domain: str) -> None:
     assert result.domain == expected_domain
 
 
+@pytest.mark.parametrize(
+    ("question", "expected_domain"),
+    [
+        ("讨论这个拓扑空间是否紧致并判断是否同胚", "Topology"),
+        ("求这个矩阵的特征值和特征向量", "Algebra"),
+        ("随机变量的期望和方差怎么算", "Probability"),
+        ("在线性规划约束下最大化目标函数", "Optimization"),
+        ("求这个函数的导数和极限", "Calculus"),
+        ("用留数定理计算这个围道积分", "ComplexAnalysis"),
+        ("分析偏微分方程的边界条件", "PDE"),
+        ("求三角形的面积和内切圆半径", "Geometry"),
+    ],
+)
+def test_clear_chinese_domain_keywords_route(
+    question: str, expected_domain: str
+) -> None:
+    result = Router(mode="rule_based").route(question)
+    assert result.domain == expected_domain
+
+
 def test_proof_routes_to_proof_solver() -> None:
     router = Router(mode="rule_based")
     result = router.route("证明这个命题成立")
@@ -201,6 +221,20 @@ def test_llm_invalid_output_fallback_to_rule_based() -> None:
     result = router.route("证明素数有无穷多个")
     assert result.domain == "NumberTheory"
     assert result.recommended_solver == "proof"
+
+
+def test_llm_duplicate_json_keys_fallback_to_rule_based() -> None:
+    content = (
+        '{"domain":"Calculus","domain":"Geometry","problem_type":"calculation",'
+        '"recommended_solver":"program","needs_tool":true,'
+        '"confidence":0.88,"reason":"ambiguous"}'
+    )
+    router = Router(mode="llm", client=DummyLLMClient(content))
+
+    result = router.route("compute integral")
+
+    assert result.domain == "Calculus"
+    assert result.reason != "ambiguous"
 
 
 def test_llm_missing_router_system_fallback_to_rule_based(tmp_path: Path) -> None:

@@ -47,7 +47,7 @@ mypy src --show-error-codes
 pyright
 python -m compileall src scripts demo tests
 python -m pytest -q
-python -m math_agent.cli solve --question "计算 2+3" --enable-tools --mode fast --no-trace
+python -m math_agent.cli solve --question "计算 2+3" --enable-tools --mode fast --no-trace --fail-on-non-success
 python scripts/clean_transient_artifacts.py
 python scripts/check_project_safety.py
 git status --short

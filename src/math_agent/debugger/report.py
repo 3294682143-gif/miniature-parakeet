@@ -4,6 +4,7 @@ from pathlib import Path
 
 from math_agent.debugger.failure_attribution import DebuggerReport
 from math_agent.debugger.root_cause import infer_root_cause, infer_severity
+from math_agent.logging_utils import safe_text_write
 
 
 def render_failure_debug_report(report: DebuggerReport) -> str:
@@ -103,6 +104,4 @@ def render_demo_case_list(report: DebuggerReport) -> str:
 
 
 def write_markdown(path: Path | str, text: str) -> None:
-    p = Path(path)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(text, encoding="utf-8")
+    safe_text_write(text, path)

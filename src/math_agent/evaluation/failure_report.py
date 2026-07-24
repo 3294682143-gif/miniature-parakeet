@@ -11,8 +11,7 @@ from math_agent.evaluation.judge import (
     symbolic_match,
 )
 from math_agent.evaluation.metrics import (
-    load_answer_records,
-    load_answers,
+    _load_answer_dataset,
     load_jsonl,
     proof_evaluation_hit,
     proof_failure_category,
@@ -20,7 +19,9 @@ from math_agent.evaluation.metrics import (
 )
 from math_agent.harness.replay import render_replay_markdown, summarize_trace
 from math_agent.harness.trace_reader import read_trace
-from math_agent.schemas import SolveResult
+from math_agent.logging_utils import safe_text_write, trace_path_for_question
+from math_agent.schemas import SolveResult, is_semantically_successful
+from math_agent.security import redact_sensitive_data
 
 
 def classify_failure(
@@ -29,6 +30,8 @@ def classify_failure(
     evaluation_mode: str = "short_answer",
     answer_row: dict[str, Any] | None = None,
 ) -> str:
+    if result.status == "success" and not is_semantically_successful(result):
+        return "inconsistent_success_result"
     if result.status == "fail":
         return "status_fail"
     if result.status == "partial":
@@ -58,7 +61,7 @@ def classify_failure(
 def _trace_path(trace_dir: str | Path | None, question_id: str) -> Path | None:
     if not trace_dir:
         return None
-    return Path(trace_dir) / f"{question_id}.json"
+    return trace_path_for_question(trace_dir, question_id)
 
 
 def _failure_fix_category(category: str, proof_flags: list[str]) -> str:
@@ -112,6 +115,27 @@ def _model_output_preview(result: SolveResult) -> str:
     return result.final_answer.value[:800]
 
 
+def _structural_failure_row(
+    question_id: str, category: str, *, gold: str = ""
+) -> dict[str, Any]:
+    return {
+        "question_id": question_id,
+        "question": "",
+        "category": category,
+        "status": "invalid",
+        "domain": "",
+        "problem_type": "",
+        "model_output_preview": "",
+        "prediction": "",
+        "gold": gold,
+        "trace_path": "",
+        "trace_summary": {},
+        "proof_risk_flags": [],
+        "suggested_fix_category": "evaluation_data_integrity",
+        "review_bucket": "evaluation_integrity",
+    }
+
+
 def build_failure_rows(
     results_path: str | Path,
     answers_path: str | Path | None = None,
@@ -119,40 +143,101 @@ def build_failure_rows(
     include_format_only: bool = True,
 ) -> list[dict[str, Any]]:
     raw_rows, invalid_count = load_jsonl(results_path)
-    answers = load_answers(answers_path)
-    answer_records = load_answer_records(answers_path)
+    answer_dataset = _load_answer_dataset(answers_path)
+    answers = answer_dataset.answers
+    answer_records = answer_dataset.records
     rows: list[dict[str, Any]] = []
     for invalid_index in range(invalid_count):
         rows.append(
-            {
-                "question_id": f"invalid_json_{invalid_index + 1}",
-                "category": "invalid_json",
-                "status": "invalid",
-                "prediction": "",
-                "gold": "",
-                "trace_path": "",
-                "trace_summary": {},
-            }
+            _structural_failure_row(f"invalid_json_{invalid_index + 1}", "invalid_json")
         )
 
-    for row in raw_rows:
+    if answers_path is not None:
+        if not answer_dataset.source_exists:
+            rows.append(_structural_failure_row("answers", "answer_source_missing"))
+        elif not answer_dataset.source_nonempty:
+            rows.append(_structural_failure_row("answers", "answer_source_empty"))
+        for invalid_index in range(answer_dataset.json_invalid_count):
+            rows.append(
+                _structural_failure_row(
+                    f"answer_invalid_json_{invalid_index + 1}",
+                    "answer_invalid_json",
+                )
+            )
+        for invalid_index in range(answer_dataset.schema_invalid_count):
+            rows.append(
+                _structural_failure_row(
+                    f"answer_schema_invalid_{invalid_index + 1}",
+                    "answer_schema_invalid",
+                )
+            )
+        for invalid_index in range(answer_dataset.invalid_id_count):
+            rows.append(
+                _structural_failure_row(
+                    f"answer_invalid_question_id_{invalid_index + 1}",
+                    "answer_invalid_question_id",
+                )
+            )
+        for question_id in sorted(answer_dataset.duplicate_ids):
+            rows.append(
+                _structural_failure_row(
+                    question_id,
+                    "duplicate_answer_id",
+                    gold=answers.get(question_id, ""),
+                )
+            )
+
+    result_groups: dict[str, list[SolveResult]] = {}
+    for row_index, row in enumerate(raw_rows, start=1):
         try:
             result = SolveResult.model_validate(row)
         except Exception:
+            raw_question_id = row.get("question_id") if isinstance(row, dict) else None
+            question_id = (
+                raw_question_id.strip()
+                if isinstance(raw_question_id, str) and raw_question_id.strip()
+                else f"schema_invalid_{row_index}"
+            )
+            rows.append(_structural_failure_row(question_id, "schema_invalid"))
+            continue
+        question_id = str(result.question_id).strip()
+        if not question_id:
             rows.append(
-                {
-                    "question_id": str(row.get("question_id", "unknown")),
-                    "category": "schema_invalid",
-                    "status": "invalid",
-                    "prediction": "",
-                    "gold": "",
-                    "trace_path": "",
-                    "trace_summary": {},
-                }
+                _structural_failure_row(
+                    f"invalid_question_id_{row_index}", "invalid_question_id"
+                )
             )
             continue
-        gold = answers.get(result.question_id) if answers else None
-        answer_row = answer_records.get(result.question_id, {})
+        result_groups.setdefault(question_id, []).append(result)
+
+    for question_id, results in sorted(result_groups.items()):
+        if len(results) > 1:
+            rows.append(_structural_failure_row(question_id, "duplicate_result_id"))
+
+    if answers_path is not None:
+        for question_id in sorted(set(answer_records) - set(result_groups)):
+            if question_id in answer_dataset.duplicate_ids:
+                continue
+            rows.append(
+                _structural_failure_row(
+                    question_id,
+                    "missing_result",
+                    gold=answers.get(question_id, ""),
+                )
+            )
+        for question_id in sorted(set(result_groups) - set(answer_records)):
+            rows.append(_structural_failure_row(question_id, "unexpected_result_id"))
+
+    semantic_results = [
+        (question_id, results[0])
+        for question_id, results in sorted(result_groups.items())
+        if len(results) == 1
+        and question_id not in answer_dataset.duplicate_ids
+        and (answers_path is None or question_id in answer_records)
+    ]
+    for question_id, result in semantic_results:
+        gold = answers.get(question_id) if answers_path is not None else None
+        answer_row = answer_records.get(question_id, {})
         evaluation_mode = str(answer_row.get("evaluation_mode") or "short_answer")
         category = classify_failure(result, gold, evaluation_mode, answer_row)
         if category == "pass":
@@ -166,7 +251,7 @@ def build_failure_rows(
 
         trace_summary: dict[str, Any] = {}
         question = ""
-        trace_path = _trace_path(trace_dir, result.question_id)
+        trace_path = _trace_path(trace_dir, question_id)
         if trace_path is not None and trace_path.exists():
             trace_read = read_trace(trace_path)
             if trace_read.get("ok") and isinstance(trace_read.get("trace"), dict):
@@ -192,7 +277,7 @@ def build_failure_rows(
             proof_risk_flags = score.risk_flags
 
         failure_row = {
-            "question_id": result.question_id,
+            "question_id": question_id,
             "question": question,
             "category": category,
             "status": result.status,
@@ -223,7 +308,8 @@ def build_failure_rows(
                     "proof_reasons": proof_reasons,
                 }
             )
-        rows.append(failure_row)
+        sanitized_row = redact_sensitive_data(failure_row)
+        rows.append(sanitized_row if isinstance(sanitized_row, dict) else {})
     return rows
 
 
@@ -322,9 +408,7 @@ def write_failure_report(
     )
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render_failure_report(rows), encoding="utf-8")
+    safe_text_write(render_failure_report(rows), out)
     json_out = out.with_suffix(".json")
-    json_out.write_text(
-        json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    safe_text_write(json.dumps(rows, ensure_ascii=False, indent=2), json_out)
     return rows

@@ -7,6 +7,15 @@ from pathlib import Path
 from scripts.clean_transient_artifacts import clean_transient_artifacts
 
 
+def _make_project_root(root: Path) -> None:
+    (root / "scripts").mkdir(parents=True, exist_ok=True)
+    (root / "src" / "math_agent").mkdir(parents=True, exist_ok=True)
+    (root / "pyproject.toml").write_text("[project]\nname='test'\n", encoding="utf-8")
+    (root / "scripts" / "clean_transient_artifacts.py").write_text(
+        "# marker\n", encoding="utf-8"
+    )
+
+
 def test_script_exists() -> None:
     assert Path("scripts/clean_transient_artifacts.py").is_file()
 
@@ -23,6 +32,7 @@ def test_help_runs() -> None:
 
 
 def test_dry_run_does_not_delete(tmp_path: Path) -> None:
+    _make_project_root(tmp_path)
     traces = tmp_path / "outputs" / "traces"
     traces.mkdir(parents=True)
     fake = traces / "fake.json"
@@ -32,6 +42,7 @@ def test_dry_run_does_not_delete(tmp_path: Path) -> None:
 
 
 def test_cleanup_artifacts_and_safety(tmp_path: Path) -> None:
+    _make_project_root(tmp_path)
     (tmp_path / ".pytest_cache").mkdir()
     (tmp_path / ".mypy_cache").mkdir()
     (tmp_path / ".ruff_cache").mkdir()
@@ -82,7 +93,17 @@ def test_cleanup_artifacts_and_safety(tmp_path: Path) -> None:
 
 
 def test_missing_paths_do_not_crash(tmp_path: Path) -> None:
+    _make_project_root(tmp_path)
     clean_transient_artifacts(tmp_path, dry_run=False, quiet=True)
+
+
+def test_cleanup_rejects_broad_or_unrecognized_roots(tmp_path: Path) -> None:
+    try:
+        clean_transient_artifacts(tmp_path, dry_run=False, quiet=True)
+    except ValueError as exc:
+        assert "project layout" in str(exc)
+    else:
+        raise AssertionError("expected an unrecognized cleanup root to be rejected")
 
 
 def test_source_has_no_shell_true_or_env_read_or_secret_leak() -> None:

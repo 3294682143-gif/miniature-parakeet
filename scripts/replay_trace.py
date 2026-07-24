@@ -3,8 +3,14 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+if __package__ in {None, ""}:
+    from _repo_bootstrap import prefer_repo_source
+
+    prefer_repo_source()
+
 from math_agent.harness.replay import render_replay_markdown
 from math_agent.harness.trace_reader import read_trace, read_trace_dir
+from math_agent.logging_utils import safe_text_write
 
 
 def main() -> int:
@@ -41,7 +47,7 @@ def main() -> int:
     if args.out:
         out = Path(args.out)
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(output, encoding="utf-8")
+        safe_text_write(output, out)
         print(str(out))
     else:
         print(output)

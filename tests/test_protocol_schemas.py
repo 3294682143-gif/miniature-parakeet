@@ -1,3 +1,4 @@
+# safety: allow-secret-fixtures
 import json
 import subprocess
 import sys
@@ -8,6 +9,7 @@ from math_agent.schemas import (
     AgentStep,
     CandidateAnswer,
     FinalAnswer,
+    MathQuestion,
     ProblemParse,
     ProtocolVerifierResult,
     SolveResult,
@@ -15,6 +17,16 @@ from math_agent.schemas import (
     Verification,
     WeightedVoteResult,
 )
+
+
+def test_math_question_enforces_text_and_identifier_budgets() -> None:
+    assert MathQuestion(question=" 1+1? ", question_id=" q1 ").question == "1+1?"
+    with pytest.raises(Exception):
+        MathQuestion(question="   ", question_id="q1")
+    with pytest.raises(Exception):
+        MathQuestion(question="x" * 32_769, question_id="q1")
+    with pytest.raises(Exception):
+        MathQuestion(question="1+1?", question_id="q" * 129)
 
 
 def test_agent_step_valid():
@@ -31,7 +43,7 @@ def test_tool_call_record_valid_and_sanitized():
     rec = ToolCallRecord(
         tool_name="mock_tool",
         parameters={
-            "api_key": "sk-123",
+            "api_key": "mock",
             "token": "abc",
             "Authorization": "Bearer xyz",
             "normal": 1,
@@ -137,6 +149,12 @@ def test_legacy_solveresult_still_validates():
     assert isinstance(obj.problem_parse, ProblemParse)
     assert isinstance(obj.final_answer, FinalAnswer)
     assert isinstance(obj.verification, Verification)
+
+    payload["question_id"] = " q1 "
+    assert SolveResult.model_validate(payload).question_id == "q1"
+    payload["question_id"] = "   "
+    with pytest.raises(Exception):
+        SolveResult.model_validate(payload)
 
 
 def test_cli_mock_solve_and_batch_smoke(tmp_path):

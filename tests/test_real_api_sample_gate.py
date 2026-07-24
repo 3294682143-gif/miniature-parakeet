@@ -6,12 +6,17 @@ import sys
 from types import SimpleNamespace
 
 from scripts.run_real_api_sample_gate import (
+    EXPECTED_DOMAINS,
     _build_domain_dashboard,
     _failure_question_ids_from_report,
     _is_retryable_failure,
+    _load_jsonl,
     _render_domain_dashboard,
     _run_real_preflight,
+    _sample_coverage_ok,
     _select_question_ids,
+    _trace_integrity_ok,
+    build_parser,
 )
 
 
@@ -31,6 +36,28 @@ def test_real_api_sample_gate_help_runs() -> None:
     assert "--skip-preflight" in proc.stdout
 
 
+def test_real_gate_defaults_to_automatable_short_answers_only() -> None:
+    assert build_parser().parse_args([]).include_proof is False
+
+
+def test_real_gate_rejects_missing_model_call_override_before_network() -> None:
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "scripts/run_real_api_sample_gate.py",
+            "--real",
+            "--allow-real",
+            "--allow-missing-model-call",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert proc.returncode == 2
+    assert "mandatory" in proc.stderr
+
+
 def test_real_api_sample_gate_refuses_without_explicit_real() -> None:
     proc = subprocess.run(
         [sys.executable, "scripts/run_real_api_sample_gate.py"],
@@ -40,6 +67,25 @@ def test_real_api_sample_gate_refuses_without_explicit_real() -> None:
     )
     assert proc.returncode == 2
     assert "--real --allow-real" in proc.stderr
+
+
+def test_real_api_sample_gate_caps_retry_attempts_before_network() -> None:
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "scripts/run_real_api_sample_gate.py",
+            "--real",
+            "--allow-real",
+            "--max-attempts",
+            "4",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert proc.returncode == 2
+    assert "between 1 and 3" in proc.stderr
 
 
 def test_select_question_ids_balances_by_domain() -> None:
@@ -198,3 +244,47 @@ def test_domain_dashboard_exposes_hard_gate_fields(tmp_path) -> None:
     rendered = _render_domain_dashboard(dashboard)
     assert "Real API Sample Domain Dashboard" in rendered
     assert "Tool Solved" in rendered
+
+
+def test_real_gate_jsonl_loader_is_bounded(tmp_path) -> None:
+    source = tmp_path / "questions.jsonl"
+    source.write_text(
+        '{"question_id":"q","question":"' + "x" * 70_000 + '"}\n', encoding="utf-8"
+    )
+
+    try:
+        _load_jsonl(source)
+    except ValueError as exc:
+        assert "line" in str(exc)
+    else:
+        raise AssertionError("expected oversized JSONL row to be rejected")
+
+
+def test_real_gate_requires_all_domains_and_trace_integrity() -> None:
+    rows = [
+        {
+            "question_id": f"{domain}-proof",
+            "domain": domain,
+            "evaluation_mode": "proof_quality",
+        }
+        for domain in EXPECTED_DOMAINS
+    ]
+    assert _sample_coverage_ok(rows, per_domain=1, include_proof=True)
+    assert not _sample_coverage_ok(rows[:-1], per_domain=1, include_proof=True)
+
+    metrics = {
+        "trace_read_ok": True,
+        "trace_count": len(rows),
+        "trace_eligible_question_id_count": len(rows),
+        "trace_error_count": 0,
+        "trace_missing_question_id_count": 0,
+        "trace_unmatched_count": 0,
+        "trace_duplicate_question_id_count": 0,
+        "trace_result_question_id_mismatch_count": 0,
+        "trace_result_content_mismatch_count": 0,
+        "trace_provenance_mismatch_count": 0,
+        "trace_binding_integrity_ok": True,
+    }
+    assert _trace_integrity_ok(metrics, len(rows))
+    metrics["trace_unmatched_count"] = 1
+    assert not _trace_integrity_ok(metrics, len(rows))

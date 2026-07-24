@@ -2,6 +2,11 @@ from __future__ import annotations
 
 import argparse
 
+if __package__ in {None, ""}:
+    from _repo_bootstrap import prefer_repo_source
+
+    prefer_repo_source()
+
 from math_agent.evaluation.failure_report import write_failure_report
 
 

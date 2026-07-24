@@ -4,6 +4,12 @@ import argparse
 import json
 from pathlib import Path
 
+if __package__ in {None, ""}:
+    from _repo_bootstrap import prefer_repo_source
+
+    prefer_repo_source()
+
+from math_agent.logging_utils import safe_text_write
 from math_agent.verification.verifier_scoring import score_candidates, score_to_metadata
 from math_agent.verification.weighted_voting import decision_to_metadata, weighted_vote
 
@@ -32,12 +38,13 @@ def main():
         "scores": [score_to_metadata(x) for x in s],
         "decision": decision_to_metadata(d),
     }
-    (out / "weighted_voting_demo.json").write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+    safe_text_write(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        out / "weighted_voting_demo.json",
     )
-    (out / "weighted_voting_demo.md").write_text(
+    safe_text_write(
         f"# Weighted Voting Demo\n\nSelected: {d.selected_candidate_id}\n",
-        encoding="utf-8",
+        out / "weighted_voting_demo.md",
     )
     if a.fail_on_no_selection and d.selected_candidate_id is None:
         raise SystemExit(1)

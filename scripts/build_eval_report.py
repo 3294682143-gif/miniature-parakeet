@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
+
+if __package__ in {None, ""}:
+    from _repo_bootstrap import prefer_repo_source
+
+    prefer_repo_source()
 
 from math_agent.evaluation.report import write_markdown_report
 from math_agent.evaluation.shadow_eval import (
@@ -10,6 +14,7 @@ from math_agent.evaluation.shadow_eval import (
     summarize_results,
     write_summary,
 )
+from math_agent.io_utils import load_bounded_jsonl
 
 
 def main() -> int:
@@ -20,10 +25,8 @@ def main() -> int:
     parser.add_argument("--out-dir", required=True)
     args = parser.parse_args()
 
-    rows: list[ShadowEvalResult] = []
-    for line in Path(args.results).read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            rows.append(ShadowEvalResult(**json.loads(line)))
+    raw_rows, _ = load_bounded_jsonl(args.results, require_objects=True)
+    rows = [ShadowEvalResult(**row) for row in raw_rows]
 
     summary = summarize_results(rows)
     out_dir = Path(args.out_dir)

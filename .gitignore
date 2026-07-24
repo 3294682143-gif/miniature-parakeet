@@ -149,13 +149,33 @@ activemq-data/
 
 # Environments
 .env
+.env.*
+!.env.example
 .envrc
+.envrc.*
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Local credentials and private key material
+*.pem
+*.key
+*.p12
+*.pfx
+*.pkcs12
+*.ppk
+*.crt
+*.cer
+*.der
+*.jks
+*.keystore
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
 
 # Spyder project settings
 .spyderproject
@@ -224,6 +244,19 @@ outputs/**
 !outputs/traces/
 !outputs/traces/.gitkeep
 trace/
+/traces/
 run_records/
 official_results.jsonl
 submission.zip
+config_snapshot.json
+dry_run_report.md
+dry_run_results.jsonl
+dry_run_summary.json
+invalid_cases.jsonl
+run_record.json
+.pyright/
+.hypothesis/
+.tox/
+.nox/
+*.tmp
+*.bak

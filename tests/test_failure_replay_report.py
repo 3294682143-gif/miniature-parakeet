@@ -165,9 +165,69 @@ def test_failure_replay_uses_proof_validity_mode(tmp_path: Path) -> None:
     )
 
     failure_rows = build_failure_rows(results, answers)
-    assert [row["question_id"] for row in failure_rows] == ["proof_bad"]
-    assert failure_rows[0]["category"] == "proof_verifier_failed"
-    assert failure_rows[0]["evaluation_mode"] == "proof_validity"
-    assert failure_rows[0]["proof_risk_flags"]
-    assert failure_rows[0]["suggested_fix_category"] == "proof_prompt_rubric_repair"
-    assert failure_rows[0]["review_bucket"] == "proof_too_shallow_or_invalid"
+    assert {row["question_id"] for row in failure_rows} == {"proof_bad", "proof_ok"}
+    assert next(
+        row["category"] for row in failure_rows if row["question_id"] == "proof_ok"
+    ) in {"proof_manual_review_required", "proof_partial"}
+    invalid = next(row for row in failure_rows if row["question_id"] == "proof_bad")
+    assert invalid["category"] == "schema_invalid"
+
+
+def test_failure_replay_reports_missing_duplicate_and_unexpected_ids(
+    tmp_path: Path,
+) -> None:
+    results = tmp_path / "results.jsonl"
+    answers = tmp_path / "answers.jsonl"
+    result_rows = [
+        _result("q1", "5"),
+        _result("q1", "5"),
+        _result("extra", "9", status="fail"),
+    ]
+    results.write_text(
+        "\n".join(json.dumps(row) for row in result_rows) + "\n",
+        encoding="utf-8",
+    )
+    answers.write_text(
+        "\n".join(
+            json.dumps(row)
+            for row in [
+                {"question_id": "q1", "answer": "5"},
+                {"question_id": "q2", "answer": "7"},
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    failure_rows = build_failure_rows(results, answers)
+    categories = {(row["question_id"], row["category"]) for row in failure_rows}
+
+    assert ("q1", "duplicate_result_id") in categories
+    assert ("q2", "missing_result") in categories
+    assert ("extra", "unexpected_result_id") in categories
+    assert ("extra", "status_fail") not in categories
+
+
+def test_failure_replay_handles_non_object_json_rows(tmp_path: Path) -> None:
+    results = tmp_path / "results.jsonl"
+    answers = tmp_path / "answers.jsonl"
+    results.write_text("[]\n", encoding="utf-8")
+    answers.write_text("[]\n", encoding="utf-8")
+
+    failure_rows = build_failure_rows(results, answers)
+    categories = [row["category"] for row in failure_rows]
+
+    assert "schema_invalid" in categories
+    assert "answer_schema_invalid" in categories
+
+
+def test_failure_replay_uses_canonical_trimmed_question_id(tmp_path: Path) -> None:
+    results = tmp_path / "results.jsonl"
+    answers = tmp_path / "answers.jsonl"
+    results.write_text(json.dumps(_result(" q1 ", "5")) + "\n", encoding="utf-8")
+    answers.write_text(
+        json.dumps({"question_id": "q1", "answer": "5"}) + "\n",
+        encoding="utf-8",
+    )
+
+    assert build_failure_rows(results, answers) == []

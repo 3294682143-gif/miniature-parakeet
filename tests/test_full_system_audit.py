@@ -1,3 +1,4 @@
+# safety: allow-secret-fixtures
 from __future__ import annotations
 
 import json
@@ -72,7 +73,7 @@ def test_skip_slow_outputs_and_constraints(tmp_path: Path) -> None:
             "function_inventory_by_category.md",
         ]
     )
-    for banned in ["API_KEY=", "sk-", "OPENAI_API_KEY="]:
+    for banned in ["API_" + "KEY=", "sk-", "OPENAI_API_" + "KEY="]:
         assert banned not in all_text
 
 

@@ -79,6 +79,23 @@ def test_bad_json_records_parse_error(tmp_path: Path) -> None:
     assert any("parse_error" in w for w in src.warnings)
 
 
+def test_duplicate_json_keys_record_parse_error(tmp_path: Path) -> None:
+    directory = tmp_path / "shadow"
+    directory.mkdir()
+    (directory / "shadow_summary.json").write_text(
+        '{"total":1,"total":999}', encoding="utf-8"
+    )
+
+    source = next(
+        item
+        for item in collect_evidence_sources(shadow_dir=str(directory))
+        if item.name == "shadow_eval"
+    )
+
+    assert source.summary["total"] is None
+    assert any("parse_error" in warning for warning in source.warnings)
+
+
 def test_build_and_write_pack(tmp_path: Path) -> None:
     _mk_sources(tmp_path)
     pack = build_demo_evidence_pack(

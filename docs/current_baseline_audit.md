@@ -34,7 +34,7 @@
 - `--mode`（可选：`full` / `fast` / `tool-first`，默认 `full`）
 
 行为：
-- `--real` 开启时，会先执行真实配置校验（缺 `INTERNS1_API_KEY` 或 `INTERNS1_BASE_URL` 会报错）。
+- `--real` 开启时，会先执行真实配置校验（必须提供 `INTERNS1_API_KEY`、`INTERNS1_BASE_URL` 和精确主机白名单 `INTERNS1_ALLOWED_HOSTS`）。IP 字面量、本机名、单标签名及未列入白名单的主机在发送 Bearer 凭据前被拒绝。
 - 输出单个 `SolveResult` JSON 到 stdout。
 
 ### `batch`

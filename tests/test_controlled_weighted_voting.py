@@ -1,6 +1,7 @@
 import json
 import subprocess
 import sys
+from dataclasses import replace
 
 from math_agent.control.candidate_budget import build_candidate_budget_plan
 from math_agent.control.hard_mode import build_hard_mode_policy
@@ -22,23 +23,31 @@ def test_scoring_and_voting_basics():
     assert normalize_candidate_answer(None) == ""
     assert normalize_candidate_answer("\\boxed{5}") in {"5", "\\boxed{5}"}
     assert score_candidate({"final_answer_value": ""}).passed is False
-    assert score_candidate({"final_answer_value": "5"}).passed is True
+    assert score_candidate({"final_answer_value": "5"}).passed is False
+    assert (
+        score_candidate({"final_answer_value": "5", "verification_passed": True}).passed
+        is True
+    )
     low = score_candidate(
         {"final_answer_value": "5", "risk_flags": ["dirty_boxed"]}
     ).final_score
     hi = score_candidate({"final_answer_value": "5"}).final_score
     assert low < hi
-    scores = score_candidates(
-        [{"final_answer_value": "5"}, {"final_answer_value": "6"}]
-    )
+    candidates = [
+        {
+            "candidate_id": "a",
+            "final_answer_value": "5",
+            "verification_passed": True,
+        },
+        {
+            "candidate_id": "b",
+            "final_answer_value": "6",
+            "verification_passed": True,
+        },
+    ]
+    scores = score_candidates(candidates)
     assert len(scores) == 2
-    d = weighted_vote(
-        [
-            {"candidate_id": "a", "final_answer_value": "5"},
-            {"candidate_id": "b", "final_answer_value": "6"},
-        ],
-        scores,
-    )
+    d = weighted_vote(candidates, scores)
     assert d.selected_candidate_id is not None
     assert json.dumps(decision_to_metadata(d))
 
@@ -50,6 +59,123 @@ def test_weighted_vote_fallback_and_tie():
     )
     assert d.fallback_used is True
     assert d.selected_answer != "42"
+
+
+def test_weighted_vote_aligns_scores_by_candidate_id_not_list_order():
+    candidates = [
+        {
+            "candidate_id": "a",
+            "final_answer_value": "5",
+            "verification_passed": True,
+        },
+        {
+            "candidate_id": "b",
+            "final_answer_value": "6",
+            "verification_passed": True,
+        },
+    ]
+    scores = score_candidates(candidates, expected_answer="5")
+
+    decision = weighted_vote(candidates, list(reversed(scores)))
+
+    assert decision.selected_candidate_id == "a"
+    assert decision.selected_answer == "5"
+
+
+def test_weighted_vote_fails_closed_on_alignment_errors():
+    candidates = [
+        {
+            "candidate_id": "a",
+            "final_answer_value": "5",
+            "verification_passed": True,
+        },
+        {
+            "candidate_id": "b",
+            "final_answer_value": "6",
+            "verification_passed": True,
+        },
+    ]
+    scores = score_candidates(candidates)
+
+    missing_score = weighted_vote(candidates, scores[:1])
+    duplicate_candidates = weighted_vote(
+        [candidates[0], candidates[0]], [scores[0], scores[0]]
+    )
+
+    for decision in (missing_score, duplicate_candidates):
+        assert decision.selected_candidate_id is None
+        assert "candidate_score_alignment_error" in decision.risk_flags
+
+
+def test_failed_verifier_score_cannot_win_and_risks_propagate():
+    candidates = [
+        {
+            "candidate_id": "failed",
+            "final_answer_value": "5",
+            "risk_flags": ["tool_failed"],
+        },
+        {
+            "candidate_id": "passed",
+            "final_answer_value": "6",
+            "verification_passed": True,
+        },
+    ]
+    scores = score_candidates(candidates)
+    scores[0] = replace(scores[0], final_score=1.0, passed=False)
+
+    decision = weighted_vote(candidates, scores)
+
+    assert decision.selected_candidate_id == "passed"
+    assert "tool_failed" not in decision.risk_flags
+
+    risky_decision = weighted_vote(candidates[:1], [replace(scores[0], passed=True)])
+    assert "tool_failed" in risky_decision.risk_flags
+
+
+def test_failed_tool_signal_lowers_tool_score():
+    successful = score_candidate(
+        {
+            "final_answer_value": "5",
+            "metadata": {"tool_used": True, "tool_status": "success"},
+        }
+    )
+    failed = score_candidate(
+        {
+            "final_answer_value": "5",
+            "metadata": {"tool_used": True, "tool_status": "fail"},
+        }
+    )
+
+    assert failed.tool_score < successful.tool_score
+    assert "tool_failed" in failed.risk_flags
+
+
+def test_explicit_verifier_failure_is_respected_at_every_level():
+    candidate = {
+        "final_answer_value": "5",
+        "verifier_score": 0.0,
+        "verification_passed": False,
+    }
+
+    for level in ("basic", "strong", "strict"):
+        score = score_candidate(candidate, verifier_level=level)
+        assert score.passed is False
+        assert "verifier_failed" in score.risk_flags
+
+
+def test_verifier_level_changes_acceptance_threshold():
+    candidate = {
+        "final_answer_value": "5",
+        "risk_flags": ["dirty_boxed"],
+        "verification_passed": True,
+    }
+
+    basic = score_candidate(candidate, verifier_level="basic")
+    strict = score_candidate(candidate, verifier_level="strict")
+
+    assert basic.passed is True
+    assert strict.passed is False
+    assert basic.final_score == strict.final_score
 
 
 def test_runtime_plan_metadata():

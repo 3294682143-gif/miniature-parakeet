@@ -29,6 +29,18 @@ def test_planner_mock_returns_structure() -> None:
     assert "solution_plan" in result
 
 
+def test_planner_rejects_duplicate_model_json_keys() -> None:
+    planner = Planner(
+        client=DummyClient('{"solution_plan":["unsafe"],"solution_plan":["accepted"]}'),
+        mock=False,
+    )
+
+    result = planner.plan("2+2=?", {"recommended_solver": "general"})
+
+    assert result["solution_plan"] != ["accepted"]
+    assert "planner_non_json_fallback" in result["risk_points"]
+
+
 def test_solver_mock_returns_boxed_answer() -> None:
     solver = Solver(client=DummyClient(), mock=True)
     out = solver.solve(
@@ -58,6 +70,66 @@ def test_verifier_mock_returns_verification_passed() -> None:
     res = verifier.verify("q", "draft", "42")
     assert isinstance(res, Verification)
     assert res.passed is True
+
+
+def test_verifier_tool_check_requires_explicit_answer_evidence() -> None:
+    verifier = Verifier(client=DummyClient(), mock=False)
+
+    assert verifier._tool_verify("x = 12", "2") is None
+    assert verifier._tool_verify("candidate values are 10 and 20", "[1, 2]") is None
+
+    boxed = verifier._tool_verify(r"Therefore, \boxed{2}.", "2")
+    explicit = verifier._tool_verify("Final answer: 2", "2")
+    assert boxed is not None and boxed.passed is True
+    assert explicit is not None and explicit.passed is True
+
+
+def test_draft_final_consistency_cannot_bypass_question_verification() -> None:
+    verifier = Verifier(client=DummyClient(response="not-json"), mock=False)
+
+    result = verifier.verify(
+        "What is 2+2?",
+        "Final answer: 5",
+        "5",
+        {"problem_type": "calculation"},
+    )
+
+    assert result.passed is False
+    assert result.method == "self_review"
+    assert "Consistency diagnostics" in result.notes
+
+
+@pytest.mark.parametrize("passed", [1, "yes", "on", 0])
+def test_verifier_rejects_non_boolean_passed_values(passed: object) -> None:
+    response = (
+        '{"method":"self_review","passed":'
+        + __import__("json").dumps(passed)
+        + ',"notes":"claimed"}'
+    )
+    verifier = Verifier(client=DummyClient(response=response), mock=False)
+
+    result = verifier.verify(
+        "What is 2+2?", "Final answer: 999", "999", {"problem_type": "calculation"}
+    )
+
+    assert result.passed is False
+
+
+def test_verifier_rejects_duplicate_model_json_keys() -> None:
+    verifier = Verifier(
+        client=DummyClient(
+            '{"method":"self_review","passed":false,"passed":true,'
+            '"notes":"ambiguous"}'
+        ),
+        mock=False,
+    )
+
+    result = verifier.verify(
+        "What is 2+2?", "Final answer: 999", "999", {"problem_type": "calculation"}
+    )
+
+    assert result.passed is False
+    assert "fallback" in result.notes.casefold()
 
 
 def test_refiner_mock_not_crash() -> None:

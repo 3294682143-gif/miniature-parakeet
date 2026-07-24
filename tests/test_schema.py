@@ -54,6 +54,22 @@ def test_status_invalid_fails():
         validate_result_dict(bad)
 
 
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda row: row["verification"].update({"passed": False}),
+        lambda row: row["final_answer"].update({"value": ""}),
+        lambda row: row.update({"error": "fatal_backend_error"}),
+    ],
+)
+def test_success_requires_consistent_cross_field_contract(mutation) -> None:
+    bad = _valid_payload()
+    mutation(bad)
+
+    with pytest.raises(ValidationError, match="successful results"):
+        validate_result_dict(bad)
+
+
 def test_make_failure_result_json_serializable():
     result = make_failure_result(
         question_id="qf", question="1/0=?", error_message="division by zero"

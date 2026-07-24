@@ -13,8 +13,11 @@ from pathlib import Path
 from typing import Any
 
 if __package__ in {None, ""}:
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    _REPO_ROOT = Path(__file__).resolve().parent.parent
+    sys.path.insert(0, str(_REPO_ROOT / "src"))
+    sys.path.insert(1, str(_REPO_ROOT))
 
+from math_agent.logging_utils import safe_text_write
 from scripts.clean_transient_artifacts import clean_transient_artifacts
 
 DISCLAIMER = (
@@ -30,6 +33,12 @@ DEV_TOOL_MODULES = {
     "mypy": "mypy",
     "pyright": "pyright",
 }
+PROVENANCE_CHECK = (
+    "from pathlib import Path; import math_agent.cli as module; "
+    "source=(Path.cwd()/'src').resolve(); loaded=Path(module.__file__).resolve(); "
+    "assert loaded.is_relative_to(source), 'math_agent was not loaded from this checkout'; "
+    "print('source_provenance=PASS')"
+)
 
 CATEGORY_LABELS = {
     "A": "Stable Core / 主解题内核",
@@ -872,6 +881,18 @@ def audit_temp_dir() -> Path | None:
 
 def command_env(command: list[str]) -> dict[str, str] | None:
     env: dict[str, str] | None = None
+    if command and command[0] == sys.executable:
+        env = os.environ.copy()
+        source_root = str(Path(__file__).resolve().parent.parent / "src")
+        existing = env.get("PYTHONPATH", "")
+        entries = [entry for entry in existing.split(os.pathsep) if entry]
+        entries = [
+            entry
+            for entry in entries
+            if os.path.normcase(os.path.abspath(entry))
+            != os.path.normcase(os.path.abspath(source_root))
+        ]
+        env["PYTHONPATH"] = os.pathsep.join([source_root, *entries])
     is_python_module = len(command) >= 3 and command[0] == sys.executable
     is_pyright = is_python_module and command[1:3] == ["-m", "pyright"]
     is_pytest = is_python_module and command[1:3] == ["-m", "pytest"]
@@ -879,7 +900,7 @@ def command_env(command: list[str]) -> dict[str, str] | None:
     if is_pyright:
         node_bin = bundled_node_bin()
         if node_bin is not None:
-            env = os.environ.copy()
+            env = env or os.environ.copy()
             env["PATH"] = str(node_bin) + os.pathsep + env.get("PATH", "")
 
     if is_pytest:
@@ -1011,19 +1032,21 @@ def write_outputs(
     inv: list[dict[str, Any]],
 ) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "line_count_report.json").write_text(
-        json.dumps(lines, indent=2, ensure_ascii=False), encoding="utf-8"
+    safe_text_write(
+        json.dumps(lines, indent=2, ensure_ascii=False),
+        out_dir / "line_count_report.json",
     )
-    (out_dir / "quality_gate_results.json").write_text(
+    safe_text_write(
         json.dumps([asdict(x) for x in quality], indent=2, ensure_ascii=False),
-        encoding="utf-8",
+        out_dir / "quality_gate_results.json",
     )
-    (out_dir / "functional_smoke_results.json").write_text(
+    safe_text_write(
         json.dumps([asdict(x) for x in smoke], indent=2, ensure_ascii=False),
-        encoding="utf-8",
+        out_dir / "functional_smoke_results.json",
     )
-    (out_dir / "function_inventory.json").write_text(
-        json.dumps(inv, indent=2, ensure_ascii=False), encoding="utf-8"
+    safe_text_write(
+        json.dumps(inv, indent=2, ensure_ascii=False),
+        out_dir / "function_inventory.json",
     )
     summary = {
         "disclaimer": DISCLAIMER,
@@ -1031,8 +1054,9 @@ def write_outputs(
         "function_count": len(inv),
         "categories": sorted({x["category"] for x in inv}),
     }
-    (out_dir / "full_system_audit_summary.json").write_text(
-        json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
+    safe_text_write(
+        json.dumps(summary, indent=2, ensure_ascii=False),
+        out_dir / "full_system_audit_summary.json",
     )
     inv_md = [
         "# Function Inventory",
@@ -1048,32 +1072,31 @@ def write_outputs(
         inv_md.append(
             f"| {x['id']} | {x['name']} | {CATEGORY_LABELS.get(x['category'], x['category'])} | {x['status']} | {'; '.join(x['files'])} | {x['risk_boundary']} |"
         )
-    (out_dir / "function_inventory.md").write_text("\n".join(inv_md), encoding="utf-8")
+    safe_text_write("\n".join(inv_md), out_dir / "function_inventory.md")
     grouped = ["# Function Inventory by Category", "", DISCLAIMER, ""]
     for c in sorted(CATEGORY_LABELS):
         grouped.append(f"## {c}. {CATEGORY_LABELS[c]}")
         for x in [i for i in inv if i["category"] == c]:
             grouped.append(f"- {x['id']} {x['name']} ({x['status']})")
         grouped.append("")
-    (out_dir / "function_inventory_by_category.md").write_text(
-        "\n".join(grouped), encoding="utf-8"
-    )
+    safe_text_write("\n".join(grouped), out_dir / "function_inventory_by_category.md")
     grouped_report = ["# Full Function Inventory A-X", "", DISCLAIMER, ""]
     for c in sorted(CATEGORY_LABELS):
         grouped_report.append(f"- {c}. {CATEGORY_LABELS[c]}")
 
-    (out_dir / "line_count_report.md").write_text(
+    safe_text_write(
         f"# Line Count Summary\n\n{DISCLAIMER}\n\n- total_code_lines: {lines['total_code_lines']}\n- by_module: {json.dumps(lines['by_module'], ensure_ascii=False)}\n",
-        encoding="utf-8",
+        out_dir / "line_count_report.md",
     )
     report = f"# Full System Audit Report\n\n## 1. Executive Summary\n\n{DISCLAIMER}\n\n## 3. Repository Overview\n- total functions audited: {len(inv)}\n\n## 4. Line Count Summary\n- total_code_lines: {lines['total_code_lines']}\n\n## 5. Quality Gate Results\n- checks: {len(quality)}\n\n## 6. Functional Smoke Results\n- checks: {len(smoke)}\n\n## 7. Full Function Inventory\n- see function_inventory.md/json\n\n## 8. Missing Optional Capabilities\n- listed by status=missing/planned\n\n## 9. Safety Boundary\n- no .env reads; no official_results.jsonl\n\n## 10. Official Submission Warning\n- dry-run != official evaluation\n\n## 11. Next Steps: P19 / P20\n- P19: tighten regression evidence\n- P20: stronger verifier experiments\n"
-    (out_dir / "full_system_audit_report.md").write_text(report, encoding="utf-8")
-    (out_dir / "architecture_overview.md").write_text(
-        "# Architecture / Full Chain\n\n" + DISCLAIMER, encoding="utf-8"
+    safe_text_write(report, out_dir / "full_system_audit_report.md")
+    safe_text_write(
+        "# Architecture / Full Chain\n\n" + DISCLAIMER,
+        out_dir / "architecture_overview.md",
     )
-    (out_dir / "readme_update_notes.md").write_text(
+    safe_text_write(
         "# README update notes\n\nExpanded Full Function Inventory Overview and P19/P20 roadmap.",
-        encoding="utf-8",
+        out_dir / "readme_update_notes.md",
     )
 
 
@@ -1099,6 +1122,7 @@ def main() -> int:
     lines = count_lines(root)
     safety_cmd = py_cmd("scripts/check_project_safety.py")
     quality_cmds = [
+        py_cmd("-c", PROVENANCE_CHECK),
         quality_tool_cmd("ruff", "check", "."),
         quality_tool_cmd("black", "--check", "src", "scripts", "demo", "tests"),
         quality_tool_cmd(
@@ -1127,6 +1151,7 @@ def main() -> int:
             "--mode",
             "fast",
             "--no-trace",
+            "--fail-on-non-success",
         ),
         py_cmd(
             "scripts/shadow_eval.py",
@@ -1147,6 +1172,7 @@ def main() -> int:
             "--enable-tools",
             "--mock",
             "--no-trace",
+            "--fail-on-non-success",
         ),
     ]
     smoke = [

@@ -8,34 +8,51 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 if __package__ in {None, ""}:
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    _REPO_ROOT = Path(__file__).resolve().parent.parent
+    sys.path.insert(0, str(_REPO_ROOT / "src"))
+    sys.path.insert(1, str(_REPO_ROOT))
 
+from math_agent.security import safe_exception_text
 from scripts.clean_transient_artifacts import clean_transient_artifacts
+
+PROVENANCE_CHECK = (
+    "from pathlib import Path; import math_agent.cli as module; "
+    "source=(Path.cwd()/'src').resolve(); loaded=Path(module.__file__).resolve(); "
+    "assert loaded.is_relative_to(source), 'math_agent was not loaded from this checkout'; "
+    "print('source_provenance=PASS')"
+)
 
 
 def build_commands(
     input_path: str,
     out_dir: str,
     dry_run_limit: int,
+    require_mock_success: bool = False,
 ) -> list[list[str]]:
+    if not 1 <= dry_run_limit <= 100_000:
+        raise ValueError("dry_run_limit must be between 1 and 100000")
     python = sys.executable
+    dry_run_command = [
+        python,
+        "scripts/run_official_dry_run.py",
+        "--input",
+        input_path,
+        "--out-dir",
+        out_dir,
+        "--limit",
+        str(dry_run_limit),
+        "--enable-tools",
+        "--mock",
+        "--no-trace",
+        "--fail-on-invalid",
+        "--fail-on-missing-final",
+    ]
+    if require_mock_success:
+        dry_run_command.append("--fail-on-non-success")
     return [
+        [python, "-c", PROVENANCE_CHECK],
         [python, "-m", "pytest", "-q"],
-        [
-            python,
-            "scripts/run_official_dry_run.py",
-            "--input",
-            input_path,
-            "--out-dir",
-            out_dir,
-            "--limit",
-            str(dry_run_limit),
-            "--enable-tools",
-            "--mock",
-            "--no-trace",
-            "--fail-on-invalid",
-            "--fail-on-missing-final",
-        ],
+        dry_run_command,
         [python, "scripts/check_project_safety.py"],
     ]
 
@@ -62,17 +79,30 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         default="outputs/pre_submit_official_style_dry_run",
     )
     parser.add_argument("--dry-run-limit", type=int, default=18)
+    parser.add_argument(
+        "--require-mock-success",
+        action="store_true",
+        help=(
+            "Also fail on partial mock answers. Use only with a deterministic "
+            "mock-solvable input set; the default official-style gate is structural."
+        ),
+    )
     return parser.parse_args(list(argv))
 
 
 def main(argv: Iterable[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
     root = Path(__file__).resolve().parent.parent
-    commands = build_commands(
-        input_path=args.input,
-        out_dir=args.out_dir,
-        dry_run_limit=args.dry_run_limit,
-    )
+    try:
+        commands = build_commands(
+            input_path=args.input,
+            out_dir=args.out_dir,
+            dry_run_limit=args.dry_run_limit,
+            require_mock_success=args.require_mock_success,
+        )
+    except ValueError as exc:
+        print(safe_exception_text(exc), file=sys.stderr)
+        return 2
     start = time.perf_counter()
     print("=== Final Pre-submit Gate ===")
     for idx, command in enumerate(commands, start=1):

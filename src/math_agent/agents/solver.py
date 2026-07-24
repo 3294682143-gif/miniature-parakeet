@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from math_agent.prompting import get_prompt, load_prompts, render_prompt
+from math_agent.prompting import freeze_prompts, get_prompt, load_prompts, render_prompt
 
 
 class Solver:
@@ -12,11 +13,14 @@ class Solver:
         client: Any,
         prompt_config_path: str | Path = "configs/prompts.yaml",
         mock: bool = True,
+        prompts: Mapping[str, Any] | None = None,
     ) -> None:
         self.client = client
         self.prompt_config_path = Path(prompt_config_path)
         self.mock = mock
-        self.prompts = load_prompts(self.prompt_config_path)
+        self.prompts = freeze_prompts(
+            prompts if prompts is not None else load_prompts(self.prompt_config_path)
+        )
 
     def _select_prompt_key(self, route_info: dict) -> str:
         solver_name = route_info.get("recommended_solver", "general")

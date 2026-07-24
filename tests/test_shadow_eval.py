@@ -3,6 +3,8 @@ from __future__ import annotations
 import subprocess
 import sys
 
+import pytest
+
 from math_agent.evaluation.error_taxonomy import classify_failure
 from math_agent.evaluation.metrics import (
     compute_dirty_boxed_rate,
@@ -30,6 +32,14 @@ def test_load_cases_jsonl_json_and_default(tmp_path):
     js.write_text('[{"id":"2","question":"q2"}]', encoding="utf-8")
     assert load_cases(js)[0].id == "2"
     assert len(load_cases(None)) == 5
+
+
+def test_load_cases_rejects_duplicate_jsonl_keys(tmp_path):
+    jsonl = tmp_path / "duplicate.jsonl"
+    jsonl.write_text('{"id":"safe","id":"shadowed","question":"q"}\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="duplicate"):
+        load_cases(jsonl)
 
 
 def test_normalize_and_exact_match_basics():
@@ -83,7 +93,125 @@ def test_exception_not_break_batch():
     cases = [ShadowEvalCase("bad", "q"), ShadowEvalCase("good", "q")]
     results = run_shadow_eval(cases, runner=runner, options={})
     assert len(results) == 2
-    assert any(r.failure_category == "exception" for r in results)
+    failed = next(r for r in results if r.failure_category == "exception")
+    assert failed.json_valid is False
+    assert failed.final_answer_exists is False
+
+
+def test_exception_with_broken_string_conversion_does_not_break_batch() -> None:
+    class BrokenError(Exception):
+        def __str__(self) -> str:
+            raise RuntimeError("broken conversion")
+
+    def runner(case, options):
+        raise BrokenError()
+
+    result = run_shadow_eval([ShadowEvalCase("bad", "q")], runner=runner, options={})[0]
+
+    assert result.failure_category == "exception"
+    assert "message unavailable" in result.error_message
+
+
+def test_failed_or_invalid_shadow_result_cannot_count_as_exact_or_solved():
+    cases = [ShadowEvalCase("q1", "q", "5")]
+
+    failed = run_shadow_eval(
+        cases,
+        runner=lambda case, options: {
+            "predicted_answer": "5",
+            "status": "fail",
+            "verifier_passed": False,
+        },
+    )
+    invalid = run_shadow_eval(
+        cases,
+        runner=lambda case, options: {
+            "predicted_answer": "5",
+            "json_valid": False,
+        },
+    )
+    verifier_failed = run_shadow_eval(
+        cases,
+        runner=lambda case, options: {
+            "predicted_answer": "5",
+            "status": "success",
+            "verifier_passed": False,
+        },
+    )
+
+    assert failed[0].exact_match is False
+    assert failed[0].failure_category == "status_fail"
+    assert invalid[0].exact_match is False
+    assert invalid[0].failure_category == "json_invalid"
+    assert verifier_failed[0].exact_match is False
+    assert verifier_failed[0].failure_category == "verifier_failed"
+    failed_summary = summarize_results(failed)
+    invalid_summary = summarize_results(invalid)
+    verifier_failed_summary = summarize_results(verifier_failed)
+    assert failed_summary.solved_count == 0
+    assert failed_summary.fail_count == 1
+    assert failed_summary.status_counts == {"fail": 1}
+    assert invalid_summary.solved_count == 0
+    assert invalid_summary.success_count == 0
+    assert verifier_failed_summary.solved_count == 0
+    assert verifier_failed_summary.success_count == 0
+
+
+def test_shadow_wrong_answer_status_success_is_not_solved():
+    results = run_shadow_eval(
+        [ShadowEvalCase("q1", "q", "5")],
+        runner=lambda case, options: {
+            "predicted_answer": "6",
+            "status": "success",
+            "verifier_passed": True,
+        },
+    )
+
+    summary = summarize_results(results)
+
+    assert results[0].failure_category == "wrong_answer"
+    assert summary.solved_count == 0
+    assert summary.success_count == 0
+
+
+def test_shadow_summary_treats_success_status_as_solved():
+    result = ShadowEvalResult(
+        "q1",
+        "q",
+        "5",
+        "5",
+        "a",
+        "easy",
+        "number",
+        exact_match=True,
+        status="success",
+        verifier_passed=True,
+    )
+    summary = summarize_results([result])
+    assert summary.solved_count == 1
+    assert summary.success_count == 1
+
+
+def test_shadow_runner_rejects_null_and_false_like_contract_values():
+    results = run_shadow_eval(
+        [ShadowEvalCase("q1", "prove", None, answer_type="proof")],
+        runner=lambda case, options: {
+            "predicted_answer": None,
+            "json_valid": "false",
+            "final_answer_exists": "false",
+            "verifier_passed": "false",
+            "status": "success",
+        },
+    )
+
+    summary = summarize_results(results)
+
+    assert results[0].predicted_answer == ""
+    assert results[0].json_valid is False
+    assert results[0].final_answer_exists is False
+    assert results[0].verifier_passed is None
+    assert summary.solved_count == 0
+    assert summary.success_count == 0
 
 
 def test_cli_and_build_report(tmp_path):

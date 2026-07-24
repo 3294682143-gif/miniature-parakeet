@@ -11,7 +11,7 @@
 - 推理策略：`full` / `fast` / `tool-first`
 - 结果产物：JSONL 输出
 - 过程产物：trace 日志
-- 工具能力：SymPy / Python 工具
+- 工具能力：受限 SymPy 解析 / 算术 AST 工具（不执行任意 Python 代码）
 
 ## 当前质量门槛
 

@@ -11,6 +11,11 @@ from typing import Any
 
 from dotenv import load_dotenv
 
+if __package__ in {None, ""}:
+    from _repo_bootstrap import prefer_repo_source
+
+    prefer_repo_source()
+
 from math_agent.clients.interns1_client import InternS1Client
 from math_agent.evaluation.failure_report import (
     build_failure_rows,
@@ -18,8 +23,23 @@ from math_agent.evaluation.failure_report import (
 )
 from math_agent.evaluation.metrics import evaluate_results, render_markdown_report
 from math_agent.evaluation.proof_review import write_proof_review_pack
+from math_agent.harness.trace_reader import read_trace
+from math_agent.io_utils import (
+    load_bounded_json,
+    load_bounded_jsonl,
+    path_is_within,
+    paths_alias,
+    read_bounded_utf8_text,
+)
+from math_agent.logging_utils import (
+    atomic_text_write,
+    ensure_dir,
+    safe_text_write,
+    trace_path_for_question,
+)
 from math_agent.pipeline import solve_question
 from math_agent.schemas import MathQuestion, make_failure_result
+from math_agent.security import safe_exception_text
 
 _RETRYABLE_ERROR_SNIPPETS = (
     "timeout",
@@ -35,13 +55,76 @@ _RETRYABLE_ERROR_SNIPPETS = (
     "503",
     "504",
 )
+MAX_GATE_ATTEMPTS = 3
+MAX_GATE_ITEMS = 1_000
+MAX_RESULT_LINE_CHARS = 1_000_000
+MAX_RESULTS_CHARS = 64 * 1024 * 1024
+EXPECTED_DOMAINS = frozenset(
+    {
+        "Algebra",
+        "Calculus",
+        "Combinatorics",
+        "ComplexAnalysis",
+        "DifferentialEquations",
+        "DiscreteMath",
+        "FunctionalEquations",
+        "Geometry",
+        "LinearAlgebra",
+        "NumberTheory",
+        "NumericalAnalysis",
+        "OperationsResearch",
+        "Optimization",
+        "PDE",
+        "Probability",
+        "RealAnalysis",
+        "Statistics",
+        "Topology",
+    }
+)
+
+
+def _sample_coverage_ok(
+    answer_rows: list[dict[str, Any]], *, per_domain: int, include_proof: bool
+) -> bool:
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in answer_rows:
+        grouped[str(row.get("domain") or "unknown")].append(row)
+    if not EXPECTED_DOMAINS.issubset(grouped):
+        return False
+    for domain in EXPECTED_DOMAINS:
+        rows = grouped[domain]
+        unique_ids = {
+            str(row.get("question_id")) for row in rows if row.get("question_id")
+        }
+        if len(unique_ids) < per_domain:
+            return False
+        if include_proof and not any(
+            str(row.get("evaluation_mode", "")).startswith("proof")
+            or str(row.get("problem_type", "")).casefold() == "proof"
+            for row in rows
+        ):
+            return False
+    return True
+
+
+def _trace_integrity_ok(metrics: dict[str, Any], sample_count: int) -> bool:
+    return bool(
+        metrics.get("trace_read_ok") is True
+        and metrics.get("trace_count") == sample_count
+        and metrics.get("trace_eligible_question_id_count") == sample_count
+        and metrics.get("trace_error_count") == 0
+        and metrics.get("trace_missing_question_id_count") == 0
+        and metrics.get("trace_unmatched_count") == 0
+        and metrics.get("trace_duplicate_question_id_count") == 0
+        and metrics.get("trace_result_question_id_mismatch_count") == 0
+        and metrics.get("trace_result_content_mismatch_count") == 0
+        and metrics.get("trace_provenance_mismatch_count") == 0
+        and metrics.get("trace_binding_integrity_ok") is True
+    )
 
 
 def _load_jsonl(path: str | Path) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for line in Path(path).read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            rows.append(json.loads(line))
+    rows, _ = load_bounded_jsonl(path, require_objects=True)
     return rows
 
 
@@ -86,9 +169,9 @@ def _failure_question_ids_from_report(path: str | Path) -> set[str]:
             report_path = sibling
     if not report_path.exists():
         raise FileNotFoundError(f"failure report not found: {path}")
-    text = report_path.read_text(encoding="utf-8")
+    text = read_bounded_utf8_text(report_path)
     if report_path.suffix == ".json":
-        rows = json.loads(text)
+        rows = load_bounded_json(report_path)
         if not isinstance(rows, list):
             raise ValueError("failure report JSON must be a list of rows")
         return {
@@ -103,10 +186,10 @@ def _failure_question_ids_from_report(path: str | Path) -> set[str]:
 
 
 def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
+    ensure_dir(path.parent)
+    atomic_text_write(
         "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n",
-        encoding="utf-8",
+        path,
     )
 
 
@@ -124,7 +207,7 @@ def _run_real_preflight(client: Any) -> tuple[bool, str]:
             max_tokens=4,
         )
     except ValueError as exc:
-        return False, str(exc)
+        return False, safe_exception_text(exc)
     except Exception:
         return False, "unknown_error: preflight failed"
     if not str(response).strip():
@@ -133,25 +216,25 @@ def _run_real_preflight(client: Any) -> tuple[bool, str]:
 
 
 def _trace_model_call_count(trace_dir: Path, question_id: str) -> int:
-    trace_path = trace_dir / f"{question_id}.json"
+    trace_path = trace_path_for_question(trace_dir, question_id)
     if not trace_path.exists():
         return 0
-    try:
-        trace = json.loads(trace_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
+    loaded = read_trace(trace_path)
+    if loaded.get("ok") is not True or not isinstance(loaded.get("trace"), dict):
         return 0
+    trace = loaded["trace"]
     calls = trace.get("model_calls")
     return len(calls) if isinstance(calls, list) else 0
 
 
 def _trace_budget(trace_dir: Path, question_id: str) -> dict[str, int]:
-    trace_path = trace_dir / f"{question_id}.json"
+    trace_path = trace_path_for_question(trace_dir, question_id)
     if not trace_path.exists():
         return {"model_calls": 0, "tool_calls": 0}
-    try:
-        trace = json.loads(trace_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
+    loaded = read_trace(trace_path)
+    if loaded.get("ok") is not True or not isinstance(loaded.get("trace"), dict):
         return {"model_calls": 0, "tool_calls": 0}
+    trace = loaded["trace"]
     model_calls = trace.get("model_calls")
     tool_calls = trace.get("tool_calls")
     return {
@@ -268,7 +351,9 @@ def _solve_with_retries(
     enable_tools: bool,
     max_attempts: int,
 ) -> tuple[Any, int]:
-    attempts = max(1, max_attempts)
+    if not 1 <= max_attempts <= MAX_GATE_ATTEMPTS:
+        raise ValueError("max_attempts is outside the safe range")
+    attempts = max_attempts
     last_result: Any | None = None
     for attempt in range(1, attempts + 1):
         try:
@@ -285,7 +370,7 @@ def _solve_with_retries(
             result = make_failure_result(
                 question_id=str(row.get("question_id", "unknown")),
                 question=str(row.get("question", "")),
-                error_message=str(exc),
+                error_message=safe_exception_text(exc),
             )
         last_result = result
         if not _is_retryable_failure(result):
@@ -327,8 +412,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--include-proof",
         dest="include_proof",
         action="store_true",
-        default=True,
-        help="Include one proof-quality item per domain when available.",
+        default=False,
+        help=(
+            "Generate proof samples and a manual-review pack. This review mode cannot "
+            "produce an automatic gate PASS without external semantic decisions."
+        ),
     )
     parser.add_argument(
         "--no-include-proof",
@@ -351,7 +439,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--allow-missing-model-call",
         action="store_true",
         default=False,
-        help="Do not fail when a selected item has no model call in its trace.",
+        help=(
+            "Deprecated unsafe override; retained for CLI compatibility and rejected."
+        ),
     )
     return parser
 
@@ -365,17 +455,29 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
-    if args.per_domain < 1:
-        print("--per-domain must be >= 1", file=sys.stderr)
+    if args.allow_missing_model_call:
+        print(
+            "--allow-missing-model-call is rejected because model-call evidence is mandatory",
+            file=sys.stderr,
+        )
         return 2
-    if args.max_attempts < 1:
-        print("--max-attempts must be >= 1", file=sys.stderr)
+    if not 1 <= args.per_domain <= 100:
+        print("--per-domain must be between 1 and 100", file=sys.stderr)
+        return 2
+    if args.limit is not None and not 1 <= args.limit <= MAX_GATE_ITEMS:
+        print(f"--limit must be between 1 and {MAX_GATE_ITEMS}", file=sys.stderr)
+        return 2
+    if not 1 <= args.max_attempts <= MAX_GATE_ATTEMPTS:
+        print(
+            f"--max-attempts must be between 1 and {MAX_GATE_ATTEMPTS}",
+            file=sys.stderr,
+        )
         return 2
     client = InternS1Client(mock=False)
     try:
         client._validate_real_mode_config()
     except ValueError as exc:
-        print(str(exc), file=sys.stderr)
+        print(safe_exception_text(exc), file=sys.stderr)
         return 2
     if not args.skip_preflight:
         preflight_ok, preflight_message = _run_real_preflight(client)
@@ -383,13 +485,31 @@ def main() -> int:
             print(f"real_api_preflight_failed: {preflight_message}", file=sys.stderr)
             return 6
 
-    out_dir = Path(args.out_dir)
+    out_dir = Path(args.out_dir).absolute()
     trace_dir = out_dir / "traces"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    trace_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        ensure_dir(out_dir)
+        ensure_dir(trace_dir)
+    except OSError as exc:
+        print(safe_exception_text(exc), file=sys.stderr)
+        return 2
+    try:
+        if any(trace_dir.iterdir()):
+            print(
+                "trace directory must be empty for a fresh real gate run",
+                file=sys.stderr,
+            )
+            return 2
+    except OSError as exc:
+        print(safe_exception_text(exc), file=sys.stderr)
+        return 2
 
-    questions = _load_jsonl(args.input)
-    answers = _load_jsonl(args.answers)
+    try:
+        questions = _load_jsonl(args.input)
+        answers = _load_jsonl(args.answers)
+    except ValueError as exc:
+        print(safe_exception_text(exc), file=sys.stderr)
+        return 2
     selected_ids = _select_question_ids(
         answers,
         args.per_domain,
@@ -403,7 +523,7 @@ def main() -> int:
                 args.rerun_failures_from
             )
         except (OSError, ValueError, json.JSONDecodeError) as exc:
-            print(str(exc), file=sys.stderr)
+            print(safe_exception_text(exc), file=sys.stderr)
             return 2
         if not rerun_failure_ids:
             print("--rerun-failures-from did not contain question IDs", file=sys.stderr)
@@ -414,6 +534,11 @@ def main() -> int:
     selected_questions = [
         row for row in questions if row.get("question_id") in selected_ids
     ]
+    if len(selected_questions) > MAX_GATE_ITEMS:
+        print(
+            f"selected sample exceeds the {MAX_GATE_ITEMS}-item limit", file=sys.stderr
+        )
+        return 2
     selected_answers = [
         row for row in answers if row.get("question_id") in selected_ids
     ]
@@ -434,34 +559,65 @@ def main() -> int:
     failure_report_path = out_dir / "failure_replay_report.md"
     proof_review_path = out_dir / "proof_manual_review_pack.md"
     domain_dashboard_path = out_dir / "domain_dashboard.md"
+    protected_inputs = [Path(args.input), Path(args.answers)]
+    if args.rerun_failures_from:
+        protected_inputs.append(Path(args.rerun_failures_from))
+    output_paths = [
+        sample_questions_path,
+        sample_answers_path,
+        results_path,
+        report_path,
+        failure_report_path,
+        proof_review_path,
+        domain_dashboard_path,
+        domain_dashboard_path.with_suffix(".json"),
+        out_dir / "real_api_sample_gate_summary.json",
+    ]
+    if any(path_is_within(source, out_dir) for source in protected_inputs) or any(
+        paths_alias(source, output)
+        for source in protected_inputs
+        for output in output_paths
+    ):
+        print("output paths must not alias input files", file=sys.stderr)
+        return 2
     _write_jsonl(sample_questions_path, selected_questions)
     _write_jsonl(sample_answers_path, selected_answers)
 
     started = time.perf_counter()
     attempt_counts: dict[str, int] = {}
-    with results_path.open("w", encoding="utf-8") as fout:
-        for row in selected_questions:
-            result, attempts_used = _solve_with_retries(
-                row,
-                trace_dir=trace_dir,
-                mode=args.mode,
-                enable_tools=bool(args.enable_tools),
-                max_attempts=int(args.max_attempts),
-            )
-            attempt_counts[str(row.get("question_id", "unknown"))] = attempts_used
-            fout.write(result.model_dump_json(ensure_ascii=False) + "\n")
+    result_lines: list[str] = []
+    total_result_chars = 0
+    for row in selected_questions:
+        result, attempts_used = _solve_with_retries(
+            row,
+            trace_dir=trace_dir,
+            mode=args.mode,
+            enable_tools=bool(args.enable_tools),
+            max_attempts=int(args.max_attempts),
+        )
+        attempt_counts[str(row.get("question_id", "unknown"))] = attempts_used
+        result_line = result.model_dump_json(ensure_ascii=False) + "\n"
+        total_result_chars += len(result_line)
+        if (
+            len(result_line) > MAX_RESULT_LINE_CHARS
+            or total_result_chars > MAX_RESULTS_CHARS
+        ):
+            print("result output exceeds the safe size limit", file=sys.stderr)
+            return 2
+        result_lines.append(result_line)
+    atomic_text_write("".join(result_lines), results_path)
 
     metrics = evaluate_results(results_path, sample_answers_path, trace_dir)
-    report_path.write_text(
+    safe_text_write(
         render_markdown_report(metrics, str(results_path), str(sample_answers_path)),
-        encoding="utf-8",
+        report_path,
     )
     failures = write_failure_report(
         results_path=results_path,
         answers_path=sample_answers_path,
         trace_dir=trace_dir,
         out_path=failure_report_path,
-        include_format_only=False,
+        include_format_only=True,
     )
     all_failure_rows = build_failure_rows(
         results_path=results_path,
@@ -484,17 +640,56 @@ def main() -> int:
         proof_rows=proof_rows,
         failure_rows=all_failure_rows,
     )
-    domain_dashboard_path.write_text(
-        _render_domain_dashboard(domain_dashboard), encoding="utf-8"
-    )
-    domain_dashboard_path.with_suffix(".json").write_text(
-        json.dumps(domain_dashboard, ensure_ascii=False, indent=2), encoding="utf-8"
+    safe_text_write(_render_domain_dashboard(domain_dashboard), domain_dashboard_path)
+    safe_text_write(
+        json.dumps(domain_dashboard, ensure_ascii=False, indent=2),
+        domain_dashboard_path.with_suffix(".json"),
     )
     model_missing_ids = [
         str(row.get("question_id"))
         for row in selected_questions
         if _trace_model_call_count(trace_dir, str(row.get("question_id"))) == 0
     ]
+    sample_count = len(selected_questions)
+    pass_count = status_counts.get("success", 0)
+    partial_count = status_counts.get("partial", 0)
+    fail_count = status_counts.get("fail", 0)
+    coverage = metrics.get("answer_coverage_rate", 0.0)
+    rerun_mode = bool(args.rerun_failures_from)
+    if rerun_mode:
+        selected_answer_ids = {str(row.get("question_id")) for row in selected_answers}
+        coverage_requirements_ok = bool(
+            sample_count > 0
+            and selected_answer_ids
+            == {str(row.get("question_id")) for row in selected_questions}
+        )
+    else:
+        coverage_requirements_ok = _sample_coverage_ok(
+            selected_answers,
+            per_domain=int(args.per_domain),
+            include_proof=bool(args.include_proof),
+        )
+    trace_integrity_ok = _trace_integrity_ok(metrics, sample_count)
+    automated_scope_passed = bool(
+        sample_count > 0
+        and len(result_rows) == sample_count
+        and pass_count == sample_count
+        and partial_count == 0
+        and fail_count == 0
+        and not failures
+        and not model_missing_ids
+        and not args.include_proof
+        and metrics.get("evaluation_integrity_ok") is True
+        and metrics.get("evaluation_pass_count") == sample_count
+        and metrics.get("evaluation_pass_rate") == 1.0
+        and coverage_requirements_ok
+        and trace_integrity_ok
+        and isinstance(coverage, (int, float))
+        and not isinstance(coverage, bool)
+        and float(coverage) == 1.0
+    )
+    gate_passed = bool(automated_scope_passed and not rerun_mode)
+    rerun_passed = bool(automated_scope_passed and rerun_mode)
     summary = {
         "input": args.input,
         "answers": args.answers,
@@ -510,9 +705,12 @@ def main() -> int:
         "enable_tools": bool(args.enable_tools),
         "per_domain": args.per_domain,
         "include_proof": bool(args.include_proof),
+        "proof_manual_review_required": bool(args.include_proof),
         "max_attempts": int(args.max_attempts),
         "preflight": "skipped" if args.skip_preflight else "passed",
         "rerun_failures_from": args.rerun_failures_from,
+        "gate_scope": "failure_subset" if rerun_mode else "full_18_domain_sample",
+        "rerun_passed": rerun_passed,
         "rerun_failure_ids": sorted(rerun_failure_ids),
         "retry_attempt_count": sum(
             max(0, count - 1) for count in attempt_counts.values()
@@ -520,18 +718,24 @@ def main() -> int:
         "retried_question_ids": [
             qid for qid, count in attempt_counts.items() if count > 1
         ],
-        "sample_count": len(selected_questions),
+        "sample_count": sample_count,
         "domain_count": len({row.get("domain") for row in selected_answers}),
         "status_counts": dict(sorted(status_counts.items())),
-        "pass_count": status_counts.get("success", 0),
-        "partial_count": status_counts.get("partial", 0),
-        "fail_count": status_counts.get("fail", 0),
+        "pass_count": pass_count,
+        "partial_count": partial_count,
+        "fail_count": fail_count,
         "pass_rate": (
             status_counts.get("success", 0) / len(selected_questions)
             if selected_questions
             else 0.0
         ),
         "failure_count": len(failures),
+        "evaluation_integrity_ok": metrics.get("evaluation_integrity_ok") is True,
+        "answer_coverage_rate": coverage,
+        "gate_passed": gate_passed,
+        "coverage_requirements_ok": coverage_requirements_ok,
+        "expected_domain_count": len(EXPECTED_DOMAINS),
+        "trace_integrity_ok": trace_integrity_ok,
         "format_only_failure_count": sum(
             1
             for row in all_failure_rows
@@ -551,13 +755,11 @@ def main() -> int:
         "metrics": metrics,
     }
     summary_path = out_dir / "real_api_sample_gate_summary.json"
-    summary_path.write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    safe_text_write(json.dumps(summary, ensure_ascii=False, indent=2), summary_path)
     print(f"summary={summary_path}")
-    if model_missing_ids and not args.allow_missing_model_call:
+    if model_missing_ids:
         return 5
-    return 0 if not failures else 4
+    return 0 if gate_passed or rerun_passed else 4
 
 
 if __name__ == "__main__":

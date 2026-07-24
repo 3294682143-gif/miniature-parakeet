@@ -1,3 +1,4 @@
+# safety: allow-secret-fixtures
 from __future__ import annotations
 
 import json
@@ -12,6 +13,7 @@ from math_agent.debugger.failure_attribution import (
     filter_failures,
     load_shadow_results,
     select_representatives,
+    write_debugger_outputs,
 )
 from math_agent.debugger.report import (
     render_demo_case_list,
@@ -100,6 +102,18 @@ def test_debugger_flow(tmp_path: Path) -> None:
     assert "not official evaluation" in demo.lower()
 
 
+def test_debugger_treats_duplicate_json_keys_as_malformed(tmp_path: Path) -> None:
+    results = tmp_path / "shadow_results.jsonl"
+    results.write_text(
+        '{"id":"safe","id":"shadowed","question":"q"}\n', encoding="utf-8"
+    )
+
+    cases = load_shadow_results(results)
+
+    assert len(cases) == 1
+    assert cases[0].failure_category == "malformed_json"
+
+
 def test_cli_and_outputs(tmp_path: Path) -> None:
     results = tmp_path / "shadow_results.jsonl"
     _write_jsonl(results)
@@ -147,3 +161,116 @@ def test_cli_and_outputs(tmp_path: Path) -> None:
     content = (out / "failure_debug_report.md").read_text(encoding="utf-8")
     assert "SECRET_TOKEN" not in content
     assert "API_KEY" not in content
+
+
+def test_debugger_reclassifies_raw_failure_signals() -> None:
+    from math_agent.debugger.failure_attribution import FailureCase
+
+    cases = [
+        FailureCase(
+            id="json",
+            question="q",
+            expected_answer="5",
+            predicted_answer="5",
+            domain="a",
+            difficulty="easy",
+            answer_type="number",
+            failure_category="ok",
+            exact_match=True,
+            status="ok",
+            error_message="",
+            raw={"json_valid": False, "failure_category": "ok"},
+        ),
+        FailureCase(
+            id="partial",
+            question="q",
+            expected_answer=None,
+            predicted_answer="",
+            domain="a",
+            difficulty="easy",
+            answer_type="number",
+            failure_category="status_partial",
+            exact_match=False,
+            status="partial",
+            error_message="",
+            raw={"status": "partial", "failure_category": "status_partial"},
+        ),
+    ]
+
+    report = build_debugger_report(cases)
+
+    assert report.failed_count == 2
+    assert any("json_invalid" in action for action in report.p0_actions)
+    assert "status_partial" in report.failure_category_counts
+
+
+def test_malformed_shadow_line_secret_is_not_persisted(tmp_path: Path) -> None:
+    secret = "sk-DEBUGGER_SECRET_VALUE_123456"
+    results = tmp_path / "shadow_results.jsonl"
+    output = tmp_path / "out"
+    results.write_text("{bad " + secret + "\n", encoding="utf-8")
+
+    report = build_debugger_report(load_shadow_results(results))
+    from math_agent.debugger.failure_attribution import write_debugger_outputs
+
+    write_debugger_outputs(report, output)
+    rendered = "\n".join(
+        path.read_text(encoding="utf-8") for path in output.iterdir() if path.is_file()
+    )
+
+    assert secret not in rendered
+    assert report.representative_failures[0].failure_category == "malformed_json"
+    assert infer_severity(report.representative_failures[0]) == "P0"
+
+
+def test_debugger_rejects_false_like_exact_match_value(tmp_path: Path) -> None:
+    results = tmp_path / "shadow_results.jsonl"
+    results.write_text(
+        json.dumps(
+            {
+                "id": "bad-exact",
+                "question": "1+1?",
+                "expected_answer": "2",
+                "predicted_answer": "3",
+                "exact_match": "false",
+                "status": "success",
+                "json_valid": True,
+                "final_answer_exists": True,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    report = build_debugger_report(load_shadow_results(results))
+
+    assert report.failed_count == 1
+    assert report.representative_failures[0].exact_match is False
+    assert report.representative_failures[0].failure_category == "wrong_answer"
+
+
+def test_debugger_sink_redacts_manual_report_and_replaces_hardlink(
+    tmp_path: Path,
+) -> None:
+    results = tmp_path / "shadow_results.jsonl"
+    _write_jsonl(results)
+    report = build_debugger_report(load_shadow_results(results))
+    secret = "sk-MOCK_MANUAL_DEBUGGER_SECRET_123456"
+    report.p1_actions = [secret]
+    report.representative_failures[0].raw["api_key"] = "short-secret"
+
+    output = tmp_path / "out"
+    output.mkdir()
+    victim = tmp_path / "victim.md"
+    victim.write_text("preserve-me", encoding="utf-8")
+    os.link(victim, output / "failure_debug_report.md")
+
+    write_debugger_outputs(report, output)
+    rendered = "\n".join(
+        path.read_text(encoding="utf-8") for path in output.iterdir() if path.is_file()
+    )
+
+    assert victim.read_text(encoding="utf-8") == "preserve-me"
+    assert secret not in rendered
+    assert "short-secret" not in rendered
+    assert "[REDACTED]" in rendered

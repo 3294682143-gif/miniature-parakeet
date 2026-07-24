@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-import ast
 import re
 import time
+from contextvars import ContextVar
+from decimal import Decimal
+from hashlib import sha256
 from math import gcd, isqrt
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -29,14 +31,19 @@ from .control.weighted_voting_hook import (
 )
 from .harness.formatter_repair import detect_dirty_final_answer, repair_solve_result
 from .logging_utils import now_iso, write_trace
+from .prompting import freeze_prompts, load_prompts_snapshot
 from .schemas import (
+    EXECUTION_PROFILE_VERSION,
     FinalAnswer,
     ProblemParse,
     SolveResult,
     ToolTrace,
     Verification,
+    execution_provenance_fingerprint,
     make_failure_result,
+    question_fingerprint,
 )
+from .security import safe_exception_text
 from .tools import sympy_tools
 from .tools.answer_normalizer import (
     extract_answer_by_patterns,
@@ -44,20 +51,16 @@ from .tools.answer_normalizer import (
     extract_boxed_answers,
     normalize_answer,
 )
+from .tools.python_sandbox import evaluate_arithmetic_expression
 from .typing import ChatClient
 from .verification.verifier_scoring import score_candidates, score_to_metadata
 from .verification.weighted_voting import decision_to_metadata, weighted_vote
 
-_ALLOWED_BINARY_OPS = {
-    ast.Add: lambda a, b: a + b,
-    ast.Sub: lambda a, b: a - b,
-    ast.Mult: lambda a, b: a * b,
-    ast.Div: lambda a, b: a / b,
-    ast.Pow: lambda a, b: a**b,
-}
-_ALLOWED_UNARY_OPS = {ast.UAdd: lambda a: a, ast.USub: lambda a: -a}
 _FINAL_ANSWER_TYPES = {"number", "expression", "set", "proof", "algorithm", "text"}
 _SOLVE_STATUSES = {"success", "partial", "fail"}
+_MAX_TOOL_QUESTION_CHARS = 4_096
+_MAX_TOOL_INTEGER_ABS = 10**18
+_MAX_FACTORIZATION_INPUT = 10**10
 
 FinalAnswerType = Literal["number", "expression", "set", "proof", "algorithm", "text"]
 SolveStatus = Literal["success", "partial", "fail"]
@@ -71,31 +74,69 @@ VerificationMethod = Literal[
     "none",
 ]
 
+_MODEL_CALL_SINK: ContextVar[list[dict[str, Any]] | None] = ContextVar(
+    "math_agent_model_call_sink", default=None
+)
+
+
+class _StageTracingClient:
+    """Record only actual client.chat invocations without retaining prompt content."""
+
+    def __init__(self, delegate: ChatClient, stage: str) -> None:
+        self._delegate = delegate
+        self._stage = stage
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._delegate, name)
+
+    def chat(self, messages: list[dict[str, Any]], *args: Any, **kwargs: Any) -> str:
+        model_value = getattr(self._delegate, "model", "")
+        model = (
+            model_value
+            if isinstance(model_value, str) and model_value
+            else "unspecified"
+        )
+        prompt_chars = sum(
+            len(message.get("content", ""))
+            for message in messages
+            if isinstance(message, dict) and isinstance(message.get("content", ""), str)
+        )
+        sink = _MODEL_CALL_SINK.get()
+        try:
+            response = self._delegate.chat(messages, *args, **kwargs)
+        except Exception:
+            if sink is not None:
+                sink.append(
+                    {
+                        "stage": self._stage,
+                        "status": "error",
+                        "model": model,
+                        "prompt_chars": prompt_chars,
+                        "response_chars": 0,
+                    }
+                )
+            raise
+        if sink is not None:
+            sink.append(
+                {
+                    "stage": self._stage,
+                    "status": "ok",
+                    "model": model,
+                    "prompt_chars": prompt_chars,
+                    "response_chars": len(str(response)),
+                }
+            )
+        return response
+
 
 def _eval_safe_math_expr(expr: str):
-    tree = ast.parse(expr, mode="eval")
-
-    def e(n):
-        if isinstance(n, ast.Expression):
-            return e(n.body)
-        if isinstance(n, ast.Constant) and isinstance(n.value, (int, float)):
-            return n.value
-        if isinstance(n, ast.BinOp) and type(n.op) in _ALLOWED_BINARY_OPS:
-            return _ALLOWED_BINARY_OPS[type(n.op)](e(n.left), e(n.right))
-        if isinstance(n, ast.UnaryOp) and type(n.op) in _ALLOWED_UNARY_OPS:
-            return _ALLOWED_UNARY_OPS[type(n.op)](e(n.operand))
-        raise ValueError("unsupported expression")
-
-    return e(tree)
+    return evaluate_arithmetic_expression(expr)
 
 
 def _mock_answer_from_question(question: str) -> str | None:
     try:
-        return str(
-            _eval_safe_math_expr(
-                question.replace("=", "").replace("?", "").replace("计算", "").strip()
-            )
-        )
+        expression = _extract_simple_arithmetic(question)
+        return str(_eval_safe_math_expr(expression)) if expression is not None else None
     except Exception:
         return None
 
@@ -229,55 +270,10 @@ def _proof_fallback_review(
     final_value: str,
     final_boxed: str,
 ) -> Verification:
-    if (route_dict.get("problem_type", "") or "").lower() != "proof":
-        return verification
-    if verification.passed or final_type != "proof":
-        return verification
-    text = (current_steps or "").strip()
-    if len(text) <= 80:
-        return verification
-    if (final_boxed or "").strip() != "":
-        return verification
-    clean_final_value = (final_value or "").strip()
-    if clean_final_value in {
-        "",
-        "命题已完成证明。",
-        "结论：",
-        "最终结论：",
-        "已证明：",
-        "结论：**",
-    }:
-        return verification
-    keywords = [
-        "assume",
-        "suppose",
-        "therefore",
-        "hence",
-        "thus",
-        "conclude",
-        "qed",
-        "proof",
-        "let",
-        "contradiction",
-        "证明",
-        "定义",
-        "设",
-        "存在",
-        "任取",
-        "因此",
-        "所以",
-        "结论",
-        "证毕",
-        "证明完成",
-        "符合",
-    ]
-    keyword_text = text.lower()
-    if any(k.lower() in keyword_text for k in keywords):
-        return Verification(
-            method="logic_review",
-            passed=True,
-            notes="Proof structure detected; accepted by proof fallback review.",
-        )
+    # Proof-shape heuristics are diagnostic evidence, not a substitute verifier.
+    # In particular, a failed/non-JSON verifier response must remain failed so
+    # keyword-rich but mathematically false prose cannot become a success.
+    _ = (current_steps, route_dict, final_type, final_value, final_boxed)
     return verification
 
 
@@ -399,10 +395,20 @@ def _tool_success(
     purpose: str,
     tool: ToolName = "sympy",
 ) -> tuple[str, Verification, ToolTrace]:
+    rendered = str(value).strip()
+    if (
+        not rendered
+        or rendered in {"[]", "{}"}
+        or re.search(r"(?:^|[^a-z])(?:zoo|oo|nan|[+-]?inf)(?:$|[^a-z])", rendered, re.I)
+    ):
+        raise ValueError("tool result is outside the supported finite domain")
+    normalized = normalize_answer(rendered)
+    if not normalized:
+        raise ValueError("tool result could not be normalized safely")
     return (
-        normalize_answer(value),
+        normalized,
         Verification(method=method, passed=True, notes=notes),
-        ToolTrace(tool=tool, purpose=purpose, status="success", summary=value),
+        ToolTrace(tool=tool, purpose=purpose, status="success", summary=rendered),
     )
 
 
@@ -410,11 +416,98 @@ def _sentence_without_final_only(question: str) -> str:
     return re.sub(r"\bgive the final answer only\.?", "", question, flags=re.I).strip()
 
 
+def _extract_simple_arithmetic(question: str) -> str | None:
+    text = _sentence_without_final_only(str(question)).strip()
+    text = text.replace("计算", "").strip()
+    prefix = re.match(
+        r"^(?:compute|calculate|evaluate|what\s+is)\s+(.+?)\s*[?!.]?\s*$",
+        text,
+        flags=re.I,
+    )
+    if prefix is not None:
+        text = prefix.group(1).strip()
+    else:
+        text = text.rstrip(" ?!").strip()
+    text = re.sub(r"\s*=\s*$", "", text).strip()
+    if not re.fullmatch(r"[\d\s+\-*/().^]+", text) or not re.search(r"\d", text):
+        return None
+    return text.replace("^", "**")
+
+
+def _extract_requested_equation(question: str) -> str | None:
+    text = _sentence_without_final_only(str(question)).strip().rstrip("?!. ")
+    text = re.sub(
+        r"^(?:please\s+)?solve(?:\s+the\s+equation)?\s*[:：]?\s*",
+        "",
+        text,
+        count=1,
+        flags=re.I,
+    )
+    for prefix in ("求解方程", "解方程", "求解"):
+        if text.startswith(prefix):
+            text = text[len(prefix) :].lstrip(" :：")
+            break
+    if text.count("=") != 1 or not re.fullmatch(
+        r"[0-9A-Za-z().+\-*/^\s]+=[0-9A-Za-z().+\-*/^\s]+", text
+    ):
+        return None
+    allowed_functions = {
+        "abs",
+        "acos",
+        "asin",
+        "atan",
+        "cos",
+        "cosh",
+        "exp",
+        "ln",
+        "log",
+        "sin",
+        "sinh",
+        "sqrt",
+        "tan",
+        "tanh",
+    }
+    identifiers = re.findall(r"[A-Za-z][A-Za-z0-9_]*", text)
+    if any(
+        len(name) != 1 and name.casefold() not in allowed_functions
+        for name in identifiers
+    ):
+        return None
+    return text
+
+
+def _has_multiple_tool_targets(question: str) -> bool:
+    target_patterns = (
+        r"\bgcd\s*\(",
+        r"\blcm\s*\(",
+        r"\b\d+\s+choose\s+\d+\b",
+        r"\b(?:derivative|differentiate|integral|integrate)\b",
+        r"\b(?:euler\s+phi|phi)\b",
+        r"\b(?:multiplicative\s+inverse|least\s+positive\s+inverse)\b",
+        r"\b(?:least\s+nonnegative\s+residue|remainder\s+when)\b",
+        r"\b\d+(?:\.\d+)?\s*[+*/-]\s*\d+(?:\.\d+)?\b",
+    )
+    return (
+        sum(
+            sum(1 for _ in re.finditer(pattern, question, flags=re.I))
+            for pattern in target_patterns
+        )
+        > 1
+    )
+
+
 def _integer_power_exponent(base: str, value: str) -> str | None:
+    if (
+        re.fullmatch(r"[+-]?\d+", base) is None
+        or re.fullmatch(r"[+-]?\d+", value) is None
+    ):
+        return None
     try:
-        b = int(float(base))
-        v = int(float(value))
+        b = int(base)
+        v = int(value)
     except ValueError:
+        return None
+    if abs(b) > _MAX_TOOL_INTEGER_ABS or abs(v) > _MAX_TOOL_INTEGER_ABS:
         return None
     if b in {0, 1} or v == 0:
         return None
@@ -426,7 +519,18 @@ def _integer_power_exponent(base: str, value: str) -> str | None:
     return None
 
 
+def _parse_tool_int(value: str, *, max_abs: int = _MAX_TOOL_INTEGER_ABS) -> int:
+    if len(value.strip().lstrip("-")) > 19:
+        raise ValueError("tool integer is too large")
+    parsed = int(value)
+    if abs(parsed) > max_abs:
+        raise ValueError("tool integer is too large")
+    return parsed
+
+
 def _factor_int(n: int) -> dict[int, int]:
+    if not 1 <= n <= _MAX_FACTORIZATION_INPUT:
+        raise ValueError("factorization input is outside the safe range")
     factors: dict[int, int] = {}
     d = 2
     while d * d <= n:
@@ -454,6 +558,8 @@ def _divisor_count(n: int) -> int:
 
 
 def _format_sqrt_int(n: int) -> str:
+    if not 0 <= n <= _MAX_FACTORIZATION_INPUT:
+        raise ValueError("square-root simplification input is outside the safe range")
     root = isqrt(n)
     if root * root == n:
         return str(root)
@@ -474,20 +580,51 @@ def _format_sqrt_int(n: int) -> str:
 
 
 def _crt_two(a: int, m: int, b: int, n: int) -> int | None:
-    limit = m * n
-    for x in range(limit):
-        if x % m == a % m and x % n == b % n:
-            return x
-    return None
+    if not (0 < m <= _MAX_TOOL_INTEGER_ABS and 0 < n <= _MAX_TOOL_INTEGER_ABS):
+        raise ValueError("CRT modulus is outside the safe range")
+    common = gcd(m, n)
+    difference = b - a
+    if difference % common:
+        return None
+    reduced_m = m // common
+    reduced_n = n // common
+    multiplier = 0
+    if reduced_n != 1:
+        multiplier = (difference // common) * pow(reduced_m, -1, reduced_n)
+        multiplier %= reduced_n
+    modulus = reduced_m * n
+    return (a + m * multiplier) % modulus
 
 
 def _run_tool_assist(
     question: str, problem_type: str, recommended_solver: str
 ) -> tuple[str | None, Verification | None, ToolTrace]:
     q = question.strip()
+    if len(q) > _MAX_TOOL_QUESTION_CHARS:
+        return (
+            None,
+            None,
+            ToolTrace(
+                tool="none",
+                purpose="tool assist",
+                status="skipped",
+                summary="question exceeds the tool-assist size limit",
+            ),
+        )
     try:
         short_q = _sentence_without_final_only(q)
         lower_q = short_q.lower()
+        if _has_multiple_tool_targets(short_q):
+            return (
+                None,
+                None,
+                ToolTrace(
+                    tool="none",
+                    purpose="tool assist",
+                    status="skipped",
+                    summary="multiple mathematical targets require model review",
+                ),
+            )
 
         derivative_match = re.search(
             r"derivative of (?:f\(x\)\s*=\s*)?(.+?)(?:\.|$)",
@@ -536,11 +673,17 @@ def _run_tool_assist(
                     "compute definite integral",
                 )
 
+        decimal_pattern = r"(?:\d+(?:\.\d+)?|\.\d+)"
         log_match = re.search(
-            r"log\s+base\s+([0-9.]+)\s+of\s+([0-9.]+)", short_q, flags=re.I
+            rf"log\s+base\s+({decimal_pattern})\s+of\s+({decimal_pattern})",
+            short_q,
+            flags=re.I,
         )
         if log_match:
             base, value = log_match.groups()
+            base_decimal, value_decimal = Decimal(base), Decimal(value)
+            if base_decimal <= 0 or base_decimal == 1 or value_decimal <= 0:
+                raise ValueError("logarithm inputs are outside the real domain")
             s = _integer_power_exponent(base, value) or sympy_tools.solve_equation(
                 f"{base}**x={value}"
             )
@@ -552,7 +695,7 @@ def _run_tool_assist(
                 )
 
         exponential_match = re.search(
-            r"exponential equation\s+([0-9.]+)\*\*x\s*=\s*([0-9.]+)",
+            rf"exponential equation\s+({decimal_pattern})\*\*x\s*=\s*({decimal_pattern})",
             short_q,
             flags=re.I,
         )
@@ -584,14 +727,14 @@ def _run_tool_assist(
 
         gcd_match = re.search(r"\bgcd\((\d+)\s*,\s*(\d+)\)", short_q, flags=re.I)
         if gcd_match:
-            a, b = (int(x) for x in gcd_match.groups())
+            a, b = (_parse_tool_int(x) for x in gcd_match.groups())
             return _tool_success(
                 str(gcd(a, b)), "numeric_check", "gcd passed", "compute gcd"
             )
 
         lcm_match = re.search(r"\blcm\((\d+)\s*,\s*(\d+)\)", short_q, flags=re.I)
         if lcm_match:
-            a, b = (int(x) for x in lcm_match.groups())
+            a, b = (_parse_tool_int(x) for x in lcm_match.groups())
             value = abs(a * b) // gcd(a, b) if a and b else 0
             return _tool_success(
                 str(value), "numeric_check", "lcm passed", "compute lcm"
@@ -603,7 +746,7 @@ def _run_tool_assist(
             flags=re.I,
         )
         if remainder_match:
-            a, b = (int(x) for x in remainder_match.groups())
+            a, b = (_parse_tool_int(x) for x in remainder_match.groups())
             return _tool_success(
                 str(a % b),
                 "numeric_check",
@@ -620,7 +763,9 @@ def _run_tool_assist(
             flags=re.I,
         )
         if modpow_match:
-            base, exponent, modulus = (int(x) for x in modpow_match.groups())
+            base, exponent, modulus = (
+                _parse_tool_int(x) for x in modpow_match.groups()
+            )
             return _tool_success(
                 str(pow(base, exponent, modulus)),
                 "numeric_check",
@@ -633,7 +778,13 @@ def _run_tool_assist(
         )
         if phi_match:
             return _tool_success(
-                str(_totient(int(phi_match.group(1)))),
+                str(
+                    _totient(
+                        _parse_tool_int(
+                            phi_match.group(1), max_abs=_MAX_FACTORIZATION_INPUT
+                        )
+                    )
+                ),
                 "numeric_check",
                 "totient formula passed",
                 "compute euler phi",
@@ -644,7 +795,13 @@ def _run_tool_assist(
         )
         if divisor_match:
             return _tool_success(
-                str(_divisor_count(int(divisor_match.group(1)))),
+                str(
+                    _divisor_count(
+                        _parse_tool_int(
+                            divisor_match.group(1), max_abs=_MAX_FACTORIZATION_INPUT
+                        )
+                    )
+                ),
                 "numeric_check",
                 "divisor-count formula passed",
                 "count positive divisors",
@@ -659,7 +816,7 @@ def _run_tool_assist(
             flags=re.I,
         )
         if inverse_match:
-            a, modulus = (int(x) for x in inverse_match.groups())
+            a, modulus = (_parse_tool_int(x) for x in inverse_match.groups())
             return _tool_success(
                 str(pow(a, -1, modulus)),
                 "numeric_check",
@@ -677,7 +834,7 @@ def _run_tool_assist(
             flags=re.I,
         )
         if ascii_crt_match and "least nonnegative" in lower_q:
-            a, m, b, n = (int(x) for x in ascii_crt_match.groups())
+            a, m, b, n = (_parse_tool_int(x) for x in ascii_crt_match.groups())
             value = _crt_two(a, m, b, n)
             if value is not None:
                 return _tool_success(
@@ -696,7 +853,7 @@ def _run_tool_assist(
             flags=re.I,
         )
         if crt_match and "least nonnegative" in lower_q:
-            a, m, b, n = (int(x) for x in crt_match.groups())
+            a, m, b, n = (_parse_tool_int(x) for x in crt_match.groups())
             value = _crt_two(a, m, b, n)
             if value is not None:
                 return _tool_success(
@@ -716,6 +873,8 @@ def _run_tool_assist(
         )
         if "slope" in lower_q and slope_match:
             x1, y1, x2, y2 = slope_match.groups()
+            if Decimal(x1) == Decimal(x2):
+                raise ValueError("vertical line has no finite slope")
             s = sympy_tools.simplify_expression(f"(({y2})-({y1}))/(({x2})-({x1}))")
             if not s.startswith("ERROR:"):
                 return _tool_success(
@@ -731,7 +890,7 @@ def _run_tool_assist(
             flags=re.I,
         )
         if distance_sq_match:
-            x1, y1, x2, y2 = (int(x) for x in distance_sq_match.groups())
+            x1, y1, x2, y2 = (_parse_tool_int(x) for x in distance_sq_match.groups())
             return _tool_success(
                 str((x2 - x1) ** 2 + (y2 - y1) ** 2),
                 "numeric_check",
@@ -779,6 +938,8 @@ def _run_tool_assist(
         )
         if rect_match:
             length, width = rect_match.groups()
+            if Decimal(length) <= 0 or Decimal(width) <= 0:
+                raise ValueError("rectangle dimensions must be positive")
             s = sympy_tools.simplify_expression(f"{length}*{width}")
             if not s.startswith("ERROR:"):
                 return _tool_success(
@@ -795,6 +956,8 @@ def _run_tool_assist(
         )
         if triangle_match:
             base, height = triangle_match.groups()
+            if Decimal(base) <= 0 or Decimal(height) <= 0:
+                raise ValueError("triangle dimensions must be positive")
             s = sympy_tools.simplify_expression(f"({base})*({height})/2")
             if not s.startswith("ERROR:"):
                 return _tool_success(
@@ -810,7 +973,9 @@ def _run_tool_assist(
             flags=re.I,
         )
         if right_inradius_match:
-            a, b = (int(x) for x in right_inradius_match.groups())
+            a, b = (_parse_tool_int(x) for x in right_inradius_match.groups())
+            if a <= 0 or b <= 0:
+                raise ValueError("triangle legs must be positive")
             c_sq = a * a + b * b
             c = isqrt(c_sq)
             if c * c == c_sq:
@@ -829,7 +994,7 @@ def _run_tool_assist(
             flags=re.I,
         )
         if heron_match:
-            a, b, c = (int(x) for x in heron_match.groups())
+            a, b, c = (_parse_tool_int(x) for x in heron_match.groups())
             s2 = a + b + c
             area_sq_num = s2 * (s2 - 2 * a) * (s2 - 2 * b) * (s2 - 2 * c)
             if area_sq_num > 0 and area_sq_num % 16 == 0:
@@ -846,9 +1011,9 @@ def _run_tool_assist(
             flags=re.I,
         )
         if chord_match:
-            radius, distance = (int(x) for x in chord_match.groups())
+            radius, distance = (_parse_tool_int(x) for x in chord_match.groups())
             inner = radius * radius - distance * distance
-            if inner >= 0:
+            if radius > 0 and 0 <= distance < radius and inner > 0:
                 root = _format_sqrt_int(inner)
                 value = str(2 * int(root)) if root.isdigit() else f"2*{root}"
                 return _tool_success(
@@ -863,6 +1028,8 @@ def _run_tool_assist(
         )
         if circle_match:
             radius_text = circle_match.group(1)
+            if Decimal(radius_text) <= 0:
+                raise ValueError("circle radius must be positive")
             s = sympy_tools.simplify_expression(f"({radius_text})**2*pi")
             if not s.startswith("ERROR:"):
                 return _tool_success(
@@ -928,7 +1095,9 @@ def _run_tool_assist(
             flags=re.I,
         )
         if arithmetic_sequence_match:
-            first, diff, index = (int(x) for x in arithmetic_sequence_match.groups())
+            first, diff, index = (
+                _parse_tool_int(x) for x in arithmetic_sequence_match.groups()
+            )
             return _tool_success(
                 str(first + (index - 1) * diff),
                 "numeric_check",
@@ -942,9 +1111,17 @@ def _run_tool_assist(
             flags=re.I,
         )
         if geometric_sequence_match:
-            first, ratio, index = (int(x) for x in geometric_sequence_match.groups())
+            first, ratio, index = (
+                _parse_tool_int(x) for x in geometric_sequence_match.groups()
+            )
+            if not 1 <= index <= 1_001:
+                raise ValueError("geometric sequence index is outside the safe range")
             return _tool_success(
-                str(first * ratio ** (index - 1)),
+                str(
+                    evaluate_arithmetic_expression(
+                        f"({first})*(({ratio})**({index - 1}))"
+                    )
+                ),
                 "numeric_check",
                 "geometric sequence formula passed",
                 "compute geometric sequence term",
@@ -989,9 +1166,7 @@ def _run_tool_assist(
                         "compute function composition",
                     )
 
-        equation_match = re.search(
-            r"([0-9a-zA-Z\(\)\+\-\*/\^\.\s]+=[0-9a-zA-Z\(\)\+\-\*/\^\.\s]+)", q
-        )
+        equation = _extract_requested_equation(q)
         if "化简" in q:
             expr = q.split("化简", 1)[1].strip(" ：:？?")
             s = sympy_tools.simplify_expression(expr)
@@ -1010,11 +1185,10 @@ def _run_tool_assist(
                         summary=s,
                     ),
                 )
-        if equation_match and (
+        if equation and (
             "求解" in q or "解方程" in q or q.lower().startswith("solve") or "解 " in q
         ):
-            eq = equation_match.group(1).strip(" ：:？?")
-            s = sympy_tools.solve_equation(eq)
+            s = sympy_tools.solve_equation(equation)
             if not s.startswith("ERROR:"):
                 return (
                     s,
@@ -1028,19 +1202,13 @@ def _run_tool_assist(
                         summary=s,
                     ),
                 )
-        maybe = (
-            q.replace("计算", "")
-            .replace("=", "")
-            .replace("?", "")
-            .replace("？", "")
-            .strip()
-        )
-        if (
+        maybe = _extract_simple_arithmetic(q)
+        if maybe is not None and (
             problem_type == "calculation"
             or (recommended_solver or "").lower() == "program"
             or re.fullmatch(r"[\d\s\+\-\*/\(\)\.\^]+", maybe)
         ):
-            v = str(_eval_safe_math_expr(maybe.replace("^", "**")))
+            v = str(_eval_safe_math_expr(maybe))
             return (
                 v,
                 Verification(
@@ -1057,7 +1225,10 @@ def _run_tool_assist(
             None,
             None,
             ToolTrace(
-                tool="python", purpose="tool assist", status="fail", summary=str(exc)
+                tool="python",
+                purpose="tool assist",
+                status="fail",
+                summary=safe_exception_text(exc),
             ),
         )
     return (
@@ -1095,7 +1266,13 @@ class MathAgentPipeline:
             raise ValueError("run_mode must be one of: full, fast, tool-first")
         self.mock = mock
         self.enable_tools = enable_tools
-        self.max_refine_rounds = max(0, max_refine_rounds)
+        if (
+            isinstance(max_refine_rounds, bool)
+            or not isinstance(max_refine_rounds, int)
+            or not 0 <= max_refine_rounds <= 3
+        ):
+            raise ValueError("max_refine_rounds must be an integer between 0 and 3")
+        self.max_refine_rounds = max_refine_rounds
         self.save_trace = save_trace
         self.trace_dir = Path(trace_dir)
         self.prompt_version = prompt_version
@@ -1103,21 +1280,130 @@ class MathAgentPipeline:
         self.hard_mode_policy = hard_mode_policy
         self.client = client or InternS1Client(mock=mock)
         self.prompt_config_path = Path(prompt_config_path)
+        prompt_snapshot, self._prompt_config_digest = load_prompts_snapshot(
+            self.prompt_config_path
+        )
+        self._prompt_snapshot = freeze_prompts(prompt_snapshot)
         self.router = router.Router(
-            client=self.client, prompt_config_path=self.prompt_config_path
+            client=_StageTracingClient(self.client, "router"),
+            prompt_config_path=self.prompt_config_path,
+            prompts=self._prompt_snapshot,
         )
         self.planner_agent = planner.Planner(
-            self.client, self.prompt_config_path, mock=self.mock
+            _StageTracingClient(self.client, "planner"),
+            self.prompt_config_path,
+            mock=self.mock,
+            prompts=self._prompt_snapshot,
         )
         self.solver_agent = solver.Solver(
-            self.client, self.prompt_config_path, mock=self.mock
+            _StageTracingClient(self.client, "solver"),
+            self.prompt_config_path,
+            mock=self.mock,
+            prompts=self._prompt_snapshot,
         )
         self.verifier_agent = verifier.Verifier(
-            self.client, self.prompt_config_path, mock=self.mock
+            _StageTracingClient(self.client, "verifier"),
+            self.prompt_config_path,
+            mock=self.mock,
+            prompts=self._prompt_snapshot,
+        )
+        self.refiner_agent = refiner.Refiner(
+            _StageTracingClient(self.client, "refiner"),
+            self.prompt_config_path,
+            mock=self.mock,
+            prompts=self._prompt_snapshot,
+        )
+
+    def execution_profile(self) -> dict[str, Any]:
+        client_class = (
+            f"{type(self.client).__module__}.{type(self.client).__qualname__}"
+        )
+        hard_mode = (
+            policy_to_metadata(self.hard_mode_policy)
+            if self.hard_mode_policy is not None
+            else None
+        )
+        endpoint_sha256 = ""
+        if not self.mock:
+            endpoint_value = getattr(self.client, "base_url", "")
+            if isinstance(endpoint_value, str) and endpoint_value:
+                endpoint_sha256 = sha256(
+                    endpoint_value.encode("utf-8", errors="strict")
+                ).hexdigest()
+        trace_dir_sha256 = ""
+        if self.save_trace:
+            trace_dir_sha256 = sha256(
+                str(self.trace_dir.absolute()).encode("utf-8", errors="strict")
+            ).hexdigest()
+        timeout_value = getattr(self.client, "timeout", None)
+        timeout = (
+            timeout_value
+            if isinstance(timeout_value, int)
+            and not isinstance(timeout_value, bool)
+            and timeout_value > 0
+            else None
+        )
+        retries_value = getattr(self.client, "max_retries", None)
+        max_retries = (
+            retries_value
+            if isinstance(retries_value, int)
+            and not isinstance(retries_value, bool)
+            and retries_value > 0
+            else None
+        )
+        profile: dict[str, Any] = {
+            "profile_version": EXECUTION_PROFILE_VERSION,
+            "schema": "SolveResult/v2",
+            "client_class": client_class,
+            "mock": self.mock,
+            "model": _as_str(getattr(self.client, "model", ""), "") or "unspecified",
+            "endpoint_sha256": endpoint_sha256,
+            "timeout": timeout,
+            "max_retries": max_retries,
+            "enable_tools": self.enable_tools,
+            "save_trace": self.save_trace,
+            "trace_dir_sha256": trace_dir_sha256,
+            "run_mode": self.run_mode,
+            "max_refine_rounds": self.max_refine_rounds,
+            "prompt_version": self.prompt_version,
+            "prompt_config_sha256": self._prompt_config_digest,
+            "hard_mode_policy": hard_mode,
+        }
+        return profile
+
+    def execution_fingerprint(self, question: str) -> str:
+        return execution_provenance_fingerprint(
+            question=question, execution_profile=self.execution_profile()
+        )
+
+    def _verify_tool_candidate(
+        self,
+        question: str,
+        value: str,
+        route_info: dict[str, Any],
+        diagnostic: Verification,
+    ) -> Verification:
+        if diagnostic.passed is not True:
+            return diagnostic
+        if self.mock:
+            return diagnostic
+        independent = self.verifier_agent.verify(
+            question,
+            f"Independent tool candidate: {value}",
+            value,
+            route_info,
+        )
+        if not independent.passed:
+            return independent
+        return Verification(
+            method=independent.method,
+            passed=True,
+            notes=(f"Independent verifier passed. Tool diagnostic: {diagnostic.notes}"),
         )
 
     def solve(self, question: str, question_id: str | None = None) -> SolveResult:
         qid = question_id or "unknown"
+        execution_fingerprint = ""
         started_at = now_iso()
         started_perf = time.perf_counter()
         plan: dict[str, Any] = {}
@@ -1128,8 +1414,11 @@ class MathAgentPipeline:
         verification = Verification(method="none", passed=False, notes="not verified")
         traces: list[ToolTrace] = []
         result = make_failure_result(
-            question_id=qid, question=question, error_message="pipeline not executed"
+            question_id=qid,
+            question=question,
+            error_message="pipeline not executed",
         )
+        model_calls: list[dict[str, Any]] = []
         trace_payload: dict[str, Any] = {
             "question_id": qid,
             "question": question,
@@ -1139,12 +1428,21 @@ class MathAgentPipeline:
             "prompt_version": self.prompt_version,
             "run_mode": self.run_mode,
             "route_info": {},
-            "model_calls": [],
+            "model_calls": model_calls,
             "tool_calls": [],
             "verifier_result": {},
             "final_result": {},
             "errors": [],
         }
+        trace_metadata: dict[str, Any]
+        if self.mock:
+            trace_metadata = {
+                "mock_evaluation_only": True,
+                "mock_results_are_not_official": True,
+            }
+        else:
+            trace_metadata = {"real_execution_requested": True}
+        trace_payload["metadata"] = trace_metadata
         if self.hard_mode_policy is not None:
             answer_type_hint = (
                 "proof"
@@ -1161,27 +1459,29 @@ class MathAgentPipeline:
                 max_candidate_budget=3,
             )
             policy_snapshot = policy_to_metadata(self.hard_mode_policy)
-            trace_payload["metadata"] = {
-                "hard_mode_policy": policy_snapshot,
-                "hard_mode_runtime": runtime_config_to_metadata(runtime_config),
-                "hard_mode_enabled": self.hard_mode_policy.enabled,
-                "hard_mode_level": self.hard_mode_policy.level,
-                "hard_mode_effect": runtime_config.effect,
-                "hard_mode_candidate_budget_preview": (
-                    runtime_config.effective_candidate_budget
-                ),
-                "hard_mode_verifier_level_preview": runtime_config.verifier_level,
-            }
+            trace_metadata.update(
+                {
+                    "hard_mode_policy": policy_snapshot,
+                    "hard_mode_runtime": runtime_config_to_metadata(runtime_config),
+                    "hard_mode_enabled": self.hard_mode_policy.enabled,
+                    "hard_mode_level": self.hard_mode_policy.level,
+                    "hard_mode_effect": runtime_config.effect,
+                    "hard_mode_candidate_budget_preview": (
+                        runtime_config.effective_candidate_budget
+                    ),
+                    "hard_mode_verifier_level_preview": runtime_config.verifier_level,
+                }
+            )
             if runtime_config.enabled:
                 candidate_budget_plan = build_candidate_budget_plan(runtime_config)
                 verifier_routing_plan = build_verifier_routing_plan(
                     runtime_config,
                     answer_type=answer_type_hint,
                 )
-                trace_payload["metadata"]["candidate_budget_plan"] = (
+                trace_metadata["candidate_budget_plan"] = (
                     candidate_budget_plan_to_metadata(candidate_budget_plan)
                 )
-                trace_payload["metadata"]["verifier_routing_plan"] = (
+                trace_metadata["verifier_routing_plan"] = (
                     verifier_routing_plan_to_metadata(verifier_routing_plan)
                 )
                 weighted_plan = build_weighted_voting_runtime_plan(
@@ -1191,10 +1491,10 @@ class MathAgentPipeline:
                     current_answer="",
                     answer_type=answer_type_hint,
                 )
-                trace_payload["metadata"]["weighted_voting_plan"] = (
-                    runtime_plan_to_metadata(weighted_plan)
+                trace_metadata["weighted_voting_plan"] = runtime_plan_to_metadata(
+                    weighted_plan
                 )
-                trace_payload["metadata"]["weighted_voting_effect"] = "preview_only"
+                trace_metadata["weighted_voting_effect"] = "preview_only"
                 _candidates = [
                     {
                         "candidate_id": "candidate-0",
@@ -1208,11 +1508,11 @@ class MathAgentPipeline:
                     answer_type=answer_type_hint,
                 )
                 _decision = weighted_vote(_candidates, _scores)
-                trace_payload["metadata"]["verifier_scores"] = [
+                trace_metadata["verifier_scores"] = [
                     score_to_metadata(x) for x in _scores
                 ]
-                trace_payload["metadata"]["weighted_vote_decision"] = (
-                    decision_to_metadata(_decision)
+                trace_metadata["weighted_vote_decision"] = decision_to_metadata(
+                    _decision
                 )
                 proof_plan = build_proof_guardian_runtime_plan(
                     runtime_config,
@@ -1221,14 +1521,25 @@ class MathAgentPipeline:
                     answer_type=answer_type_hint,
                 )
                 if proof_plan.enabled:
-                    trace_payload["metadata"]["proof_guardian_plan"] = (
+                    trace_metadata["proof_guardian_plan"] = (
                         proof_guardian_runtime_plan_to_metadata(proof_plan)
                     )
-                    trace_payload["metadata"]["proof_guardian_effect"] = "preview_only"
-                trace_payload["metadata"][
-                    "hard_mode_execution_effect"
-                ] = "candidate_and_verifier_routing_preview"
+                    trace_metadata["proof_guardian_effect"] = "preview_only"
+                trace_metadata["hard_mode_execution_effect"] = (
+                    "candidate_and_verifier_routing_preview"
+                )
+        model_call_token = _MODEL_CALL_SINK.set(model_calls)
         try:
+            execution_profile = self.execution_profile()
+            execution_fingerprint = execution_provenance_fingerprint(
+                question=question, execution_profile=execution_profile
+            )
+            result = result.model_copy(
+                update={"execution_fingerprint": execution_fingerprint}
+            )
+            trace_payload["input_fingerprint"] = result.input_fingerprint
+            trace_payload["execution_fingerprint"] = execution_fingerprint
+            trace_payload["execution_profile"] = execution_profile
             route_info = self.router.route(question)
             route_dict = (
                 route_info.model_dump()
@@ -1244,7 +1555,9 @@ class MathAgentPipeline:
             trace_payload["route_info"] = route_dict
 
             tool_first_done = False
+            tool_first_attempted = False
             if self.run_mode == "tool-first" and self.enable_tools:
+                tool_first_attempted = True
                 problem_type = _as_str(route_dict.get("problem_type", ""), "")
                 recommended_solver = _as_str(
                     route_dict.get("recommended_solver", ""), ""
@@ -1258,11 +1571,22 @@ class MathAgentPipeline:
                 tool_calls = trace_payload.get("tool_calls")
                 if isinstance(tool_calls, list):
                     tool_calls.append(ttrace.model_dump())
-                if tv is not None and tvf is not None and tvf.passed:
+                if (
+                    tv is not None
+                    and tvf is not None
+                    and tvf.passed is True
+                    and ttrace.status == "success"
+                ):
+                    tool_verification = self._verify_tool_candidate(
+                        question, str(tv).strip(), route_dict, tvf
+                    )
+                else:
+                    tool_verification = None
+                if tool_verification is not None and tool_verification.passed:
                     plan = planner._fallback_plan(question, route_dict)
-                    draft = f"工具优先求得答案: \boxed{{{str(tv).strip()}}}"
+                    draft = f"工具优先求得答案: \\boxed{{{str(tv).strip()}}}"
                     final = str(tv).strip()
-                    verification = tvf
+                    verification = tool_verification
                     status = "success"
                     current = draft
                     tool_first_done = True
@@ -1272,26 +1596,17 @@ class MathAgentPipeline:
                     plan = planner._fallback_plan(question, route_dict)
                 else:
                     plan = self.planner_agent.plan(question, route_dict)
-                    trace_payload["model_calls"].append(
-                        {
-                            "stage": "planner",
-                            "status": "ok",
-                            "model": getattr(self.client, "model", "intern-s1"),
-                            "prompt_chars": len(str(question)) + len(str(route_dict)),
-                            "response_chars": len(str(plan)),
-                        }
-                    )
 
                 draft = self.solver_agent.solve(question, route_dict, plan)
-                trace_payload["model_calls"].append(
-                    {
-                        "stage": "solver",
-                        "status": "ok",
-                        "model": getattr(self.client, "model", "intern-s1"),
-                        "prompt_chars": len(str(question)) + len(str(plan)),
-                        "response_chars": len(str(draft)),
-                    }
+
+                deterministic_mock_answer = (
+                    _mock_answer_from_question(question) if self.mock else None
                 )
+                if deterministic_mock_answer is not None:
+                    draft = (
+                        "Deterministic local mock calculation: "
+                        f"\\boxed{{{deterministic_mock_answer}}}"
+                    )
 
                 final = _extract_final_answer_non_proof(draft, draft, None)
                 status = "success"
@@ -1305,30 +1620,21 @@ class MathAgentPipeline:
                         status = "partial"
                         final = ""
 
-                if self.run_mode == "fast":
-                    verification = self.verifier_agent._tool_verify(
-                        draft, final
-                    ) or Verification(
-                        method="self_review",
+                verification = self.verifier_agent.verify(
+                    question, draft, final, route_dict
+                )
+                if self.mock and deterministic_mock_answer is None:
+                    verification = Verification(
+                        method="none",
                         passed=False,
-                        notes="fast mode: tool verifier fallback failed",
-                    )
-                else:
-                    verification = self.verifier_agent.verify(
-                        question, draft, final, route_dict
-                    )
-                    trace_payload["model_calls"].append(
-                        {
-                            "stage": "verifier",
-                            "status": "ok",
-                            "model": getattr(self.client, "model", "intern-s1"),
-                            "prompt_chars": len(str(question)) + len(str(draft)),
-                            "response_chars": len(str(verification.notes)),
-                        }
+                        notes=(
+                            "Mock mode cannot certify questions without a successful "
+                            "bounded deterministic check."
+                        ),
                     )
 
             current = draft
-            if self.enable_tools:
+            if self.enable_tools and not tool_first_done and not tool_first_attempted:
                 problem_type = _as_str(route_dict.get("problem_type", ""), "")
                 recommended_solver = _as_str(
                     route_dict.get("recommended_solver", ""), ""
@@ -1342,8 +1648,23 @@ class MathAgentPipeline:
                 tool_calls = trace_payload.get("tool_calls")
                 if isinstance(tool_calls, list):
                     tool_calls.append(ttrace.model_dump())
-                if tv is not None and tvf is not None:
-                    final, verification, status = str(tv).strip(), tvf, "success"
+                if (
+                    tv is not None
+                    and tvf is not None
+                    and tvf.passed is True
+                    and ttrace.status == "success"
+                ):
+                    tool_verification = self._verify_tool_candidate(
+                        question, str(tv).strip(), route_dict, tvf
+                    )
+                else:
+                    tool_verification = None
+                if tool_verification is not None and tool_verification.passed:
+                    final, verification, status = (
+                        str(tv).strip(),
+                        tool_verification,
+                        "success",
+                    )
                     current = f"工具校验/计算得到最终答案为 \\boxed{{{final}}}。"
             if not _is_proof_problem(
                 _as_str(route_dict.get("problem_type", ""), ""),
@@ -1356,8 +1677,14 @@ class MathAgentPipeline:
             rounds = 0
             while not verification.passed and rounds < self.max_refine_rounds:
                 rounds += 1
-                current = refiner.run(current)
-                refined = _extract_final_answer_non_proof(draft, current, None)
+                previous = current
+                current = self.refiner_agent.refine(
+                    question, current, verification.model_dump()
+                )
+                if not isinstance(current, str) or current == previous:
+                    current = previous
+                    break
+                refined = _extract_final_answer_non_proof(current, current, None)
                 final = refined or final
                 verification = self.verifier_agent.verify(
                     question, current, final, route_dict
@@ -1426,6 +1753,8 @@ class MathAgentPipeline:
                 ),
                 status=solve_status,
                 error=None,
+                input_fingerprint=question_fingerprint(question),
+                execution_fingerprint=execution_fingerprint,
             )
             pre_flags = detect_dirty_final_answer(result)
             repaired = repair_solve_result(result)
@@ -1447,36 +1776,90 @@ class MathAgentPipeline:
                 )
                 trace_payload.setdefault("verification_issues", []).extend(risk_flags)
             result = repaired
-            trace_payload["model_calls_count"] = len(trace_payload["model_calls"])
         except Exception as exc:
-            trace_payload["errors"].append(str(exc))
+            trace_payload["errors"].append(safe_exception_text(exc))
             result = make_failure_result(
-                question_id=qid, question=question, error_message=str(exc)
+                question_id=qid,
+                question=question,
+                error_message=safe_exception_text(exc),
+                execution_fingerprint=execution_fingerprint,
             )
         finally:
             trace_payload["finished_at"] = now_iso()
             trace_payload["latency_seconds"] = time.perf_counter() - started_perf
+            trace_payload["input_fingerprint"] = result.input_fingerprint
+            trace_payload["execution_fingerprint"] = result.execution_fingerprint
+            trace_payload["model_calls_count"] = len(model_calls)
+            route_result = trace_payload.get("route_info")
+            if not isinstance(route_result, dict):
+                route_result = {}
+                trace_payload["route_info"] = route_result
+            route_result["domain"] = result.domain
+            route_result["problem_type"] = result.problem_type
+            trace_payload["verifier_result"] = result.verification.model_dump()
             trace_payload["final_result"] = result.model_dump()
             if self.save_trace:
                 try:
                     write_trace(trace_payload, self.trace_dir, qid)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    trace_error = f"trace_write_failed: {safe_exception_text(exc)}"
+                    result = result.model_copy(
+                        update={
+                            "status": "fail",
+                            "error": trace_error,
+                            "verification": Verification(
+                                method="none",
+                                passed=False,
+                                notes="Required trace persistence failed.",
+                            ),
+                        }
+                    )
+            _MODEL_CALL_SINK.reset(model_call_token)
         return result
+
+
+def execution_fingerprint_for_question(
+    question,
+    mock: bool = True,
+    model: str | None = None,
+    enable_tools: bool = False,
+    save_trace: bool = True,
+    trace_dir: str | Path = "outputs/traces",
+    run_mode: str = "full",
+    hard_mode_policy: HardModePolicy | None = None,
+    prompt_config_path: str | Path = "configs/prompts.yaml",
+    prompt_version: str = "default",
+    max_refine_rounds: int = 1,
+) -> str:
+    client = InternS1Client(mock=mock, model=model)
+    pipeline = MathAgentPipeline(
+        client=client,
+        prompt_config_path=prompt_config_path,
+        mock=mock,
+        enable_tools=enable_tools,
+        max_refine_rounds=max_refine_rounds,
+        save_trace=save_trace,
+        trace_dir=trace_dir,
+        prompt_version=prompt_version,
+        run_mode=run_mode,
+        hard_mode_policy=hard_mode_policy,
+    )
+    return pipeline.execution_fingerprint(question.question)
 
 
 def solve_question(
     question,
     mock: bool = True,
-    model: str = "intern-s1",
+    model: str | None = None,
     enable_tools: bool = False,
     save_trace: bool = True,
     trace_dir: str | Path = "outputs/traces",
     run_mode: str = "full",
     hard_mode_policy: HardModePolicy | None = None,
 ):
-    _ = model
+    client = InternS1Client(mock=mock, model=model)
     return MathAgentPipeline(
+        client=client,
         mock=mock,
         enable_tools=enable_tools,
         save_trace=save_trace,

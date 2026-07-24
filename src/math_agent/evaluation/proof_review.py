@@ -7,11 +7,12 @@ from typing import Any
 from math_agent.evaluation.metrics import (
     load_answer_records,
     load_jsonl,
-    proof_evaluation_hit,
     proof_quality_score,
 )
 from math_agent.harness.trace_reader import read_trace
+from math_agent.logging_utils import safe_text_write, trace_path_for_question
 from math_agent.schemas import SolveResult
+from math_agent.security import redact_sensitive_data
 
 RISK_FEEDBACK = {
     "proof_partial": "Add missing assumptions, intermediate lemmas, and an explicit final conclusion.",
@@ -21,12 +22,16 @@ RISK_FEEDBACK = {
     "proof_contradiction_risk": "Clarify the contradiction assumption and derive the contradiction explicitly.",
     "proof_circular_reasoning_risk": "Remove circular dependence on the target conclusion.",
 }
+MANUAL_SEMANTIC_REVIEW_MESSAGE = (
+    "Verify that every inference proves the exact stated claim; structural rubric "
+    "scores are not semantic approval."
+)
 
 
 def _trace_path(trace_dir: str | Path | None, question_id: str) -> Path | None:
     if not trace_dir:
         return None
-    return Path(trace_dir) / f"{question_id}.json"
+    return trace_path_for_question(trace_dir, question_id)
 
 
 def _read_question_from_trace(trace_path: Path | None) -> str:
@@ -47,7 +52,7 @@ def _proof_text(result: SolveResult) -> str:
 
 
 def proof_review_feedback(risk_flags: list[str], reasons: list[str]) -> list[str]:
-    feedback: list[str] = []
+    feedback: list[str] = [MANUAL_SEMANTIC_REVIEW_MESSAGE]
     for flag in risk_flags:
         item = RISK_FEEDBACK.get(str(flag))
         if item:
@@ -81,9 +86,8 @@ def build_proof_review_rows(
         ):
             continue
         score = proof_quality_score(result)
-        passed = proof_evaluation_hit(result, answer_row, evaluation_mode)
         trace_path = _trace_path(trace_dir, result.question_id)
-        rows.append(
+        row = redact_sensitive_data(
             {
                 "question_id": result.question_id,
                 "question": _read_question_from_trace(trace_path),
@@ -104,14 +108,13 @@ def build_proof_review_rows(
                 "review_feedback": proof_review_feedback(
                     score.risk_flags, score.reasons
                 ),
-                "manual_review_recommended": (
-                    not passed or bool(score.risk_flags) or score.proof_partial
-                ),
+                "manual_review_recommended": True,
                 "proof_text": _proof_text(result),
                 "final_answer_value": result.final_answer.value,
                 "trace_path": str(trace_path or ""),
             }
         )
+        rows.append(row if isinstance(row, dict) else {})
     return rows
 
 
@@ -179,8 +182,8 @@ def write_proof_review_pack(
     )
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render_proof_review_pack(rows), encoding="utf-8")
-    out.with_suffix(".json").write_text(
-        json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8"
+    safe_text_write(render_proof_review_pack(rows), out)
+    safe_text_write(
+        json.dumps(rows, ensure_ascii=False, indent=2), out.with_suffix(".json")
     )
     return rows

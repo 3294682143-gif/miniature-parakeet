@@ -1,6 +1,8 @@
+# safety: allow-secret-fixtures
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -18,7 +20,35 @@ def test_real_api_status_classification() -> None:
     assert _real_api_status({"total_model_calls": 2, "fail_count": 1}) == (
         "needs_failure_closure"
     )
-    assert _real_api_status({"total_model_calls": 2, "fail_count": 0}) == "passed"
+    assert (
+        _real_api_status(
+            {
+                "total_model_calls": 2,
+                "fail_count": 0,
+                "partial_count": 0,
+                "failure_count": 0,
+                "evaluation_integrity_ok": True,
+                "gate_passed": True,
+            }
+        )
+        == "passed"
+    )
+    assert (
+        _real_api_status(
+            {
+                "total_model_calls": 1,
+                "fail_count": 0,
+                "failure_count": 10,
+                "evaluation_integrity_ok": True,
+                "gate_passed": True,
+            }
+        )
+        == "needs_failure_closure"
+    )
+    assert (
+        _real_api_status({"total_model_calls": "sk-STATUS_SECRET_VALUE_123456"})
+        == "blocked_or_not_executed"
+    )
 
 
 def test_gate_environment_status_classification() -> None:
@@ -112,7 +142,11 @@ def test_cli_writes_report_from_local_summaries(tmp_path: Path) -> None:
                 "sample_count": 1,
                 "domain_count": 1,
                 "pass_count": 1,
+                "partial_count": 0,
                 "fail_count": 0,
+                "failure_count": 0,
+                "evaluation_integrity_ok": True,
+                "gate_passed": True,
                 "total_model_calls": 1,
             }
         ),
@@ -195,3 +229,68 @@ def test_cli_can_fail_on_missing_real_api(tmp_path: Path) -> None:
     )
     assert run.returncode == 4
     assert "real_api_status=missing" in run.stdout
+
+
+def test_report_cells_redact_bare_credentials() -> None:
+    secrets = [
+        "sk-REPORT_SECRET_VALUE_123456",
+        "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ123456",
+        "AKIAABCDEFGHIJKLMNOP",
+    ]
+
+    report = render_final_submission_report(
+        real_api_summary={"preflight": secrets[0], "total_model_calls": 1},
+        domain_dashboard=[
+            {
+                "domain": secrets[1],
+                "failure_question_ids": [secrets[2]],
+            }
+        ],
+        failure_rows=[{"review_bucket": secrets[0]}],
+        gate_environment={},
+    )
+
+    for secret in secrets:
+        assert secret not in report
+    assert "[REDACTED]" in report
+
+
+def test_report_tolerates_non_object_rows_and_new_token_formats() -> None:
+    secret = "whsec_ABCDEFGHIJKLMNOPQRSTUVWXYZ123456"
+
+    report = render_final_submission_report(
+        real_api_summary={"total_model_calls": 1},
+        domain_dashboard=["bad-row", {"domain": secret}],
+        failure_rows=[None, {"review_bucket": secret}],
+        gate_environment={"missing_dev_tools": "ruff"},
+    )
+
+    assert secret not in report
+    assert "[REDACTED]" in report
+
+
+def test_cli_replaces_output_hardlink_without_overwriting_peer(tmp_path: Path) -> None:
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    victim = tmp_path / "victim.txt"
+    victim.write_text("preserve-me", encoding="utf-8")
+    report_path = out_dir / "final_submission_report.md"
+    os.link(victim, report_path)
+
+    run = subprocess.run(
+        [
+            sys.executable,
+            "scripts/build_final_submission_report.py",
+            "--out-dir",
+            str(out_dir),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert run.returncode == 0
+    assert victim.read_text(encoding="utf-8") == "preserve-me"
+    assert report_path.read_text(encoding="utf-8").startswith(
+        "# Final Submission Evidence Report"
+    )

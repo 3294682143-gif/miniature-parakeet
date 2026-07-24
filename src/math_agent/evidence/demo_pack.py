@@ -6,6 +6,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from math_agent.io_utils import strict_json_loads
+from math_agent.logging_utils import safe_text_write
+from math_agent.security import safe_exception_text
+
 OFFICIAL_WARNING = (
     "This is NOT official evaluation. "
     "This pack is for demo / defense / engineering evidence only. "
@@ -54,10 +58,10 @@ def _parse_json(path: Path, warnings: list[str]) -> Any:
         warnings.append(f"missing:{path.name}")
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
+        return strict_json_loads(path.read_text(encoding="utf-8"))
+    except (RecursionError, TypeError, ValueError) as exc:
         warnings.append(f"parse_error:{path.name}")
-        return {"parse_error": str(exc)}
+        return {"parse_error": safe_exception_text(exc)}
 
 
 def _pick_path(explicit: str | None, defaults: list[str]) -> Path:
@@ -341,16 +345,17 @@ def write_demo_evidence_pack(
 ) -> None:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    (out / "evidence_summary.json").write_text(
-        json.dumps(asdict(pack), ensure_ascii=False, indent=2), encoding="utf-8"
+    safe_text_write(
+        json.dumps(asdict(pack), ensure_ascii=False, indent=2),
+        out / "evidence_summary.json",
     )
-    (out / "evidence_sources.json").write_text(
+    safe_text_write(
         json.dumps([asdict(x) for x in pack.sources], ensure_ascii=False, indent=2),
-        encoding="utf-8",
+        out / "evidence_sources.json",
     )
-    (out / "demo_cases.json").write_text(
+    safe_text_write(
         json.dumps([asdict(x) for x in pack.demo_cases], ensure_ascii=False, indent=2),
-        encoding="utf-8",
+        out / "demo_cases.json",
     )
     if output_format == "json":
         return
@@ -366,21 +371,13 @@ def write_demo_evidence_pack(
         render_risk_control_summary,
     )
 
-    (out / "demo_index.md").write_text(render_demo_index(pack), encoding="utf-8")
-    (out / "demo_script.md").write_text(render_demo_script(pack), encoding="utf-8")
-    (out / "architecture_summary.md").write_text(
-        render_architecture_summary(pack), encoding="utf-8"
+    safe_text_write(render_demo_index(pack), out / "demo_index.md")
+    safe_text_write(render_demo_script(pack), out / "demo_script.md")
+    safe_text_write(render_architecture_summary(pack), out / "architecture_summary.md")
+    safe_text_write(render_risk_control_summary(pack), out / "risk_control_summary.md")
+    safe_text_write(render_hard_mode_summary(pack), out / "hard_mode_summary.md")
+    safe_text_write(
+        render_proof_guardian_summary(pack), out / "proof_guardian_summary.md"
     )
-    (out / "risk_control_summary.md").write_text(
-        render_risk_control_summary(pack), encoding="utf-8"
-    )
-    (out / "hard_mode_summary.md").write_text(
-        render_hard_mode_summary(pack), encoding="utf-8"
-    )
-    (out / "proof_guardian_summary.md").write_text(
-        render_proof_guardian_summary(pack), encoding="utf-8"
-    )
-    (out / "dry_run_summary.md").write_text(
-        render_dry_run_summary(pack), encoding="utf-8"
-    )
-    (out / "README_DEMO_PACK.md").write_text(render_readme(pack), encoding="utf-8")
+    safe_text_write(render_dry_run_summary(pack), out / "dry_run_summary.md")
+    safe_text_write(render_readme(pack), out / "README_DEMO_PACK.md")

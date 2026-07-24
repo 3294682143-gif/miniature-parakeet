@@ -5,6 +5,13 @@ import json
 from pathlib import Path
 from typing import Any
 
+if __package__ in {None, ""}:
+    from _repo_bootstrap import prefer_repo_source
+
+    prefer_repo_source()
+
+from math_agent.logging_utils import safe_text_write
+
 DISCLAIMER = (
     "This is NOT official evaluation.\n"
     "Do not claim official accuracy from this audit.\n"
@@ -84,14 +91,17 @@ def main() -> int:
         },
     }
 
-    (out_dir / "reference_inventory.json").write_text(
-        json.dumps(ref_inventory, indent=2, ensure_ascii=False), encoding="utf-8"
+    safe_text_write(
+        json.dumps(ref_inventory, indent=2, ensure_ascii=False),
+        out_dir / "reference_inventory.json",
     )
-    (out_dir / "module_reference_matrix.json").write_text(
-        json.dumps(MODULE_MATRIX, indent=2, ensure_ascii=False), encoding="utf-8"
+    safe_text_write(
+        json.dumps(MODULE_MATRIX, indent=2, ensure_ascii=False),
+        out_dir / "module_reference_matrix.json",
     )
-    (out_dir / "literature_traceability_summary.json").write_text(
-        json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
+    safe_text_write(
+        json.dumps(summary, indent=2, ensure_ascii=False),
+        out_dir / "literature_traceability_summary.json",
     )
 
     report = (
@@ -106,7 +116,7 @@ def main() -> int:
         )
         + "\n\nmissing_reference_count=2\n"
     )
-    (out_dir / "literature_traceability_report.md").write_text(report, encoding="utf-8")
+    safe_text_write(report, out_dir / "literature_traceability_report.md")
 
     if args.fail_on_missing and (
         not all(checks.values()) or not all(x["present"] for x in ref_inventory)
