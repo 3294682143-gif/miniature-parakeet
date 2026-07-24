@@ -45,6 +45,20 @@ def build_proof_guardian_runtime_plan(
             None,
             ["proof_guardian_not_required"],
         )
+    if (
+        current_answer is None
+        or current_answer == ""
+        or (isinstance(current_answer, dict) and not current_answer)
+    ):
+        return ProofGuardianRuntimePlan(
+            True,
+            "proof_guardian_preview",
+            answer_type,
+            True,
+            False,
+            None,
+            ["preview_only", "no_final_answer_override", "answer_not_yet_available"],
+        )
     score = score_proof_candidate(current_answer, answer_type="proof")
     decision = build_proof_guardian_decision([score], allow_partial=False)
     return ProofGuardianRuntimePlan(

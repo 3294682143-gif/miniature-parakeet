@@ -73,7 +73,7 @@ class ProblemParse(BaseModel):
 class ToolTrace(BaseModel):
     tool: Literal["python", "sympy", "none"]
     purpose: str
-    status: Literal["success", "fail", "skipped"]
+    status: Literal["success", "fail", "skipped", "no_match"]
     summary: str
 
 
@@ -90,6 +90,7 @@ class Verification(BaseModel):
         "substitution",
         "logic_review",
         "self_review",
+        "tool_override",
         "none",
     ]
     passed: StrictBool
@@ -373,6 +374,10 @@ def is_valid_trace_audit_evidence(
         and trace.get("final_result") == result.model_dump()
     )
 
+    def model_post_init(self, __context: Any) -> None:
+        if self.error is not None:
+            self.error = sanitize_protocol_metadata({"error": self.error})["error"]
+
 
 # compatibility alias for older imports
 MathResult = SolveResult
@@ -384,6 +389,11 @@ def sanitize_protocol_metadata(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def to_jsonable(model: BaseModel | dict[str, Any]) -> dict[str, Any]:
+    """Convert a Pydantic model or dict to a JSON-safe dict.
+
+    When used in the trace path, prefer sanitize_protocol_metadata() to
+    strip sensitive keys before serialization.
+    """
     if isinstance(model, BaseModel):
         return model.model_dump()
     return sanitize_protocol_metadata(model)
@@ -407,7 +417,7 @@ class ToolCallRecord(BaseModel):
     tool_name: str
     parameters: dict[str, Any] = Field(default_factory=dict)
     result_summary: str = ""
-    status: Literal["success", "fail", "skipped"]
+    status: Literal["success", "fail", "skipped", "no_match"]
     latency_seconds: float | None = None
     error: str | None = None
 

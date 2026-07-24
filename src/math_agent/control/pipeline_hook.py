@@ -16,6 +16,7 @@ class HardModeRuntimeConfig:
     require_trace: bool
     trace_allowed: bool
     proof_guardian: bool
+    allow_repair: bool
     shadow_eval_required: bool
     debugger_required: bool
     effect: str
@@ -54,9 +55,10 @@ def build_runtime_config(
             require_trace=False,
             trace_allowed=not no_trace,
             proof_guardian=False,
+            allow_repair=True,
             shadow_eval_required=False,
             debugger_required=False,
-            effect="controlled_runtime_hook",
+            effect="disabled",
             notes=["hard_mode_disabled"],
         )
 
@@ -70,6 +72,7 @@ def build_runtime_config(
         require_trace=policy.require_trace,
         trace_allowed=not no_trace,
         proof_guardian=should_enable_proof_guardian(policy, answer_type),
+        allow_repair=policy.allow_repair,
         shadow_eval_required=policy.shadow_eval_required,
         debugger_required=policy.debugger_required,
         effect="controlled_runtime_hook",

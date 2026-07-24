@@ -56,7 +56,9 @@ class Planner:
         try:
             data = strict_json_loads(reply)
             if isinstance(data, dict):
-                return data
+                if "problem_parse" in data and "solution_plan" in data:
+                    return data
+                return _fallback_plan(question, route_info)
         except Exception:
             pass
         plan = _fallback_plan(question, route_info)

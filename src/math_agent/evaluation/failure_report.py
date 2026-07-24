@@ -24,7 +24,7 @@ from math_agent.schemas import SolveResult, is_semantically_successful
 from math_agent.security import redact_sensitive_data
 
 
-def classify_failure(
+def classify_failure_report(
     result: SolveResult,
     gold: str | None,
     evaluation_mode: str = "short_answer",
@@ -239,7 +239,7 @@ def build_failure_rows(
         gold = answers.get(question_id) if answers_path is not None else None
         answer_row = answer_records.get(question_id, {})
         evaluation_mode = str(answer_row.get("evaluation_mode") or "short_answer")
-        category = classify_failure(result, gold, evaluation_mode, answer_row)
+        category = classify_failure_report(result, gold, evaluation_mode, answer_row)
         if category == "pass":
             continue
         if not include_format_only and category in {
